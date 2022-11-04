@@ -1,0 +1,85 @@
+#!/bin/bash
+
+set -e
+
+# TODO(Ryan): Just use [[ ]]; in ifs
+
+some_func() 
+{
+  local first=$1
+  # puts names to parameters?
+  local opts=()
+  for ((i=2; i<$#; i+=1)); do
+    opts+=(${!i})
+  done
+}
+
+read_entire_file()
+{
+  local file_name="$1"
+  local result_var="$2"
+
+  local __lines=()
+
+  while IFS=$'\r\n' read -r line; do
+    __lines+=("$line")
+  done < "$file_name"
+
+
+  command eval "$result_var"'=(${__lines[@]})' 
+}
+
+lines=()
+read_entire_file "text-rand.txt" "lines"
+printf "%s\n" "${lines[@]}"
+
+
+os="undefined"
+if [[ "$OSTYPE" == "win32" ]]; then
+  ="windows"; output_name="name.exe"
+elif
+  == "linux-gnu"="linux" "darwin"="osx"
+
+# use bash as build script as is effectively OS agnostic 
+# (if you have git on windows, you have bash)
+
+# working directory
+#printf "$PWD\n"
+
+# script execution location
+#printf "$0\n"
+
+# OPTIONS:
+# 1. COMMAND LINE
+
+# 2. IMPLICIT (things that are different to different users of the codebase)
+# TODO(Ryan): Perhaps just set bash flag to error out on variables being undefined?
+# put build params here to prevent many users having to include
+# main_compiler="gcc"; compile_mode="debug"; linker="ldd"; arch="x64"
+# lib_compiler="gcc"; lib_output="library"
+
+# source "git-ignored/build-params"
+# implicit_opts=$($compiler $compile_mode)
+
+# 3. SOURCE FILE 
+# also have options defined in source files, e.g. //$ flag1 flag2 //
+
+# 4. OS
+
+# FLAGS 
+# options are become essentially filters to flags?
+# gcc>debug>-Wall
+# gcc>-D_GNU_SOURCE
+
+# JUST DO IF STATEMENT FLAG ASSIGNMENT
+
+gen_flags $lib_opts
+$compile lib
+
+gen_flags $main_opts
+$compiler main
+
+# TODO(Ryan): probably want some sort of dedup function to remove duplicates from flags
+# also some sort of has_opt function
+
+# BASE LAYER (only C runtime dependency)
