@@ -65,6 +65,10 @@
 #define MIN(x, y)
 #define MAX(x, y)
 
+// clamptop() is min()
+#define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
+#define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
+
 // Allows to search for all of them easily
 #define GLOBAL static
 #define LOCAL static
@@ -91,10 +95,10 @@
 
 #define MEMORY_MATCH(a, b, n) (memcmp((a), (b), (n)) == 0)
 
-#define KILOBYTES(x) ((x) * 1024LL)
-#define MEGABYTES(x) (KILOBYTES(x) * 1024LL)
-#define GIGABYTES(x) (GIGABYTES(x) * 1024LL)
-#define TERABYTES(x) (TERABYTES(x) * 1024LL)
+#define KB(x) ((x) * 1024LL) // alternatively x << 10, x << 20, etc.
+#define MB(x) (KB(x) * 1024LL)
+#define GB(x) (GB(x) * 1024LL)
+#define TB(x) (TB(x) * 1024LL)
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
@@ -205,6 +209,59 @@ enum DAY_OF_WEEK
   DAY_OF_WEEK_FRI,
   DAY_OF_WEEK_SAT,
 };
+
+// IMPORTANT(Ryan): Only have globals for constants...
+
+// IMPORTANT(Ryan): This maps macros to enum constants
+INTERNAL OS
+os_from_context(void)
+{
+  OS result = OS_NULL;
+
+// IMPORTANT(Ryan): As we 0 define macros, can use like this
+#if OS_WINDOWS
+  result = OS_WINDOWS;
+#elif OS_LINUX
+  result = OS_LINUX;
+#elif OS_MAC
+  result = OS_MAC;
+#endif
+
+  return result;
+}
+
+// IMPORTANT(Ryan): This is a string table
+// If C99 designated initialisers, perhaps use arr[] = { [OS_WINDOWS] = "Windows" };
+INTERNAL char*
+string_from_os(OS os)
+{
+  char *result = "(null)";
+
+  switch (os)
+  {
+    case OS_WINDOWS:
+    {
+      result = "Windows";
+    } break;
+  }
+
+  return result;
+}
+INTERNAL char*
+string_from_arch(ARCH arch)
+{
+
+}
+INTERNAL char*
+string_from_month(MONTH month)
+{
+
+}
+INTERNAL char*
+string_from_day_of_week(DAY_OF_WEEK day_of_week)
+{
+
+}
 
 // technically procedure and INTERNAL pointers not same size (some compilers throw warnings)
 // so use this when declaring a INTERNAL pointer to ensure has same size
@@ -504,3 +561,161 @@ interval_axis(I2F32 r, AXIS axis)
   result.p[1] = r.p[1].v[axis];
   return result;
 }
+
+// IMPORTANT(Ryan): Rarely encounter places where actually want a generic type
+// However, linked lists is one
+// Macro approach for type generics can be pretty buggy, however in this case good
+// Better than templates as no complicated type checking or generation of little functions
+
+struct Node
+{
+  Node *next;
+  Node *prev;
+
+  int x;
+};
+Node nodes[10] = {};
+Node *first = NULL, *last = NULL;
+DLL_PUSH_BACK(first, last, &nodes[i]);
+for (Node *node = first; node != NULL; node = node->next)
+{
+
+}
+
+// doubly linked list
+// macro particularly cryptic if trying to keep as one expression (use ternary, commas and expression assignment to link)
+#define DLL_PUSH_BACK(f, l, n) 
+// video [q2] 9:13  
+
+// factor in bug from comments:
+//#define DLL_REMOVE_NP(f,l,n,next,prev) ((f)==(l)&&(f)==(n)?\
+                                        ((f)=(l)=0):\
+                                        ((f)==(n)?\
+                                        ((f)=(f)->next,(f)->prev=0):\
+                                        ((l)==(n)?\
+                                        ((l)=(l)->prev,(l)->next=0):\
+                                        ((n)->prev->next=(n)->next,\
+                                        (n)->next->prev=(n)->prev))))
+
+// singly linked list queue
+// video [q2] 10:54  
+
+// singly linked list stack
+// video [q2] 11:44  
+
+// IMPORTANT(Ryan): The function pointers define a sort of plugin system
+typedef void mem_reserve_func(void *ctx, u64 size);
+typedef void mem_commit_func(void *ctx, void *ptr, u64 size);
+typedef void mem_decommit_func(void *ctx, void *ptr, u64 size);
+typedef void mem_release_func(void *ctx, void *ptr, u64 size);
+
+struct BaseMemory
+{
+  // IMPORTANT(Ryan): Cleaner function pointer typedef syntax
+  mem_reserve_func *reserve; 
+  mem_commit_func *commit; 
+  mem_decommit_func *decommit;
+  mem_release_func *release; 
+  void *ctx;
+};
+
+// IMPORTANT(Ryan): Here we implement a malloc memory plugin
+INTERNAL void*
+mem_malloc_reserve(void *ctx, u64 size)
+{
+  return malloc(size);
+}
+INTERNAL void*
+mem_malloc_commit(void *ctx, void *ptr, u64 size) {}
+INTERNAL void*
+mem_malloc_decommit(void *ctx, void *ptr, u64 size) {}
+INTERNAL void*
+mem_malloc_release(void *ctx, void *ptr, u64 size)
+{
+  free(ptr);
+}
+
+INTERNAL *BaseMemory
+mem_malloc_base_memory(void)
+{
+  LOCAL BaseMemory memory = {};
+
+  memory.reserve = mem_malloc_reserve;
+  memory.commit = mem_malloc_commit;
+  memory.decommit = mem_malloc_decommit;
+  memory.release = mem_malloc_release;
+
+  return &memory;
+}
+
+#define MEM_DEFAULT_RESERVE_SIZE GB(1)
+#define MEM_COMMIT_BLOCK_SIZE MB(64)
+
+// IMPORTANT(Ryan): Now over to arena
+struct MemArena
+{
+  BaseMemory *base;
+  u8 *memory;
+  u64 cap;
+  u64 pos;
+  u64 commit_pos;
+};
+
+INTERNAL MemArena
+mem_make_arena_reserve(BaseMemory *base, u64 reserve_size)
+{
+  MemArena arena = {};
+
+  arena.base = base;
+  arena.memory = base->reserve(base->ctx, reserve_size);
+  arena.cap = reserve_size;
+
+  return arena;
+}
+
+INTERNAL MemArena
+mem_make_arena(BaseMemory *base)
+{
+  return mem_make_arena_reserve(base, MEM_DEFAULT_RESERVE_SIZE); 
+}
+
+INTERNAL void
+mem_arena_release(MemArena *arena)
+{
+  BaseMemory *base = arena->base;
+
+  base->release(base->ctx, arena->memory, arena->cap);
+}
+
+INTERNAL void*
+mem_arena_push(MemArena *arena, u64 size)
+{
+  // TODO(Ryan): Is the intention of the system to remove all error codes
+  // why have a commit stage, i.e. why not just commit straight away?
+  // so memory available for other processes?
+  //
+  // I think just to determine maximum memory usage
+  // we are assuming never get memory issue only in development
+  
+  // video 4: 8:22
+}
+
+INTERNAL
+mem_arena_pop_to()
+
+INTERNAL void
+mem_arena_align(MemArena *arena, u64 pow2_align)
+{
+  u64 p = arena->pos;
+  u64 p_aligned = ALIGN_UP_POW2(p, pow2_align);
+  u64 z = p_aligned - p;
+  if (z > 0)
+  {
+    mem_arena_push(arena, z);
+  }
+}
+
+// BaseMemory *base = malloc_base_memory();
+// MemArena arena = mem_make_arena(base);
+// Node *nodes = (Node *)mem_arena_push(&arena, sizeof(Node) * node_count);
+
