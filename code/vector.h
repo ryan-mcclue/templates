@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
+// IMPORTANT(Ryan): Only works on multiples of 2
 #define VECTOR_SIZE(amount, type) \
   vector_size(amount * sizeof(type))
 
