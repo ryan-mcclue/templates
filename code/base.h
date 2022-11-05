@@ -4,6 +4,7 @@
 // NOTE(Ryan): On windows, clang tries to emulate cl and so some defines are shared on them both
 // ∴, do clang first
 
+// CONTEXT-CRACKING, i.e. determine the context of execution
 // ALSO DO ARCHITECTURE CHECK
 #if defined(__GNUC__)
   #define COMPILER_GCC 1
@@ -146,6 +147,65 @@ GLOBAL f64 E_F64 =        2.718281828459045;
 GLOBAL f64 GOLD_BIG_F64 = 1.618033988749894;
 GLOBAL f64 GOLD_SMALL_F64 = 0.618033988749894;
 
+// symbolic constants
+enum AXIS
+{
+  // getting info out of vectors
+  AXIS_X,
+  AXIS_Y,
+  AXIS_Z,
+  AXIS_W,
+};
+enum SIDE
+{
+  // left-right, top-bottom
+  SIDE_MIN,
+  SIDE_MAX,
+};
+enum OS
+{
+  OS_NULL,
+  OS_WINDOWS,
+  OS_LINUX,
+  OS_MAC,
+  OS_COUNT
+};
+enum ARCH
+{
+  ARCH_NULL,
+  ARCH_X64,
+  ARCH_X32,
+  ARCH_ARM,
+  ARCH_ARM64,
+  ARCH_COUNT,
+};
+// dealing with file information
+enum MONTH
+{
+  MONTH_JAN,
+  MONTH_FEB,
+  MONTH_MAR,
+  MONTH_APR,
+  MONTH_MAY,
+  MONTH_JUN,
+  MONTH_JUL,
+  MONTH_AUG,
+  MONTH_SEP,
+  MONTH_OCT,
+  MONTH_NOV,
+  MONTH_DEC,
+};
+enum DAY_OF_WEEK
+{
+  DAY_OF_WEEK_SUN,
+  DAY_OF_WEEK_MON,
+  DAY_OF_WEEK_TUE,
+  DAY_OF_WEEK_WED,
+  DAY_OF_WEEK_THU,
+  DAY_OF_WEEK_FRI,
+  DAY_OF_WEEK_SAT,
+};
+
 // technically procedure and INTERNAL pointers not same size (some compilers throw warnings)
 // so use this when declaring a INTERNAL pointer to ensure has same size
 typedef void VoidFunc(void);
@@ -280,6 +340,9 @@ unlerp(f32 a, f32 b, f32 t)
   return result;
 }
 
+// TODO(Ryan): Perhaps include round_to() functions
+
+
 // IMPORTANT(Ryan): although typing out tedious, better than codegen complexity
 // i.e. prefer tedious over complexity
 union V2S32
@@ -370,7 +433,11 @@ union I2F32
 };
 
 INTERNAL V2S32
-v2s32(s32 x, s32 y);
+v2s32(s32 x, s32 y)
+{
+  V2S32 result = {x, y};
+  return result;
+}
 
 INTERNAL V2S32
 v2s32_vec(V2F32 x, V2F32 y);
@@ -378,26 +445,62 @@ v2s32_vec(V2F32 x, V2F32 y);
 INTERNAL V2S32
 v2s32_range(I1F32 x, I1F32 y);
 
-V2S32 operator+(const V2S32 &a, const V2S32 &b);
-
-INTERNAL F32
-vec_hadamard(V2F32 a, V2F32 b);
-INTERNAL F32
-vec_dot(V2F32 a, V2F32 b);
-INTERNAL B32
-interval_overlaps(I1F32 a, I1F32 b);
-INTERNAL B32
-interval_contains(I1F32 r, F32 x);
-INTERNAL F32
-interval_dim(I1F32 r);
-INTERNAL F32
-interval_centre(I1F32 r);
-enum AXIS
+INTERNAL I2S32
+i2s32(s32 x0, s32 y0, s32 x1, s32 y1)
 {
-  AXIS_X,
-  AXIS_Y,
-  AXIS_Z,
-  AXIS_W,
-};
-INTERNAL F32
-interval_axis(I1F32 r, AXIS axis);
+  I2S32 result = {};
+  if (x1 < x0)
+  {
+    result.x0 = x1;
+    result.x1 = x0;
+  }
+}
+
+V2S32 operator+(const V2S32 &a, const V2S32 &b);
+V2S32 operator-(const V2S32 &a, const V2S32 &b);
+V2S32 operator*(const V2S32 &a, s32 b);
+
+INTERNAL f32
+vec_hadamard(V2F32 a, V2F32 b);
+INTERNAL f32
+vec_dot(V2F32 a, V2F32 b);
+INTERNAL b32
+interval_overlaps(I1F32 a, I1F32 b)
+{
+  b32 result = false;
+
+  result = (b.min < b.max && a.min < b.max);
+
+  return result;
+}
+INTERNAL b32
+interval_contains(I1F32 r, F32 x)
+{
+  b32 result = false;
+
+  result = (r.min <= x && x < r.max);
+
+  return result;
+}
+INTERNAL f32
+interval_dim(I1F32 r)
+{
+  f32 result = 0.f;
+
+  result = (r.max - r.min);
+
+  return result;
+}
+INTERNAL f32
+interval_centre(I1F32 r)
+{
+  (r.min + r.max)*0.5f;
+}
+INTERNAL I1F32
+interval_axis(I2F32 r, AXIS axis)
+{
+  I1F32 result = {};
+  result.p[0] = r.p[0].v[axis];
+  result.p[1] = r.p[1].v[axis];
+  return result;
+}
