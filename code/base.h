@@ -661,6 +661,21 @@ struct MemArena
   u64 commit_pos;
 };
 
+struct MemTemp
+{
+  MemArena *arena;
+  u64 pos;
+};
+
+struct MemTempBlock
+{
+  MemTemp temp;
+
+  MemTempBlock(MemArena *arena);
+  ~MemTempBlock();
+  void reset();
+};
+
 INTERNAL MemArena
 mem_make_arena_reserve(BaseMemory *base, u64 reserve_size)
 {
@@ -702,6 +717,9 @@ mem_arena_push(MemArena *arena, u64 size)
 
 INTERNAL
 mem_arena_pop_to()
+{
+  // video 4: 14:43
+}
 
 INTERNAL void
 mem_arena_align(MemArena *arena, u64 pow2_align)
@@ -715,7 +733,151 @@ mem_arena_align(MemArena *arena, u64 pow2_align)
   }
 }
 
+INTERNAL void
+mem_arena_align_zero(MemArena *arena, u64 pow2_align)
+{
+  u64 p = arena->pos;
+  u64 p_aligned = ALIGN_UP_POW2(p, pow2_align);
+  u64 z = p_aligned - p;
+  if (z > 0)
+  {
+    mem_arena_push_zero(arena, z);
+  }
+}
+
+INTERNAL void
+mem_arena_zero(MemArena *arena, u64 size)
+{
+  void *result = mem_arena_push(arena, size);
+  MEMORY_ZERO(result, size);
+  return result;
+}
+
+#define MEM_PUSH_ARRAY(a, t, c) (t *)mem_arena_push((a), sizeof(t) * (c))
+#define MEM_PUSH_ARRAY_ZERO(a, t, c) (t *)mem_arena_push_zero((a), sizeof(t) * (c))
+
+INTERNAL MemTemp
+mem_begin_temp(MemArena *arena)
+{
+  MemTemp temp = {arena, arena->pos};
+  return temp;
+}
+
+INTERNAL void
+mem_end_temp(MemTemp temp)
+{
+  mem_arena_pop_to(temp.arena, temp.pos);
+}
+
+MemTempBlock::MemTempBlock(MemArena *arena)
+{
+  this->temp = mem_begin_temp(arena);
+}
+
+MemTempBlock::~MemTempBlock(void)
+{
+  mem_end_temp(this->temp);
+}
+
+MemTempBlock::reset(void)
+{
+  mem_end_temp(this->temp);
+}
+
 // BaseMemory *base = malloc_base_memory();
 // MemArena arena = mem_make_arena(base);
-// Node *nodes = (Node *)mem_arena_push(&arena, sizeof(Node) * node_count);
+// MemTemp temp = mem_begin_temp(&arena);
+// Node *nodes = MEM_PUSH_ARRAY(&arena, Node, 64);
+// ...
+// mem_end_temp(&temp);
 
+// IMPORTANT(Ryan): Using memory arenas changes the mentality of memory usage
+// i.e. can only free things in reverse order
+// just learn to program this way, more benefits than negatives
+
+// IMPORTANT(Ryan): assert() when never want to handle in production
+
+// IMPORTANT(Ryan): base layer is to make easy things easy. not for most optimal solution 
+// strings much better with length than null terminator
+
+// IMPORTANT(Ryan): Here we treat strings as immutable.
+// If we need to modify in place, work out on a case-by-case basis
+struct String8
+{
+  u8 *str;
+  u64 size;
+};
+
+struct String8Node
+{
+  String8Node *next;
+  String8 string;
+};
+
+// join strings, divide into strings, etc.
+struct String8List
+{
+  String8Node *first;
+  String8Node *last;
+  u64 node_count;
+  u64 total_size; 
+};
+
+#define STR8_LIT(s) str8((u8 *)(s), sizeof(s) - 1)
+#define STR8_EXPAND(s) (int)((s).size), ((s).str) 
+
+INTERNAL String8
+str8_prefix(String8 str, u64 size)
+{
+  u64 size_clamped = MIN(size, str.size);
+  String8 result = {str.str, size_clamped};
+  return result;
+}
+
+INTERNAL String8 
+str8_chop(String8 str, u64 amount) 
+{ u64 amount_clamped = clampTop(amount, str.size); 
+  U64 remaining_size = str.size - amount_clamped;
+  String result = {str. str, remaining_size};
+  return(result);
+}
+INTERNAL String8 
+str8_postfix(String8 str, u64 size) 
+{ 
+  u64 size_clamped = clampTop(size, str.size); 
+  u64 skip_to = str.size - size_clamped; 
+  String8 result = {str.str + skip_to, size_clamped}; 
+  return(result);
+}
+INTERNAL String8 
+str8_skip(String8 str, u64 amount)
+{ 
+  u64 amount_clamped = clampTop(amount, str.size);
+  U64 remaining_size = str.size - amount clamped;
+  String8 result = {str.str + amount_clamped, remaining_size};
+  return result;
+}
+
+// stores memory say on stack without arenas
+function void 
+str8_list_push_explicit(String8List *list, String8 string, String8Node *node_memory)
+{ 
+  node_memory->string = string;
+  SLLQueuepush(list->first, list->last, node_memory);
+  list->node_count += 1;
+  list->total_size += string. size;
+}
+function void 
+str8_list_push(MemArena *arena, String8List *list, String8 string) 
+{ 
+  String8Node *node = MEM_PUSH_ARRAY(arena, String8Node, 1);
+  str8_list_push_explicit(list, string, node);
+}
+
+// vsnprintf() just for printing human readable strings (not performant!)
+
+// IMPORTANT: just pass arenas in to anything that requires an allocator? how about files?
+
+// utf-16 windows
+// utf-8 linux
+// utf-32 easiest as everything is 32bits
