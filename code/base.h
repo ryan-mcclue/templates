@@ -874,6 +874,8 @@ str8_list_push(MemArena *arena, String8List *list, String8 string)
   str8_list_push_explicit(list, string, node);
 }
 
+// TODO: what exactly is thread context?
+
 // vsnprintf() just for printing human readable strings (not performant!)
 
 // IMPORTANT: just pass arenas in to anything that requires an allocator? how about files?
