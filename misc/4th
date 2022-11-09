@@ -34,7 +34,7 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 fi
 
 set -u
-source "git-ignored/build-params"
+source "ignored/build-params"
 declare -A build_params
 build_params[compiler]=$compiler 
 build_params[mode]=$mode 
@@ -42,21 +42,38 @@ build_params[linker]=$linker
 build_params[arch]=$arch
 set +u
 
-flags=()
+compiler_flags=()
+linker_flags=()
 
 if [[ "$compiler" == "gcc" ]]; then
   if [[ "$mode" == "debug" ]]; then
     flags+=( "-DMAIN_DEBUG" )
+
+# pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
+
+#	-@find $(BUILD) -name '*.gcda' -exec rm {} +
+#	./$(EXECUTABLE)
+#	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
+#	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
+#	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
+
+
+-g -Wall -Wextra -Werror -pedantic -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast -Wdouble-promotion
+--coverage (only for test builds)
+-fanalyzer (static analysis)
+-fsanitize=address,undefined -fno-sanitize=float-divide-by-zero,float-cast-overflow -fno-sanitize-recover=all
+-fno-exceptions
   fi
   if [[ "$mode" == "release" ]]; then
-
+-O3 -DNDEBUG
   fi
 
   gcc main.c -c main.o  
 fi
 if [[ "$linker" == "lld" ]]; then
   if [[ "$mode" == "debug" ]]; then
-
+-coverage
+-fsanitize=address,undefined
   fi
   if [[ "$mode" == "release" ]]; then
 
