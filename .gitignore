@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: zlib-acknowledgement
+
+*
+
+!.gitignore
+
+!*/
+!code/**/*.cpp
+!code/**/*.h
+
+!misc/**/*

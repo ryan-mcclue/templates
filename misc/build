@@ -2,14 +2,7 @@
 
 set -e
 
-# set -u or set -o nounset
-# set +u
-
 # : command that takes no arguments, always return 0, i.e. true
-
-# TODO(Ryan): Just use [[ ]]; in ifs
-
-# TODO(Ryan): Perhaps introduce a diagnostic flag for c program builds as well
 
 # lines=()
 # read_entire_file "text-rand.txt" "lines"
@@ -34,12 +27,20 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 fi
 
 set -u
-source "ignored/build-params"
+# IMPORTANT(Ryan): This file is ignored by source control to allow tweaking of build without affecting history
+source "implicit-build-params"
 declare -A build_params
 build_params[compiler]=$compiler 
 build_params[mode]=$mode 
 build_params[arch]=$arch
+if [[ $verbose -eq 1 ]]; then
+  verbose_echo="echo"
+else
+  verbose_echo=":"
+fi
 set +u
+
+mkdir -p build
 
 compiler_flags=()
 linker_flags=()
@@ -77,6 +78,8 @@ if [[ "$compiler" == "g++" && "$os" == "linux" ]]; then
 
   # c++ specific
   flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy")
+
+  flags+=( "-Icode" )
 
 # IMPORTANT(Ryan): Only enable "-Werror" for CI builds, as different toolchains give warnings for different things
 # such differences exacerbated with toolchain updates
@@ -121,7 +124,8 @@ if [[ "$compiler" == "g++" && "$os" == "linux" ]]; then
 
   ctime -begin misc/desktop.ctm
 
-  g++ main.c -c main.o  
+  verbose_echo g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
+  g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
 
   ctime -end misc/desktop.ctm
 
