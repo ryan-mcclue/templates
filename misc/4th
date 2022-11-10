@@ -45,9 +45,63 @@ set +u
 compiler_flags=()
 linker_flags=()
 
-if [[ "$compiler" == "gcc" ]]; then
+# TODO(Ryan): embedded look at 
+# -fstack-usage  generates .su files
+# -Wstack-usage=255 (warn if usage over 255 bytes)
+# Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
+
+
+
+  -Warray-bounds=2 
+
+
+# TODO(Ryan): Put ctime here 
+
+# TODO(Ryan): memfault Usefulness of linker map files (analyse program size?)
+dev_compiler_flags="-O0 -g -ggdb3 -DHHF_SLOW -DHHF_INTERNAL"
+
+#pragma mark - Group
+
+if [[ "$compiler" == "g++" ]]; then
+
+  # TODO(Ryan): For embedded, run arm-none-eabi-size to inspect output file
+
+  # IMPORTANT(Ryan): New errors aren't added to -Wall and -Wextra, as this would break old things
+
+  # nice warnings about implicit type conversions/promotions etc. aren't at forefront from spec
+  flags+=( "-fno-exceptions" "-fno-rtti" )
+  flags+=( "-Wall" "-Wextra" "-Wshadow" "-Wconversion" "-Wdouble-promotion" "-Wformat=2" "-pedantic" )
+-std=c++2a
+  -march=native
+-Wundef
+-fno-common
+-Wpadded
+
+	'-Wold-style-cast',
+	'-Wnon-virtual-dtor',
+	'-Wctor-dtor-privacy',
+	'-Woverloaded-virtual',
+	'-Wnoexcept',
+	'-Wstrict-null-sentinel',
+	'-Wuseless-cast',
+	'-Wzero-as-null-pointer-constant',
+	'-Wextra-semi',
+
+
+
+# IMPORTANT(Ryan): Only enable "-Werror" for CI builds, as different toolchains give warnings for different things
+# such differences exacerbated with toolchain updates
+# clang -Weverything will be affected by toolchain updates adding new warnings
+
+ignored_warnings='-Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable
+  -Wno-unused-parameter -Wno-missing-field-initializers -Wno-write-strings
+  -Wno-unused-result'
+
   if [[ "$mode" == "debug" ]]; then
     flags+=( "-DMAIN_DEBUG" )
+    # -g3 gives macro definitions
+    flags+=( "-g3 -O0" )
+ -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast -Wdouble-promotion
 
 # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
 
@@ -58,7 +112,6 @@ if [[ "$compiler" == "gcc" ]]; then
 #	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
 
 
--g -Wall -Wextra -Werror -pedantic -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast -Wdouble-promotion
 --coverage (only for test builds)
 -fanalyzer (static analysis)
 -fsanitize=address,undefined -fno-sanitize=float-divide-by-zero,float-cast-overflow -fno-sanitize-recover=all
@@ -66,6 +119,10 @@ if [[ "$compiler" == "gcc" ]]; then
   fi
   if [[ "$mode" == "release" ]]; then
 -O3 -DNDEBUG
+-ffunction-sections -fdata-sections # ELF only
+-ffast-math
+
+# -Os for embedded
   fi
 
   gcc main.c -c main.o  
@@ -76,11 +133,69 @@ if [[ "$linker" == "lld" ]]; then
 -fsanitize=address,undefined
   fi
   if [[ "$mode" == "release" ]]; then
-
+-Wl,--gc-sections
   fi
 
   lld main.o -o 
 fi
+
+desired_common_compile_flags = [
+	# Diagnostics
+	'-fdiagnostics-show-option',
+	'-fcolor-diagnostics',
+	# Disabled Warnings
+	'-Wno-unknown-pragmas', # Some compilers complain about our use of #pragma mark
+	'-Wno-c++98-compat',
+	'-Wno-c++98-compat-pedantic',
+	'-Wno-padded',
+	'-Wno-exit-time-destructors', # causes warnings if you use static values
+	'-Wno-global-constructors', # causes warnings if you use static values
+	'-Wno-covered-switch-default',
+	# Desired Warnings
+	'-Wfloat-equal',
+	'-Wconversion',
+	'-Wlogical-op',
+	'-Wundef',
+	'-Wredundant-decls',
+	'-Wshadow',
+	'-Wstrict-overflow=2',
+	'-Wwrite-strings',
+	'-Wpointer-arith',
+	'-Wcast-qual',
+	'-Wformat=2',
+	'-Wformat-truncation',
+	'-Wmissing-include-dirs',
+	'-Wcast-align',
+	'-Wswitch-enum',
+	'-Wsign-conversion',
+	'-Wdisabled-optimization',
+	'-Winline',
+	'-Winvalid-pch',
+	'-Wmissing-declarations',
+	'-Wdouble-promotion',
+	'-Wshadow',
+	'-Wtrampolines',
+	'-Wvector-operation-performance',
+	'-Wshift-overflow=2',
+	'-Wnull-dereference',
+	'-Wduplicated-cond',
+	'-Wshift-overflow=2',
+	'-Wnull-dereference',
+	'-Wduplicated-cond',
+	'-Wcast-align=strict',
+	# Compiler Optimization Flags
+	'-ffunction-sections', # Place each function in its own section (ELF Only)
+	'-fdata-sections', # Place each data in its own section (ELF Only)
+	'-fdevirtualize', # Attempt to convert calls to virtual functions to direct calls
+]
+
+desired_common_link_flags = [
+	# Optimization Flags
+	'-Wl,-dead_strip', # Strip dead symbols for OS X
+	'-Wl,--gc-sections',
+]
+
+
 
 # use bash as build script as is effectively OS agnostic 
 # (if you have git on windows, you have bash)
