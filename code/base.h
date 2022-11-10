@@ -208,6 +208,39 @@ enum DAY_OF_WEEK
 // IMPORTANT(Ryan): all array macros assume static array
 //
 #include <string.h>
+
+// malloc designed for arbitrary sizes and lifetimes
+// this can lead to rats nests of lifetimes and computational issues freeing small nodes
+// by enforcing generalities (i.e. very little constraints on interface), 
+// allow for many possible solutions, which leads to complexity!
+// also, doesn't allow for performance, and creates many wild usage patterns
+// (developers stuck in managing program inertia, e.g. bug-fixing)
+//
+// think about hard to write first, then hard to maintain
+//
+// IMPORTANT: interface and implementation are coupled to a large extent. 
+// can't keep the same interface with major implementation changes
+// go against this downfall of king abstractions
+//
+// however, these are avoidable without a new language!
+//
+// can't use stack allocator, think have to use extermemly generic heap allocator
+// (alloca?)
+//
+// MEMORY LEAK MISNOMERS
+// when call malloc, request OS to map pages into virtual address space and record it in its page table
+// whenever a process crashes, i.e. hits a hardware exception like a page fault
+// OS continues running and will release the physical pages
+// in essence, OS is ultimate garbage collector
+//
+// RAII is one option that inserts code that mallocs on object creation and frees when object goes out of scope
+// i.e. constructor/destructors
+// Garbage collection interrupts your code periodically to determine what object lifetimes are dead and to free them
+//
+// Unfortunately prevailing thought in computing is that problems are too complex, so we need tooling to fix them
+// This in-fact compounds complexity over time as creates more dependencies
+// Instead, we must change the interface
+
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
