@@ -38,7 +38,6 @@ source "ignored/build-params"
 declare -A build_params
 build_params[compiler]=$compiler 
 build_params[mode]=$mode 
-build_params[linker]=$linker 
 build_params[arch]=$arch
 set +u
 
@@ -50,58 +49,52 @@ linker_flags=()
 # -Wstack-usage=255 (warn if usage over 255 bytes)
 # Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
 
-
-
-  -Warray-bounds=2 
-
-
-# TODO(Ryan): Put ctime here 
-
-# TODO(Ryan): memfault Usefulness of linker map files (analyse program size?)
-dev_compiler_flags="-O0 -g -ggdb3 -DHHF_SLOW -DHHF_INTERNAL"
-
 #pragma mark - Group
 
-if [[ "$compiler" == "g++" ]]; then
+if [[ "$compiler" == "g++" && "$os" == "linux" ]]; then
 
   # TODO(Ryan): For embedded, run arm-none-eabi-size to inspect output file
 
   # IMPORTANT(Ryan): New errors aren't added to -Wall and -Wextra, as this would break old things
 
   # nice warnings about implicit type conversions/promotions etc. aren't at forefront from spec
-  flags+=( "-fno-exceptions" "-fno-rtti" )
+  # also about conversion alignment changes, declarations shadowing, casting, signedness, 
+  # no trampolines (nested functions...)
   flags+=( "-Wall" "-Wextra" "-Wshadow" "-Wconversion" "-Wdouble-promotion" "-Wformat=2" "-pedantic" )
--std=c++2a
-  -march=native
--Wundef
--fno-common
--Wpadded
+  flags+=( "-Wundef" "-Wshadow" "-Wcast-align" "-Wcast-qual" "-Wpadded" "-fno-common" "-march=native" )
+  flags+=( "-Wfloat-equal" "-Wlogical-op" "-Wredundant-decls" "-Wstrict-overflow=2" "-Warray-bounds=2" )
+  flags+=( "-Wwrite-strings" "-Wpointer-arith" "-Wformat-truncation" "-Wmissing-include-dirs" )
+  flags+=( "-Wcast-align" "-Wswitch-enum" "-Wsign-conversion" "-Wdisabled-optimization" )
+  flags+=( "-Winline" "-Wmissing-declarations" "-Wdouble-promotion" "-Wshadow" "-Wtrampolines" )
+  flags+=( "-Wvector-operation-performance" "-Wnull-dereference" )
+  flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
+  flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
-	'-Wold-style-cast',
-	'-Wnon-virtual-dtor',
-	'-Wctor-dtor-privacy',
-	'-Woverloaded-virtual',
-	'-Wnoexcept',
-	'-Wstrict-null-sentinel',
-	'-Wuseless-cast',
-	'-Wzero-as-null-pointer-constant',
-	'-Wextra-semi',
+  # gives us the specific warning flag
+  flags+=( "-fdiagnostics-show-option" "-fcolor-diagnostics" )
 
+  flags+=( "-Wno-unused-function" "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )
 
+  # c++ specific
+  flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy")
 
 # IMPORTANT(Ryan): Only enable "-Werror" for CI builds, as different toolchains give warnings for different things
 # such differences exacerbated with toolchain updates
 # clang -Weverything will be affected by toolchain updates adding new warnings
 
-ignored_warnings='-Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable
-  -Wno-unused-parameter -Wno-missing-field-initializers -Wno-write-strings
-  -Wno-unused-result'
-
   if [[ "$mode" == "debug" ]]; then
     flags+=( "-DMAIN_DEBUG" )
+
     # -g3 gives macro definitions
     flags+=( "-g3 -O0" )
- -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast -Wdouble-promotion
+
+    flags+=( "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
+
+    flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
+
+    # static analysis
+    flags+= ( "-fanalyzer" )
+
 
 # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
 
@@ -112,96 +105,26 @@ ignored_warnings='-Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-
 #	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
 
 
---coverage (only for test builds)
--fanalyzer (static analysis)
--fsanitize=address,undefined -fno-sanitize=float-divide-by-zero,float-cast-overflow -fno-sanitize-recover=all
--fno-exceptions
+# --coverage (only for test builds)
   fi
   if [[ "$mode" == "release" ]]; then
 -O3 -DNDEBUG
 -ffunction-sections -fdata-sections # ELF only
 -ffast-math
+    linker_flags+=( "-Wl,--gc-sections" )
+
+	'-fdevirtualize', # Attempt to convert calls to virtual functions to direct calls
 
 # -Os for embedded
   fi
 
-  gcc main.c -c main.o  
+  ctime -begin misc/desktop.ctm
+
+  g++ main.c -c main.o  
+
+  ctime -end misc/desktop.ctm
+
 fi
-if [[ "$linker" == "lld" ]]; then
-  if [[ "$mode" == "debug" ]]; then
--coverage
--fsanitize=address,undefined
-  fi
-  if [[ "$mode" == "release" ]]; then
--Wl,--gc-sections
-  fi
-
-  lld main.o -o 
-fi
-
-desired_common_compile_flags = [
-	# Diagnostics
-	'-fdiagnostics-show-option',
-	'-fcolor-diagnostics',
-	# Disabled Warnings
-	'-Wno-unknown-pragmas', # Some compilers complain about our use of #pragma mark
-	'-Wno-c++98-compat',
-	'-Wno-c++98-compat-pedantic',
-	'-Wno-padded',
-	'-Wno-exit-time-destructors', # causes warnings if you use static values
-	'-Wno-global-constructors', # causes warnings if you use static values
-	'-Wno-covered-switch-default',
-	# Desired Warnings
-	'-Wfloat-equal',
-	'-Wconversion',
-	'-Wlogical-op',
-	'-Wundef',
-	'-Wredundant-decls',
-	'-Wshadow',
-	'-Wstrict-overflow=2',
-	'-Wwrite-strings',
-	'-Wpointer-arith',
-	'-Wcast-qual',
-	'-Wformat=2',
-	'-Wformat-truncation',
-	'-Wmissing-include-dirs',
-	'-Wcast-align',
-	'-Wswitch-enum',
-	'-Wsign-conversion',
-	'-Wdisabled-optimization',
-	'-Winline',
-	'-Winvalid-pch',
-	'-Wmissing-declarations',
-	'-Wdouble-promotion',
-	'-Wshadow',
-	'-Wtrampolines',
-	'-Wvector-operation-performance',
-	'-Wshift-overflow=2',
-	'-Wnull-dereference',
-	'-Wduplicated-cond',
-	'-Wshift-overflow=2',
-	'-Wnull-dereference',
-	'-Wduplicated-cond',
-	'-Wcast-align=strict',
-	# Compiler Optimization Flags
-	'-ffunction-sections', # Place each function in its own section (ELF Only)
-	'-fdata-sections', # Place each data in its own section (ELF Only)
-	'-fdevirtualize', # Attempt to convert calls to virtual functions to direct calls
-]
-
-desired_common_link_flags = [
-	# Optimization Flags
-	'-Wl,-dead_strip', # Strip dead symbols for OS X
-	'-Wl,--gc-sections',
-]
-
-
 
 # use bash as build script as is effectively OS agnostic 
 # (if you have git on windows, you have bash)
-
-# 2. IMPLICIT (things that are different to different users of the codebase)
-# TODO(Ryan): Perhaps just set bash flag to error out on variables being undefined?
-# put build params here to prevent many users having to include
-# main_compiler="gcc"; compile_mode="debug"; linker="ldd"; arch="x64"
-# lib_compiler="gcc"; lib_output="library"
