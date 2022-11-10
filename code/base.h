@@ -1,112 +1,36 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
-// NOTE(Ryan): On windows, clang tries to emulate cl and so some defines are shared on them both
-// ∴, do clang first
+#pragma mark - M_CONTEXT_CRACKING
 
-// CONTEXT-CRACKING, i.e. determine the context of execution
-// ALSO DO ARCHITECTURE CHECK
 #if defined(__GNUC__)
   #define COMPILER_GCC 1
-  #if defined(_WIN32)
-    #define OS_WINDOWS 1
-  #elif defined(__gnu_linux__)
+  #if defined(__gnu_linux__)
     #define OS_LINUX 1
+  #else
+    #error OS not supported
   #endif
-#elif defined(__clang__)
-  #define COMPILER_CLANG 1
+  #if defined(__x86_64__)
+    #define ARCH_X86_64 1
+  #else
+    #error Arch not supported
+  #endif
 #else
   #error Compiler not supported
 #endif
 
-// Zero-out macros here
+// NOTE(Ryan): If decide to port, zero out
 #if !defined(COMPILER_GCC)
   #define COMPILER_GCC 0
 #endif
-#if !defined(COMPILER_CLANG)
-  #define COMPILER_CLANG 0
+#if !defined(OS_LINUX)
+  #define OS_LINUX 0
+#endif
+#if !defined(ARCH_X86_64)
+  #define ARCH_X86_64 0
 #endif
 
-#if !defined(ENABLE_ASSERT)
-  #define ENABLE_ASSERT 0
-#endif
-
-#define STATEMENT(s) do { s } while (0);
-
-// TODO(ASSERT_BREAK handling)
-
-#if defined(ENABLE_ASSERT)
-  #define ASSERT(c) STATEMENT(if (!(c)) { ASSERT_BREAK(); })
-#else
-  #define ASSERT(c)
-#endif
-
-// IMPORTANT(Ryan): To handle macros not expanding
-#define STRINGIFY_(s) #s
-#define STRINGIFY(s) STRINGIFY_(s)
-
-#define GLUE_(a, b) a##b
-#define GLUE(a, b) GLUE_(a, b)
-
-#define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
-
-// IMPORTANT(Ryan): Most compilers like pointer arithmetic here, however some have their own idioms
-#define INT_FROM_PTR(p) ((unsigned long long)((char *)p - (char *)0))
-#define PTR_FROM_INT(n) ((void *)((char *)0 + (n)))
-// could use these as unique ids
-
-// can't read or write from this. only as an abstraction of the member, e.g. can get sizeof member 
-#define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
-
-#define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
-
-// TODO: CAST_FROM_MEMBER()? (from video 2 comments)
-
-#define MIN(x, y)
-#define MAX(x, y)
-
-// clamptop() is min()
-#define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
-#define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
-
-// Allows to search for all of them easily
-#define GLOBAL static
-#define LOCAL static
-#define INTERNAL static
-
-// avoid confusing auto-indenter
-#define C_LINKAGE_BEGIN extern "C" {
-#define C_LINKAGE_END }
-#define C_LINKAGE extern "C"
-
-// use i+=1 in for loop syntax?
-// use separate line for each for loop
-
-// IMPORTANT(Ryan): all array macros assume static array
-//
-#include <string.h>
-#define MEMORY_ZERO(p, n) memset((p), 0, (n))
-#define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
-#define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
-
-#define MEMORY_COPY(d, s, n) memmove((d), (s), (n))
-#define MEMORY_COPY_STRUCT(d, s, n) MEMORY_COPY((d), (s), sizeof(*(s)))
-#define MEMORY_COPY_ARRAY(d, s, n) MEMORY_COPY((d), (s), sizeof((s)))
-
-#define MEMORY_MATCH(a, b, n) (memcmp((a), (b), (n)) == 0)
-
-#define KB(x) ((x) * 1024LL) // alternatively x << 10, x << 20, etc.
-#define MB(x) (KB(x) * 1024LL)
-#define GB(x) (GB(x) * 1024LL)
-#define TB(x) (TB(x) * 1024LL)
-
-// IMPORTANT(Ryan): No tests, doesn't work!
-// However, important to recognise can just have through-away tests
-// i.e. no need for long living regression testing as whenever there is a bug
-// in these, they will manifest themselves outwardly
-
-#include <stdio.h>
-#define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
+#pragma mark - M_TYPES_AND_CONSTANTS
 
 #include <stdint.h>
 typedef uint8_t u8;
@@ -136,7 +60,7 @@ GLOBAL u16 MAX_U16 = (u16)0xffff;
 GLOBAL u32 MAX_U32 = (u32)0xffffffff; 
 GLOBAL u64 MAX_U64 = (u64)0xffffffffffffffffllu; 
 
-// IMPORTANT: float 7 decimal places, double 15
+// NOTE(Ryan): IEEE float 7 decimal places, double 15 decimal places
 GLOBAL f32 MACHINE_EPSILON_F32 = 1.1920929e-7f;
 GLOBAL f32 PI_F32 = 3.1415926f;
 GLOBAL f32 TAU_F32 = 6.2831853f;
@@ -151,7 +75,6 @@ GLOBAL f64 E_F64 =        2.718281828459045;
 GLOBAL f64 GOLD_BIG_F64 = 1.618033988749894;
 GLOBAL f64 GOLD_SMALL_F64 = 0.618033988749894;
 
-// symbolic constants
 enum AXIS
 {
   // getting info out of vectors
@@ -210,58 +133,103 @@ enum DAY_OF_WEEK
   DAY_OF_WEEK_SAT,
 };
 
-// IMPORTANT(Ryan): Only have globals for constants...
 
-// IMPORTANT(Ryan): This maps macros to enum constants
-INTERNAL OS
-os_from_context(void)
-{
-  OS result = OS_NULL;
 
-// IMPORTANT(Ryan): As we 0 define macros, can use like this
-#if OS_WINDOWS
-  result = OS_WINDOWS;
-#elif OS_LINUX
-  result = OS_LINUX;
-#elif OS_MAC
-  result = OS_MAC;
+#pragma mark - M_BREAKPOINTS_AND_ASSERTS
+
+#define STATEMENT(s) do { s } while (0);
+
+#if defined(MAIN_DEBUG)
+  #include <stdio.h>
+  #include <stdlib.h>
+  INTERNAL void __bp(const char *type, const char *file_name, const char *func_name, 
+                     int line_num, const char *optional_message)
+  { 
+    fprintf(stderr, "%s BREAKPOINT TRIGGERED! (%s:%s:%d)\n\"%s\"\n", type, file_name, 
+            func_name, line_num, optional_message);
+    #if !defined(GUI_DEBUGGER)
+      exit(1);
+    #endif
+  }
+  #define 
+  #define BP(msg) __bp("", __FILE__, __func__, __LINE__, msg)
+  #define EBP(msg) __bp("ERRNO", __FILE__, __func__, __LINE__, msg)
+  #define ASSERT(c) STATEMENT(if (!(c)) { BP("ASSERTION"); })
+#else
+  // TODO(Ryan): Replace as logging functions
+  #define BP(msg)
+  #define EBP(msg)
+  #define ASSERT(c)
 #endif
 
-  return result;
-}
+#define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
+#define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
 
-// IMPORTANT(Ryan): This is a string table
-// If C99 designated initialisers, perhaps use arr[] = { [OS_WINDOWS] = "Windows" };
-INTERNAL char*
-string_from_os(OS os)
-{
-  char *result = "(null)";
 
-  switch (os)
-  {
-    case OS_WINDOWS:
-    {
-      result = "Windows";
-    } break;
-  }
+#pragma mark - M_UTILITIES
 
-  return result;
-}
-INTERNAL char*
-string_from_arch(ARCH arch)
-{
+// NOTE(Ryan): Avoid having to worry about pernicous macro expansion
+#define STRINGIFY_(s) #s
+#define STRINGIFY(s) STRINGIFY_(s)
 
-}
-INTERNAL char*
-string_from_month(MONTH month)
-{
+#define GLUE_(a, b) a##b
+#define GLUE(a, b) GLUE_(a, b)
 
-}
-INTERNAL char*
-string_from_day_of_week(DAY_OF_WEEK day_of_week)
-{
+#define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
 
-}
+// NOTE(Ryan): Could use heap addresses as unique IDs
+#define INT_FROM_PTR(p) ((unsigned long long)((char *)p - (char *)0))
+#define PTR_FROM_INT(n) ((void *)((char *)0 + (n)))
+
+#define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
+#define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
+// TODO: CAST_FROM_MEMBER()? (from video 2 comments)
+
+#define MIN(x, y)
+#define MAX(x, y)
+
+// clamptop() is min()
+#define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
+#define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
+
+// Allows to search for all of them easily
+#define GLOBAL static
+#define LOCAL static
+#define INTERNAL static
+
+// NOTE(Ryan): Avoid confusing auto-indenter
+#define C_LINKAGE_BEGIN extern "C" {
+#define C_LINKAGE_END }
+#define C_LINKAGE extern "C"
+
+// use i+=1 in for loop syntax?
+// use separate line for each for loop
+
+// IMPORTANT(Ryan): all array macros assume static array
+//
+#include <string.h>
+#define MEMORY_ZERO(p, n) memset((p), 0, (n))
+#define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
+#define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
+
+#define MEMORY_COPY(d, s, n) memmove((d), (s), (n))
+#define MEMORY_COPY_STRUCT(d, s, n) MEMORY_COPY((d), (s), sizeof(*(s)))
+#define MEMORY_COPY_ARRAY(d, s, n) MEMORY_COPY((d), (s), sizeof((s)))
+
+#define MEMORY_MATCH(a, b, n) (memcmp((a), (b), (n)) == 0)
+
+#define KB(x) ((x) * 1024LL) // alternatively x << 10, x << 20, etc.
+#define MB(x) (KB(x) * 1024LL)
+#define GB(x) (GB(x) * 1024LL)
+#define TB(x) (TB(x) * 1024LL)
+
+// IMPORTANT(Ryan): No tests, doesn't work!
+// However, important to recognise can just have through-away tests
+// i.e. no need for long living regression testing as whenever there is a bug
+// in these, they will manifest themselves outwardly
+
+#include <stdio.h>
+#define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
 
 // technically procedure and INTERNAL pointers not same size (some compilers throw warnings)
 // so use this when declaring a INTERNAL pointer to ensure has same size
@@ -561,6 +529,64 @@ interval_axis(I2F32 r, AXIS axis)
   result.p[1] = r.p[1].v[axis];
   return result;
 }
+
+
+
+
+
+// IMPORTANT(Ryan): Only have globals for constants...
+
+// IMPORTANT(Ryan): This maps macros to enum constants
+INTERNAL OS
+os_from_context(void)
+{
+  OS result = OS_NULL;
+
+// IMPORTANT(Ryan): As we 0 define macros, can use like this
+#if OS_WINDOWS
+  result = OS_WINDOWS;
+#elif OS_LINUX
+  result = OS_LINUX;
+#elif OS_MAC
+  result = OS_MAC;
+#endif
+
+  return result;
+}
+
+// IMPORTANT(Ryan): This is a string table
+// If C99 designated initialisers, perhaps use arr[] = { [OS_WINDOWS] = "Windows" };
+INTERNAL char*
+string_from_os(OS os)
+{
+  char *result = "(null)";
+
+  switch (os)
+  {
+    case OS_WINDOWS:
+    {
+      result = "Windows";
+    } break;
+  }
+
+  return result;
+}
+INTERNAL char*
+string_from_arch(ARCH arch)
+{
+
+}
+INTERNAL char*
+string_from_month(MONTH month)
+{
+
+}
+INTERNAL char*
+string_from_day_of_week(DAY_OF_WEEK day_of_week)
+{
+
+}
+
 
 // IMPORTANT(Ryan): Rarely encounter places where actually want a generic type
 // However, linked lists is one
