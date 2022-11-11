@@ -15,6 +15,8 @@
   #else
     #error Arch not supported
   #endif
+
+  #define THREAD_VAR __thread
 #else
   #error Compiler not supported
 #endif
@@ -162,6 +164,9 @@ enum DAY_OF_WEEK
   #define ASSERT(c)
 #endif
 
+// STATIC_ASSERT(sizeof(arr) < VALUE, array_check);
+#define STATIC_ASSERT(cond, line) typedef u8 GLUE(line, __LINE__) [(cond)?1:-1]
+
 #define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
 #define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
 
@@ -187,8 +192,10 @@ enum DAY_OF_WEEK
 
 #define MIN(x, y)
 #define MAX(x, y)
+#define CLAMP(min,x,max) (((x)<(min))?(min):((max)<(x))?(max):(x))
+#define CLAMP_TOP(a,b) MIN(a,b)
+#define CLAMP_BOT(a,b) MAX(a,b)
 
-// clamptop() is min()
 #define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
 #define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
 
@@ -271,10 +278,15 @@ enum DAY_OF_WEEK
 
 #define MEMORY_MATCH(a, b, n) (memcmp((a), (b), (n)) == 0)
 
-#define KB(x) ((x) * 1024LL) // alternatively x << 10, x << 20, etc.
-#define MB(x) (KB(x) * 1024LL)
-#define GB(x) (GB(x) * 1024LL)
-#define TB(x) (TB(x) * 1024LL)
+#define KB(x) ((x) << 10)
+#define MB(x) ((x) << 20)
+#define GB(x) ((x) << 30)
+#define TB(x) ((x) << 40)
+
+#define THOUSAND(x) ((x)*1000LL)
+#define MILLION(x)  ((x)*1000000LL)
+#define BILLION(x)  ((x)*1000000000LL)
+#define TRILLION(x) ((x)*1000000000000LL)
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
@@ -646,6 +658,16 @@ string_from_day_of_week(DAY_OF_WEEK day_of_week)
 // Macro approach for type generics can be pretty buggy, however in this case good
 // Better than templates as no complicated type checking or generation of little functions
 
+// issues of pointer serialisation (writing to disk)
+
+// LINKED LISTS (many criticisms assume implementation details not inherent in linked list definition):
+// O(1) access not always important to choose arrays ➞ If know only size 10, then don't care
+// Serially-dependent, i.e. have to stall CPU waiting for next node ➞ nodes themselves could store large amounts of data thereby making compute-bound rather then memory bound
+// non-locality ➞ arena allocation
+//
+// benefits of non-continuity are we can push multiple data types, i.e. multiple linked list types
+
+// IMPORTANT: Linked lists, require keeping first and last
 struct Node
 {
   Node *next;
@@ -653,6 +675,7 @@ struct Node
 
   int x;
 };
+
 Node nodes[10] = {};
 Node *first = NULL, *last = NULL;
 DLL_PUSH_BACK(first, last, &nodes[i]);
