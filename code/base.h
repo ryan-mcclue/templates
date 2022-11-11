@@ -240,6 +240,26 @@ enum DAY_OF_WEEK
 // Unfortunately prevailing thought in computing is that problems are too complex, so we need tooling to fix them
 // This in-fact compounds complexity over time as creates more dependencies
 // Instead, we must change the interface
+//
+// The stack allocation is simple, and often not what people criticise when talking about memory management
+// However, not feasible for certain lifetimes and sizes
+//
+// An arena allocator is many stacks, but can solve lifetime issues
+// In almost every case, a large number of allocations can be bucketed into same arena (performance)
+// Also, freed ourselves of having to deallocate.
+// Can also track lifetimes easily
+// An allocation is bound to an arena handle
+//
+// functions ask the user where to allocate
+// function(Arena *arena)
+
+// reusing memory can be acheived by composing arenas
+// conflicts are any arenas that are used for persistent allocations
+// ArenaTemp GetScratch(Arena **conflicts, U64 conflict_count); // grabs a thread-local scratch arena
+//
+// arena can grow and shrink (effectively a dynamic array)
+// if on embedded, abort when memory exceeds
+// if on OS, can grow
 
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
