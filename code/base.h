@@ -139,36 +139,52 @@ enum DAY_OF_WEEK
 
 #pragma mark - M_BREAKPOINTS_AND_ASSERTS
 
-#define STATEMENT(s) do { s } while (0);
+#include <stdio.h>
+#include <stdlib.h>
+INTERNAL void __fatal_error(const char *file_name, const char *func_name, int line_num, 
+                            const char *optional_message)
+{ 
+  fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
+          func_name, line_num, optional_message);
+  #if !defined(MAIN_DEBUG)
+    exit(1); // perhaps call something like ExitProcess for multithreaded?
+  #endif
+}
+
+INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
+                                  const char *optional_message)
+{ 
+  const char *errno_msg = strerror(errno);
+  fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
+          func_name, line_num, errno_msg, optional_message);
+  #if !defined(MAIN_DEBUG)
+    exit(1); // perhaps call something like ExitProcess for multithreaded?
+  #endif
+}
+
+#define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)
+#define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
+
+// IMPORTANT(Ryan): If just using {}, will be a compound statement when closing with semicolon
+#define STATEMENT(s) do { s } while (0)
 
 #if defined(MAIN_DEBUG)
-  #include <stdio.h>
-  #include <stdlib.h>
-  INTERNAL void __bp(const char *type, const char *file_name, const char *func_name, 
-                     int line_num, const char *optional_message)
-  { 
-    fprintf(stderr, "%s BREAKPOINT TRIGGERED! (%s:%s:%d)\n\"%s\"\n", type, file_name, 
-            func_name, line_num, optional_message);
-    #if !defined(GUI_DEBUGGER)
-      exit(1);
-    #endif
-  }
-  #define 
-  #define BP(msg) __bp("", __FILE__, __func__, __LINE__, msg)
-  #define EBP(msg) __bp("ERRNO", __FILE__, __func__, __LINE__, msg)
-  #define ASSERT(c) STATEMENT(if (!(c)) { BP("ASSERTION"); })
+  #define ASSERT(c) STATEMENT(if (!(c)) { FATAL_ERROR("ASSERTION"); })
 #else
-  // TODO(Ryan): Replace as logging functions
-  #define BP(msg)
-  #define EBP(msg)
   #define ASSERT(c)
 #endif
 
 // STATIC_ASSERT(sizeof(arr) < VALUE, array_check);
-#define STATIC_ASSERT(cond, line) typedef u8 GLUE(line, __LINE__) [(cond)?1:-1]
+#define STATIC_ASSERT(cond, line) typedef u8 PASTE(line, __LINE__) [(cond)?1:-1]
 
 #define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
 #define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
+
+#define IGNORED(name) (void)(name)
+#define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
+#define DEG_TO_RAD (PI_F32 / 180.0f)
+#define RAD_TO_DEG (180.0f / PI_F32)
+#define PAD(n) char PASTE(pad, __LINE__)[n]
 
 
 #pragma mark - M_UTILITIES
@@ -177,8 +193,8 @@ enum DAY_OF_WEEK
 #define STRINGIFY_(s) #s
 #define STRINGIFY(s) STRINGIFY_(s)
 
-#define GLUE_(a, b) a##b
-#define GLUE(a, b) GLUE_(a, b)
+#define PASTE_(a, b) a##b
+#define PASTE(a, b) PASTE_(a, b)
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
 
@@ -690,7 +706,8 @@ for (Node *node = first; node != NULL; node = node->next)
 // video [q2] 9:13  
 
 // factor in bug from comments:
-//#define DLL_REMOVE_NP(f,l,n,next,prev) ((f)==(l)&&(f)==(n)?\
+//#define DLL_REMOVE_NP(f,l,n,next,prev) 
+//((f)==(l)&&(f)==(n)?\
                                         ((f)=(l)=0):\
                                         ((f)==(n)?\
                                         ((f)=(f)->next,(f)->prev=0):\
