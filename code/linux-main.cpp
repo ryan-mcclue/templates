@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
-#define has_flags_any(field, flags) (!!((field) & (flags)))
-#define has_flags_all(field, flags) (((field) & (flags)) == (flags))
+#define HAS_FLAGS_ANY(field, flags) (!!((field) & (flags)))
+#define HAS_FLAGS_ALL(field, flags) (((field) & (flags)) == (flags))
+
+// Cryptic expression comma chaining necessary for returning a value
+
+struct TreeNode
+{
+  TreeNode *first_child;
+  TreeNode *last_child;
+  TreeNode *next_sibling;
+};
 
 struct Node
 {
@@ -11,17 +20,33 @@ struct Node
   int x;
 };
 
-// IMPORTANT(Ryan): Macro wrapper necessary for C++ version as no implicit void * casts
-// Cryptic expression comma chaining necessary for returning a value
-#define DLL_PUSH_BACK(first, last, node, type) (type *)dll_push_back(first, last, node)
-
-INTERNAL void *
-dll_push_back(void *first, void *last, void *node)
+INTERNAL void
+dll_push_front(void *first, void *last, void *node)
 {
-  if (first == NULL) {
+  if (first == NULL) 
+  {
     first = last = node;
     node->next = node->prev = NULL;
-  } else {
+  } 
+  else 
+  {
+    node->prev = NULL;
+    node->next = first;
+    first->prev = node;
+    first = node;
+  }
+}
+
+INTERNAL void
+dll_push_back(void *first, void *last, void *node)
+{
+  if (first == NULL) 
+  {
+    first = last = node;
+    node->next = node->prev = NULL;
+  } 
+  else 
+  {
     node->prev = last;
     node->next = NULL;
     last->next = node;
@@ -29,55 +54,103 @@ dll_push_back(void *first, void *last, void *node)
   }
 }
 
-#define DLL_PUSH_FRONT(first, last, node) 
-    if (first == NULL) {
-     first = last = node;
-     node->next = node->prev = NULL;
-    } else {
-     node->prev = NULL;
-     node->next = first;
-     first->prev = node;
-     first = node;
+INTERNAL void
+dll_remove(void *first, void *last, void *node)
+{
+  if (node == first) 
+  {
+    if (first == last) 
+    {
+      first = last = NULL;
+    } 
+    else 
+    {
+      first = first->next;
+      first->prev = NULL;
     }
-
-#define DLL_REMOVE(first, last, node) \
-    if (node == first) {
-      if (first == last) {
-        first = last = NULL;
-      } else {
-        first = first->next;
-        first->prev = NULL;
-      }
-    } else if (node == last) {
-      last = last->prev;
-      last->next = NULL;
-    } else {
-      node->next->prev = node->prev;
-      node->prev->next = node->next;
-    }
-
-#define SLLQueuePush(first,l,n) 
-  if (first == NULL) {
-    first=last=node:\
-    //node->next = NULL;
-  } else {
-   last->next=node;
-   last=node;\
-   node->next = NULL;
+  } 
+  else if (node == last) 
+  {
+    last = last->prev;
+    last->next = NULL;
+  } 
+  else 
+  {
+    node->next->prev = node->prev;
+    node->prev->next = node->next;
   }
-#define SLLQueuePush(f,l,n) SLLQueuePush_N(f,l,n,next)
+}
 
-#define SLLQueuePushFront_N(f,l,n,next) ((f)==0?\
-((f)=(l)=(n),(n)->next=0):\
-((n)->next=(f),(f)=(n)))
-#define SLLQueuePushFront(f,l,n) SLLQueuePushFront_N(f,l,n,next)
+// IMPORTANT(Ryan): Macro wrapper necessary for C++ version as no implicit void * casts
+#define DLL_PUSH_FRONT(first, last, node, type) \
+  dll_push_front((type *)(first), (type *)(last), (type *)(node))
+#define DLL_PUSH_BACK(first, last, node, type) \
+  dll_push_back((type *)(first), (type *)(last), (type *)(node))
+#define DLL_REMOVE(first, last, node, type) \
+  dll_remove((type *)(first), (type *)(last), (type *)(node))
 
-#define SLLQueuePop_N(f,l,next) 
-  if (first == last) {
+
+INTERNAL void
+sll_queue_push(void *first, void *last, void *node)
+{
+  if (first == NULL) 
+  {
+    first = last = node;
+    node->next = NULL;
+  } 
+  else 
+  {
+    node->next = first;
+    first = node;
+  }
+}
+
+INTERNAL void *
+sll_queue_pop(void *first, void *last)
+{
+  void *result = first;
+
+  if (first == last)
+  {
     first = last = NULL;
-  } else {
+  }
+  else
+  {
     first = first->next;
   }
+
+  return result;
+}
+
+#define SLL_QUEUE_PUSH(first, last, node, type) \
+  sll_queue_push((type *)(first), (type *)(last), (type *)(node))
+#define SLL_QUEUE_POP(first, last, type) \
+  (type *)sll_queue_pop((type *)(first), (type *)(last))
+
+INTERNAL void
+sll_stack_push(void *first, void *node)
+{
+  node->next = first;
+  first = node;
+}
+
+INTERNAL void *
+sll_stack_pop(void *first)
+{
+  void *result = first;
+
+  if (first != NULL)
+  {
+    first = first->next;
+  }
+
+  return result;
+}
+
+#define SLL_STACK_PUSH(first, node, type) \
+  sll_stack_push((type *)(first), (type *)(node))
+#define SLL_STACK_POP(first, type) \
+  (type *)sll_stack_pop((type *)(first))
 
 int
 main(int argc, char *argv[])
@@ -96,3 +169,14 @@ main(int argc, char *argv[])
 
   return 0;
 }
+
+// UIs exist to transfer information between user and program (decide what is useful information)
+// So, when making a UI decision, if requires less information to be sent, then a good one (e.g. button press over typing a long string)
+// Also, how quickly the user can enter this information is important to
+
+// use well known design elements, e.g. buttons, boxes
+// provide usage hints, e.g. buttons embossed, dynamically animate (in time suitable for human brain) in response to user input
+
+// when creating a good interface, implementation and user must agree on how something is inputted and recieved
+
+// core, buildler (majority of code), escape hatch code
