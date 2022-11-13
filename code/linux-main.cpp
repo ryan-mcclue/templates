@@ -180,3 +180,11 @@ main(int argc, char *argv[])
 // when creating a good interface, implementation and user must agree on how something is inputted and recieved
 
 // core, buildler (majority of code), escape hatch code
+
+// common UI code API has building and response code segmented, i.e. callbacks or event messages
+// also use retained-mode, i.e. individually manage widget lifetime to add/remove from heirarchy
+
+// immediate mode has all this in one spot, with widget hierarchy constructed on every frame
+// indentation hierarchy acheived with stack
+// hierarchy of widgets, not layouts
+// widget rendering in IM is deferred; require frame of delay to perform offline (given all data, solve problem in one) autolayout

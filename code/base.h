@@ -7,6 +7,8 @@
   #define COMPILER_GCC 1
   #if defined(__gnu_linux__)
     #define OS_LINUX 1
+    // TODO(Ryan): Synchronisation atomics
+    // #define AtomicAdd64(ptr, v) _InterlockedExchangeAdd64((ptr), (v))
   #else
     #error OS not supported
   #endif
@@ -17,6 +19,10 @@
   #endif
 
   #define THREAD_VAR __thread
+  // NOTE(Ryan): Avoid confusing auto-indenter
+  #define EXPORT_BEGIN extern "C" {
+  #define EXPORT_END }
+  #define EXPORT extern "C"
 #else
   #error Compiler not supported
 #endif
@@ -179,6 +185,7 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
 #define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
+#define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
 
 #define IGNORED(name) (void)(name)
 #define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
@@ -204,7 +211,16 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
 #define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
-// TODO: CAST_FROM_MEMBER()? (from video 2 comments)
+#define CastFromMember(S,m,p) (S*)(((U8*)p) - OffsetOf(S,m))
+
+// TODO(Ryan): WHAT ARE THESE?
+#define DeferLoop(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
+#define DeferLoopChecked(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
+
+#define HasFlag(fl,fi) ((fl)&(fi))
+#define SetFlag(fl,fi) ((fl)|=(fi))
+#define RemFlag(fl,fi) ((fl)&=~(fi))
+#define ToggleFlag(fl,fi) ((fl)^=(fi))
 
 #define MIN(x, y)
 #define MAX(x, y)
@@ -220,10 +236,6 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define LOCAL static
 #define INTERNAL static
 
-// NOTE(Ryan): Avoid confusing auto-indenter
-#define C_LINKAGE_BEGIN extern "C" {
-#define C_LINKAGE_END }
-#define C_LINKAGE extern "C"
 
 // use i+=1 in for loop syntax?
 // use separate line for each for loop
@@ -284,6 +296,9 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 // if on embedded, abort when memory exceeds
 // if on OS, can grow
 
+// TODO(Ryan): malloc() is 16-byte aligned for possible SIMD (use of xmm registers)
+// understand this alignment?
+
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
@@ -296,13 +311,15 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #define KB(x) ((x) << 10)
 #define MB(x) ((x) << 20)
-#define GB(x) ((x) << 30)
-#define TB(x) ((x) << 40)
+#define GB(x) (((u64)x) << 30)
+#define TB(x) (((u64)x) << 40)
 
 #define THOUSAND(x) ((x)*1000LL)
 #define MILLION(x)  ((x)*1000000LL)
 #define BILLION(x)  ((x)*1000000000LL)
 #define TRILLION(x) ((x)*1000000000000LL)
+
+
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
