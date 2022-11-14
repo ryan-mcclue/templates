@@ -233,7 +233,7 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
 #define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
-#define CastFromMember(S,m,p) (S*)(((U8*)p) - OffsetOf(S,m))
+#define CAST_FROM_MEMBER(S,m,p) (S*)(((U8*)p) - OFFSET_OF_MEMBER(S,m))
 
 #define HasFlag(fl,fi) ((fl)&(fi))
 #define SetFlag(fl,fi) ((fl)|=(fi))
@@ -824,143 +824,56 @@ string_from_day_of_week(DAY_OF_WEEK day_of_week)
 //
 // benefits of non-continuity are we can push multiple data types, i.e. multiple linked list types
 
-// IMPORTANT: Linked lists, require keeping first and last
-struct Node
+INTERNAL u64
+round_to_nearest(u64 val, u64 near)
 {
-  Node *next;
-  Node *prev;
+  u64 result = val;
 
-  int x;
-};
-
-Node nodes[10] = {};
-Node *first = NULL, *last = NULL;
-DLL_PUSH_BACK(first, last, &nodes[i]);
-for (Node *node = first; node != NULL; node = node->next)
-{
-
+  result += near - 1;
+  result -= result % near;
+  
+  return result;
 }
 
-// doubly linked list
-// macro particularly cryptic if trying to keep as one expression (use ternary, commas and expression assignment to link)
-#define DLL_PUSH_BACK(f, l, n) 
-// video [q2] 9:13  
-
-// factor in bug from comments:
-//#define DLL_REMOVE_NP(f,l,n,next,prev) 
-//((f)==(l)&&(f)==(n)?\
-                                        ((f)=(l)=0):\
-                                        ((f)==(n)?\
-                                        ((f)=(f)->next,(f)->prev=0):\
-                                        ((l)==(n)?\
-                                        ((l)=(l)->prev,(l)->next=0):\
-                                        ((n)->prev->next=(n)->next,\
-                                        (n)->next->prev=(n)->prev))))
-
-// singly linked list queue
-// video [q2] 10:54  
-
-// singly linked list stack
-// video [q2] 11:44  
-
-// IMPORTANT(Ryan): The function pointers define a sort of plugin system
-typedef void mem_reserve_func(void *ctx, u64 size);
-typedef void mem_commit_func(void *ctx, void *ptr, u64 size);
-typedef void mem_decommit_func(void *ctx, void *ptr, u64 size);
-typedef void mem_release_func(void *ctx, void *ptr, u64 size);
-
-struct BaseMemory
-{
-  // IMPORTANT(Ryan): Cleaner function pointer typedef syntax
-  mem_reserve_func *reserve; 
-  mem_commit_func *commit; 
-  mem_decommit_func *decommit;
-  mem_release_func *release; 
-  void *ctx;
-};
-
-// IMPORTANT(Ryan): Here we implement a malloc memory plugin
-INTERNAL void*
-mem_malloc_reserve(void *ctx, u64 size)
-{
-  return malloc(size);
-}
-INTERNAL void*
-mem_malloc_commit(void *ctx, void *ptr, u64 size) {}
-INTERNAL void*
-mem_malloc_decommit(void *ctx, void *ptr, u64 size) {}
-INTERNAL void*
-mem_malloc_release(void *ctx, void *ptr, u64 size)
-{
-  free(ptr);
-}
-
-INTERNAL *BaseMemory
-mem_malloc_base_memory(void)
-{
-  LOCAL BaseMemory memory = {};
-
-  memory.reserve = mem_malloc_reserve;
-  memory.commit = mem_malloc_commit;
-  memory.decommit = mem_malloc_decommit;
-  memory.release = mem_malloc_release;
-
-  return &memory;
-}
+// IMPORTANT(Ryan): Function pointers define a sort of plugin system
 
 #define MEM_DEFAULT_RESERVE_SIZE GB(1)
 #define MEM_COMMIT_BLOCK_SIZE MB(64)
 
-// IMPORTANT(Ryan): Now over to arena
+// IMPORTANT(Ryan): No explicit pointer to memory, just end of struct so to speak 
 struct MemArena
 {
-  BaseMemory *base;
-  u8 *memory;
   u64 cap;
   u64 pos;
   u64 commit_pos;
 };
 
-struct MemTemp
+#define COMMIT_SIZE KB(4)
+#define DECOMMIT_SIZE KB(64)
+
+STATIC_ASSERT(sizeof(MemArena) <= COMMIT_SIZE, arena_size_check);
+ 
+INTERNAL MemArena *
+mem_arena_allocate(u64 cap)
 {
-  MemArena *arena;
-  u64 pos;
-};
+  // reserve to GB
+  // void *ptr = VirtualAlloc(0, gb_snapped_size, MEM_RESERVE, PAGE_NOACCESS);
+  MemArena *result = mem_reserve(cap);
+  mem_commit(result, COMMIT_SIZE);
 
-struct MemTempBlock
-{
-  MemTemp temp;
 
-  MemTempBlock(MemArena *arena);
-  ~MemTempBlock();
-  void reset();
-};
+  // commit to nearest page size
+  // TODO(Ryan): Investigate obtaining POSIX information with sysconf() and related functions
+  // VirtualAlloc(ptr, page_snapped_size, MEM_COMMIT, PAGE_READWRITE);
 
-INTERNAL MemArena
-mem_make_arena_reserve(BaseMemory *base, u64 reserve_size)
-{
-  MemArena arena = {};
 
-  arena.base = base;
-  arena.memory = base->reserve(base->ctx, reserve_size);
-  arena.cap = reserve_size;
+  //VirtualFree(ptr, size, MEM_DECOMMIT);
+  // release
+  // VirtualFree(ptr, 0, MEM_RELEASE);
 
-  return arena;
+  return result;
 }
 
-INTERNAL MemArena
-mem_make_arena(BaseMemory *base)
-{
-  return mem_make_arena_reserve(base, MEM_DEFAULT_RESERVE_SIZE); 
-}
-
-INTERNAL void
-mem_arena_release(MemArena *arena)
-{
-  BaseMemory *base = arena->base;
-
-  base->release(base->ctx, arena->memory, arena->cap);
-}
 
 INTERNAL void*
 mem_arena_push(MemArena *arena, u64 size)
@@ -975,11 +888,6 @@ mem_arena_push(MemArena *arena, u64 size)
   // video 4: 8:22
 }
 
-INTERNAL
-mem_arena_pop_to()
-{
-  // video 4: 14:43
-}
 
 INTERNAL void
 mem_arena_align(MemArena *arena, u64 pow2_align)

@@ -166,8 +166,12 @@ PER_THREAD ThreadContext *tl_thread_context = NULL;
 GLOBAL MemArena *perm_arena = NULL;
 GLOBAL String8 linux_initial_path = {};
 
-// IMPORTANT(Ryan): Any arena passed in as parameter is a scratch arena
-// Any function has access to the permanent arena
+// As long as only a single persistent arena is present at any point in any codepath, 
+// you will not need more than two scratch arenas.
+// Will alternate between the two scratches for arbitrarily deep call stacks
+
+// IMPORTANT(Ryan): Arenas passed in as parameters are perm memory to make scratch out of
+// the **conflicts are arenas being used for permanent storage
 INTERNAL String8
 get_linux_path(MemArena *arena)
 {
@@ -182,9 +186,10 @@ main(int argc, char *argv[])
   IGNORED(argc);
   IGNORED(argv);
 
+  // IMPORTANT(Ryan): Ignore threading for now
   // just inits the 2 memory arenas to say, 8GiB
-  ThreadContext thread_context = init_thread_context();
-  set_thread_local_context(&thread_context);
+  //ThreadContext thread_context = init_thread_context();
+  // set_thread_local_context(&thread_context);
 
   // because this is shared, less than thread local?
   // when to use what?
