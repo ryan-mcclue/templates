@@ -587,7 +587,7 @@ unlerp(f32 a, f32 b, f32 t)
   return result;
 }
 
-// TODO(Ryan): Perhaps include round_to() functions
+// TODO(Ryan): Perhaps include round_to, ceil functions etc.
 
 
 // IMPORTANT(Ryan): although typing out tedious, better than codegen complexity

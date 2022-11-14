@@ -161,6 +161,8 @@ struct ThreadContext
 
 PER_THREAD ThreadContext *tl_thread_context = NULL;
 
+// IMPORTANT(Ryan): For a GUI, will have two global arenas? One for each frame?
+// So, this perm arena, wrapped up in an OS state struct?
 GLOBAL MemArena *perm_arena = NULL;
 GLOBAL String8 linux_initial_path = {};
 

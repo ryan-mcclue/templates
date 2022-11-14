@@ -2,6 +2,8 @@
 
 set -e
 
+ctime -begin misc/desktop.ctm
+
 # : command that takes no arguments, always return 0, i.e. true
 
 # lines=()
@@ -39,6 +41,7 @@ else
   verbose_echo=":"
 fi
 set +u
+# set -x
 
 mkdir -p build
 
@@ -49,6 +52,11 @@ linker_flags=()
 # -fstack-usage  generates .su files
 # -Wstack-usage=255 (warn if usage over 255 bytes)
 # Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
+
+# TODO(Ryan): General build flow:
+# 1. datagen (codegen could be to parse file data into structs?)
+# 2. library
+# 3. main
 
 #pragma mark - Group
 
@@ -122,14 +130,11 @@ if [[ "$compiler" == "g++" && "$os" == "linux" ]]; then
 # -Os for embedded
   fi
 
-  ctime -begin misc/desktop.ctm
-
-  verbose_echo g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
-  g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
-
-  ctime -end misc/desktop.ctm
+  $verbose_echo g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
 
 fi
+
+ctime -end misc/main.ctm
 
 # use bash as build script as is effectively OS agnostic 
 # (if you have git on windows, you have bash)
