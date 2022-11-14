@@ -152,11 +152,42 @@ sll_stack_pop(void *first)
 #define SLL_STACK_POP(first, type) \
   (type *)sll_stack_pop((type *)(first))
 
+struct ThreadContext
+{
+  MemArena *arenas[2];  
+  const char *file_name;
+  u64 line_number;
+};
+
+PER_THREAD ThreadContext *tl_thread_context = NULL;
+
+GLOBAL MemArena *perm_arena = NULL;
+GLOBAL String8 linux_initial_path = {};
+
+// IMPORTANT(Ryan): Any arena passed in as parameter is a scratch arena
+// Any function has access to the permanent arena
+INTERNAL String8
+get_linux_path(MemArena *arena)
+{
+  MemTemp scratch = MemGetScratch(&arena); 
+
+  ReleaseScratch(scratch);
+}
+
 int
 main(int argc, char *argv[])
 {
   IGNORED(argc);
   IGNORED(argv);
+
+  // just inits the 2 memory arenas to say, 8GiB
+  ThreadContext thread_context = init_thread_context();
+  set_thread_local_context(&thread_context);
+
+  // because this is shared, less than thread local?
+  // when to use what?
+  perm_arena = mem_arena_alloc(GB(1)); 
+
 
   Node nodes[10] = {};
   Node *first = NULL, *last = NULL;

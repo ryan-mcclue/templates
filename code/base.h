@@ -18,14 +18,31 @@
     #error Arch not supported
   #endif
 
-  #define THREAD_VAR __thread
+  #if __GNUC__ == 10
+    #define COMPILER_YEAR 2020
+  #endif
+
+  #define PER_THREAD __thread
+#else
+  #error Compiler not supported
+#endif
+
+#if defined(__cplusplus)
+  #define LANG_CPP 1
   // NOTE(Ryan): Avoid confusing auto-indenter
+  // TODO: if on windows, require dll specifier
   #define EXPORT_BEGIN extern "C" {
   #define EXPORT_END }
   #define EXPORT extern "C"
 #else
-  #error Compiler not supported
+  #define LANG_C 1
+  #define EXPORT_BEGIN
+  #define EXPORT_END
+  #define EXPORT
 #endif
+
+#define SCOPED_CDTOR(ctor, dtor) for(int _i_ = (ctor, 0); _i_ == 0; _i_ += 1, dtor)
+#define SCOPED_CDTOR_CHECKED(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
 
 // NOTE(Ryan): If decide to port, zero out
 #if !defined(COMPILER_GCC)
@@ -187,12 +204,17 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
 #define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
 
-#define IGNORED(name) (void)(name)
+#define IGNORED(name) (void)sizeof(name)
 #define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
-#define DEG_TO_RAD (PI_F32 / 180.0f)
-#define RAD_TO_DEG (180.0f / PI_F32)
+#define DEG_TO_RAD(v) ((PI_F32 / 180.0f) * (v))
+#define RAD_TO_DEG(v) ((180.0f / PI_F32) * (v))
 #define PAD(n) char PASTE(pad, __LINE__)[n]
 
+#if defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__
+  #define STBSP__ASAN __attribute__((__no_sanitize_address__))
+#endif
+
+// TODO(Ryan): HSV, RGB colour routines
 
 #pragma mark - M_UTILITIES
 
@@ -213,14 +235,116 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
 #define CastFromMember(S,m,p) (S*)(((U8*)p) - OffsetOf(S,m))
 
-// TODO(Ryan): WHAT ARE THESE?
-#define DeferLoop(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
-#define DeferLoopChecked(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
-
 #define HasFlag(fl,fi) ((fl)&(fi))
 #define SetFlag(fl,fi) ((fl)|=(fi))
 #define RemFlag(fl,fi) ((fl)&=~(fi))
 #define ToggleFlag(fl,fi) ((fl)^=(fi))
+
+// IMPORTANT(Ryan): Seems use global variables for constants, macros for functions?
+read_only global U64 Bitmask[] =
+{
+    0x0,
+    0x1,
+    0x3,
+    0x7,
+    0xF,
+    0x1F,
+    0x3F,
+    0x7F,
+    0xFF,
+    0x1FF,
+    0x3FF,
+    0x7FF,
+    0xFFF,
+    0x1FFF,
+    0x3FFF,
+    0x7FFF,
+    0xFFFF,
+    0x1FFFF,
+    0x3FFFF,
+    0x7FFFF,
+    0xFFFFF,
+    0x1FFFFF,
+    0x3FFFFF,
+    0x7FFFFF,
+    0xFFFFFF,
+    0x1FFFFFF,
+    0x3FFFFFF,
+    0x7FFFFFF,
+    0xFFFFFFF,
+    0x1FFFFFFF,
+    0x3FFFFFFF,
+    0x7FFFFFFF,
+    0xFFFFFFFF,
+    0x1FFFFFFFF,
+    0x3FFFFFFFF,
+    0x7FFFFFFFF,
+    0xFFFFFFFFF,
+    0x1FFFFFFFFF,
+    0x3FFFFFFFFF,
+    0x7FFFFFFFFF,
+    0xFFFFFFFFFF,
+    0x1FFFFFFFFFF,
+    0x3FFFFFFFFFF,
+    0x7FFFFFFFFFF,
+    0xFFFFFFFFFFF,
+    0x1FFFFFFFFFFF,
+    0x3FFFFFFFFFFF,
+    0x7FFFFFFFFFFF,
+    0xFFFFFFFFFFFF,
+    0x1FFFFFFFFFFFF,
+    0x3FFFFFFFFFFFF,
+    0x7FFFFFFFFFFFF,
+    0xFFFFFFFFFFFFF,
+    0x1FFFFFFFFFFFFF,
+    0x3FFFFFFFFFFFFF,
+    0x7FFFFFFFFFFFFF,
+    0xFFFFFFFFFFFFFF,
+    0x1FFFFFFFFFFFFFF,
+    0x3FFFFFFFFFFFFFF,
+    0x7FFFFFFFFFFFFFF,
+    0xFFFFFFFFFFFFFFF,
+    0x1FFFFFFFFFFFFFFF,
+    0x3FFFFFFFFFFFFFFF,
+    0x7FFFFFFFFFFFFFFF,
+    0xFFFFFFFFFFFFFFFF,
+};
+
+read_only global U32 Bit1  = 1 << 0;
+read_only global U32 Bit2  = 1 << 1;
+read_only global U32 Bit3  = 1 << 2;
+read_only global U32 Bit4  = 1 << 3;
+read_only global U32 Bit5  = 1 << 4;
+read_only global U32 Bit6  = 1 << 5;
+read_only global U32 Bit7  = 1 << 6;
+read_only global U32 Bit8  = 1 << 7;
+read_only global U32 Bit9  = 1 << 8;
+read_only global U32 Bit10 = 1 << 9;
+read_only global U32 Bit11 = 1 << 10;
+read_only global U32 Bit12 = 1 << 11;
+read_only global U32 Bit13 = 1 << 12;
+read_only global U32 Bit14 = 1 << 13;
+read_only global U32 Bit15 = 1 << 14;
+read_only global U32 Bit16 = 1 << 15;
+read_only global U32 Bit17 = 1 << 16;
+read_only global U32 Bit18 = 1 << 17;
+read_only global U32 Bit19 = 1 << 18;
+read_only global U32 Bit20 = 1 << 19;
+read_only global U32 Bit21 = 1 << 20;
+read_only global U32 Bit22 = 1 << 21;
+read_only global U32 Bit23 = 1 << 22;
+read_only global U32 Bit24 = 1 << 23;
+read_only global U32 Bit25 = 1 << 24;
+read_only global U32 Bit26 = 1 << 25;
+read_only global U32 Bit27 = 1 << 26;
+read_only global U32 Bit28 = 1 << 27;
+read_only global U32 Bit29 = 1 << 28;
+read_only global U32 Bit30 = 1 << 29;
+read_only global U32 Bit31 = 1 << 30;
+read_only global U32 Bit32 = 1 << 31;
+
+
+
 
 #define MIN(x, y)
 #define MAX(x, y)
