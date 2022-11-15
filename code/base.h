@@ -29,6 +29,13 @@
   #endif
 
   #define PER_THREAD __thread
+
+  #define IGNORE_WARNING_USELESS_CAST_PUSH() \
+    _Pragma("GCC diagnostic push") \
+    _Pragma("GCC diagnostic ignored \"-Wuseless-cast\"")
+  
+  #define IGNORE_WARNING_POP() \
+    _Pragma("GCC diagnostic pop")
 #else
   #error Compiler not supported
 #endif
@@ -66,6 +73,9 @@ typedef double f64;
 #define LOCAL static
 #define INTERNAL static
 
+
+IGNORE_WARNING_USELESS_CAST_PUSH()
+
 // TODO(Ryan): Seems use global variables for constants, macros for functions?
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
 GLOBAL s8 MIN_S8 = (s8)0x80; 
@@ -83,6 +93,8 @@ GLOBAL u16 MAX_U16 = (u16)0xffff;
 GLOBAL u32 MAX_U32 = (u32)0xffffffff; 
 GLOBAL u64 MAX_U64 = (u64)0xffffffffffffffffllu; 
 
+IGNORE_WARNING_POP()
+
 // NOTE(Ryan): IEEE float 7 decimal places, double 15 decimal places
 GLOBAL f32 MACHINE_EPSILON_F32 = 1.1920929e-7f;
 GLOBAL f32 PI_F32 = 3.1415926f;
@@ -98,7 +110,7 @@ GLOBAL f64 E_F64 =        2.718281828459045;
 GLOBAL f64 GOLD_BIG_F64 = 1.618033988749894;
 GLOBAL f64 GOLD_SMALL_F64 = 0.618033988749894;
 
-GLOBAL u64 BITMASKS[64] = { 
+GLOBAL u64 BITMASKS[65] = { 
     0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F,
     0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF, 0x1FFF, 0x3FFF, 0x7FFF,
     0xFFFF, 0x1FFFF, 0x3FFFF, 0x7FFFF, 0xFFFFF, 0x1FFFFF, 0x3FFFFF, 0x7FFFFF,
@@ -141,7 +153,7 @@ GLOBAL u32 BIT_28 = 1 << 27;
 GLOBAL u32 BIT_29 = 1 << 28;
 GLOBAL u32 BIT_30 = 1 << 29;
 GLOBAL u32 BIT_31 = 1 << 30;
-GLOBAL u32 BIT_32 = 1 << 31;
+GLOBAL u32 BIT_32 = (u32)1 << 31;
 
 enum AXIS
 {
@@ -189,6 +201,8 @@ enum DAY_OF_WEEK
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 INTERNAL void __fatal_error(const char *file_name, const char *func_name, int line_num, 
                             const char *optional_message)
 { 

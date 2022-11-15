@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
-#define HAS_FLAGS_ANY(field, flags) (!!((field) & (flags)))
-#define HAS_FLAGS_ALL(field, flags) (((field) & (flags)) == (flags))
+#include "base.h"
 
+int
+main(int argc, char *argv[])
+{
+  return 0;
+}
+
+#if 0
 // Cryptic expression comma chaining necessary for returning a value
 
 struct TreeNode
@@ -186,33 +192,6 @@ get_linux_path(MemArena *arena)
 // give requestor ability to specify other arena's its using for permanent allocation
 // so calle can say it wants another scratch that it doesn't want to conflict with the another arena it's treating as permanent (which is scratch from the caller's perspective)
 
-int
-main(int argc, char *argv[])
-{
-  IGNORED(argc);
-  IGNORED(argv);
-
-  // just inits the 2 memory arenas to say, 8GiB
-  //ThreadContext thread_context = init_thread_context();
-  // set_thread_local_context(&thread_context);
-
-  // because this is shared, less than thread local?
-  // when to use what?
-  perm_arena = mem_arena_alloc(GB(1)); 
-
-
-  Node nodes[10] = {};
-  Node *first = NULL, *last = NULL;
-  DLL_PUSH_BACK(first, last, &nodes[i]);
-
-  for (Node *node = first; node != NULL; node = node->next)
-  {
-
-  }
-
-  return 0;
-}
-
 // UIs exist to transfer information between user and program (decide what is useful information)
 // So, when making a UI decision, if requires less information to be sent, then a good one (e.g. button press over typing a long string)
 // Also, how quickly the user can enter this information is important to
@@ -231,3 +210,4 @@ main(int argc, char *argv[])
 // indentation hierarchy acheived with stack
 // hierarchy of widgets, not layouts
 // widget rendering in IM is deferred; require frame of delay to perform offline (given all data, solve problem in one) autolayout
+#endif

@@ -2,7 +2,7 @@
 
 set -e
 
-ctime -begin misc/main.ctm
+ctime -begin private/main.ctm
 
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
   os="linux"
@@ -13,15 +13,11 @@ fi
 
 set -u
 # NOTE(Ryan): This file is ignored by source control to allow tweaking of build params without affecting history
-source "implicit-build-params"
+source "private/build-params"
 param_compiler=$compiler 
 param_mode=$mode 
 param_arch=$arch
-if [[ $verbose -eq 1 ]]; then
-  verbose_echo="echo"
-else
-  verbose_echo=":"
-fi
+param_verbose=$verbose
 set +u
 
 mkdir -p build
@@ -62,7 +58,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
   # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
-  compiler_flags+=( "-fdiagnostics-show-option" "-fcolor-diagnostics" )
+  compiler_flags+=( "-fdiagnostics-show-option" )
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )
@@ -83,20 +79,20 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
 
     # IMPORTANT(Ryan): static analysis requires gcc-10
-    compiler_flags+= ( "-fanalyzer" )
+    compiler_flags+=( "-fanalyzer" )
 
     # get debug and optimisation flags $(readelf -w build/server | grep producer)
     
     # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
     
+    # compiler_flags+=( "--coverage" ) (only for test builds)
     #	-@find $(BUILD) -name '*.gcda' -exec rm {} +
     #	./$(EXECUTABLE)
     #	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
     #	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
     #	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
     
-    # --coverage (only for test builds)
-  elif [[ "$mode" == "release" ]]; then
+  elif [[ "$param_mode" == "release" ]]; then
     compiler_flags+=( "-DMAIN_RELEASE" )
     compiler_flags+=( "-O3" )
     compiler_flags+=( "-ffunction-sections" "-fdata-sections" ) 
@@ -110,11 +106,15 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     exit 1
   fi
 
-  $verbose_echo g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
+  if [[ "$param_verbose" == "1" ]]; then
+    echo g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+  fi
+
+  g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
 else
   printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
   exit 1
 fi
 
-ctime -end misc/main.ctm
+ctime -end private/main.ctm
