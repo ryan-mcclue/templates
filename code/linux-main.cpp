@@ -5,6 +5,9 @@
 int
 main(int argc, char *argv[])
 {
+  IGNORED(argc); 
+  IGNORED(argv);
+
   return 0;
 }
 

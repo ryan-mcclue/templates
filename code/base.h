@@ -254,7 +254,8 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define SCOPED_CDTOR(ctor, dtor) for(int _i_ = (ctor, 0); _i_ == 0; _i_ += 1, dtor)
 #define SCOPED_CDTOR_CHECKED(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
 
-#define IGNORED(name) (void)sizeof(name)
+// TODO(Ryan): Maybe have to do (void)sizeof(name) for C++?
+#define IGNORED(name) (void)(name) 
 
 #define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
 
