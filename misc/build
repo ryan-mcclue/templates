@@ -2,139 +2,119 @@
 
 set -e
 
-ctime -begin misc/desktop.ctm
+ctime -begin misc/main.ctm
 
-# : command that takes no arguments, always return 0, i.e. true
-
-# lines=()
-# read_entire_file "text-rand.txt" "lines"
-# printf "%s\n" "${lines[@]}"
-read_entire_file()
-{
-  local file_name="$1"
-  local result_var="$2"
-
-  local __read_entire_file_lines=()
-
-  while IFS=$'\r\n' read -r line; do
-    __read_entire_file_lines+=("$line")
-  done < "$file_name"
-
-  command eval "$result_var"'=(${__read_entire_file_lines[@]})' 
-}
-
-os="undefined"
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
   os="linux"
+else
+  printf "Error: Build currently only supports linux\n" >&2
+  exit 1
 fi
 
 set -u
-# IMPORTANT(Ryan): This file is ignored by source control to allow tweaking of build without affecting history
+# NOTE(Ryan): This file is ignored by source control to allow tweaking of build params without affecting history
 source "implicit-build-params"
-declare -A build_params
-build_params[compiler]=$compiler 
-build_params[mode]=$mode 
-build_params[arch]=$arch
+param_compiler=$compiler 
+param_mode=$mode 
+param_arch=$arch
 if [[ $verbose -eq 1 ]]; then
   verbose_echo="echo"
 else
   verbose_echo=":"
 fi
 set +u
-# set -x
 
 mkdir -p build
 
 compiler_flags=()
 linker_flags=()
 
-# TODO(Ryan): embedded look at 
-# -fstack-usage  generates .su files
-# -Wstack-usage=255 (warn if usage over 255 bytes)
-# Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
+# TODO(Ryan): EMBEDDED 
+#   -fstack-usage  generates .su files
+#   -Wstack-usage=255 (warn if usage over 255 bytes)
+#   Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
+#
+#   run arm-none-eabi-size to inspect output file
+#   -Os instead of -O3 optimisation 
 
 # TODO(Ryan): General build flow:
 # 1. datagen (codegen could be to parse file data into structs?)
 # 2. library
 # 3. main
 
-#pragma mark - Group
+if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux" ]]; then
 
-if [[ "$compiler" == "g++" && "$os" == "linux" ]]; then
+  # IMPORTANT(Ryan): Unfortunately new errors aren't added to -Wall and -Wextra for backwards compatibility
 
-  # TODO(Ryan): For embedded, run arm-none-eabi-size to inspect output file
+  # IMPORTANT(Ryan): Only enable "-Werror" for CI builds, as different toolchains give warnings for different things
+  # such differences exacerbated with toolchain updates
+  # clang -Weverything will be affected by toolchain updates adding new warnings
 
-  # IMPORTANT(Ryan): New errors aren't added to -Wall and -Wextra, as this would break old things
+  # NOTE(Ryan): Enable various warnings largely related to implicit signed, alignment, casting, promotion issues
+  compiler_flags+=( "-Wall" "-Wextra" "-Wshadow" "-Wconversion" "-Wdouble-promotion" "-Wformat=2" "-pedantic" )
+  compiler_flags+=( "-Wundef" "-Wshadow" "-Wcast-align" "-Wcast-qual" "-Wpadded" "-fno-common" "-march=native" )
+  compiler_flags+=( "-Wfloat-equal" "-Wlogical-op" "-Wredundant-decls" "-Wstrict-overflow=2" "-Warray-bounds=2" )
+  compiler_flags+=( "-Wwrite-strings" "-Wpointer-arith" "-Wformat-truncation" "-Wmissing-include-dirs" )
+  compiler_flags+=( "-Wcast-align" "-Wswitch-enum" "-Wsign-conversion" "-Wdisabled-optimization" )
+  compiler_flags+=( "-Winline" "-Wmissing-declarations" "-Wdouble-promotion" "-Wshadow" "-Wtrampolines" )
+  compiler_flags+=( "-Wvector-operation-performance" "-Wnull-dereference" )
+  compiler_flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
+  compiler_flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
-  # nice warnings about implicit type conversions/promotions etc. aren't at forefront from spec
-  # also about conversion alignment changes, declarations shadowing, casting, signedness, 
-  # no trampolines (nested functions...)
-  flags+=( "-Wall" "-Wextra" "-Wshadow" "-Wconversion" "-Wdouble-promotion" "-Wformat=2" "-pedantic" )
-  flags+=( "-Wundef" "-Wshadow" "-Wcast-align" "-Wcast-qual" "-Wpadded" "-fno-common" "-march=native" )
-  flags+=( "-Wfloat-equal" "-Wlogical-op" "-Wredundant-decls" "-Wstrict-overflow=2" "-Warray-bounds=2" )
-  flags+=( "-Wwrite-strings" "-Wpointer-arith" "-Wformat-truncation" "-Wmissing-include-dirs" )
-  flags+=( "-Wcast-align" "-Wswitch-enum" "-Wsign-conversion" "-Wdisabled-optimization" )
-  flags+=( "-Winline" "-Wmissing-declarations" "-Wdouble-promotion" "-Wshadow" "-Wtrampolines" )
-  flags+=( "-Wvector-operation-performance" "-Wnull-dereference" )
-  flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
-  flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
+  # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
+  compiler_flags+=( "-fdiagnostics-show-option" "-fcolor-diagnostics" )
 
-  # gives us the specific warning flag
-  flags+=( "-fdiagnostics-show-option" "-fcolor-diagnostics" )
+  # NOTE(Ryan): Ignored warnings
+  compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )
 
-  flags+=( "-Wno-unused-function" "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )
+  # NOTE(Ryan): C++ specific
+  compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy")
 
-  # c++ specific
-  flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy")
+  compiler_flags+=( "-Icode" )
 
-  flags+=( "-Icode" )
+  if [[ "$param_mode" == "debug" ]]; then
+    compiler_flags+=( "-DMAIN_DEBUG" )
 
-# IMPORTANT(Ryan): Only enable "-Werror" for CI builds, as different toolchains give warnings for different things
-# such differences exacerbated with toolchain updates
-# clang -Weverything will be affected by toolchain updates adding new warnings
+    # NOTE(Ryan): -g3 gives macro definitions
+    compiler_flags+=( "-g3 -O0" )
 
-  if [[ "$mode" == "debug" ]]; then
-    flags+=( "-DMAIN_DEBUG" )
+    compiler_flags+=("-Wno-unused-function" "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
 
-    # -g3 gives macro definitions
-    flags+=( "-g3 -O0" )
+    compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
 
-    flags+=( "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
+    # IMPORTANT(Ryan): static analysis requires gcc-10
+    compiler_flags+= ( "-fanalyzer" )
 
-    flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
+    # get debug and optimisation flags $(readelf -w build/server | grep producer)
+    
+    # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
+    
+    #	-@find $(BUILD) -name '*.gcda' -exec rm {} +
+    #	./$(EXECUTABLE)
+    #	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
+    #	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
+    #	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
+    
+    # --coverage (only for test builds)
+  elif [[ "$mode" == "release" ]]; then
+    compiler_flags+=( "-DMAIN_RELEASE" )
+    compiler_flags+=( "-O3" )
+    compiler_flags+=( "-ffunction-sections" "-fdata-sections" ) 
 
-    # static analysis (requires gcc-10)
-    flags+= ( "-fanalyzer" )
-
-# get debug and optimisation flags $(readelf -w build/server | grep producer)
-
-# pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
-
-#	-@find $(BUILD) -name '*.gcda' -exec rm {} +
-#	./$(EXECUTABLE)
-#	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
-#	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
-#	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
-
-
-# --coverage (only for test builds)
-  fi
-  if [[ "$mode" == "release" ]]; then
--O3 -DNDEBUG
--ffunction-sections -fdata-sections # ELF only
--ffast-math
+    # NOTE(Ryan): C++ specific attempt to convert calls to virtual functions to direct calls
+    compiler_flags+=( "-fdevirtualize" )
+    # -ffast-math
     linker_flags+=( "-Wl,--gc-sections" )
-
-	'-fdevirtualize', # Attempt to convert calls to virtual functions to direct calls
-
-# -Os for embedded
+  else
+    printf "Error: Build currently only supports debug and release modes\n" >&2
+    exit 1
   fi
 
   $verbose_echo g++ ${compiler_flags[@]} main.c -o main ${linker_flags[@]}
 
+else
+  printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
+  exit 1
 fi
 
 ctime -end misc/main.ctm
-
-# use bash as build script as is effectively OS agnostic 
-# (if you have git on windows, you have bash)

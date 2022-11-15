@@ -161,7 +161,8 @@ struct ThreadContext
 
 PER_THREAD ThreadContext *tl_thread_context = NULL;
 
-// IMPORTANT(Ryan): For a GUI, will have two global arenas? One for each frame?
+// IMPORTANT(Ryan): For a GUI, will have two global arenas? 
+// One for each frame?
 // So, this perm arena, wrapped up in an OS state struct?
 GLOBAL MemArena *perm_arena = NULL;
 GLOBAL String8 linux_initial_path = {};
@@ -171,7 +172,7 @@ GLOBAL String8 linux_initial_path = {};
 // Will alternate between the two scratches for arbitrarily deep call stacks
 
 // IMPORTANT(Ryan): Arenas passed in as parameters are perm memory to make scratch out of
-// the **conflicts are arenas being used for permanent storage
+// the **conflicts are arenas being used for permanent storage?
 INTERNAL String8
 get_linux_path(MemArena *arena)
 {
@@ -180,13 +181,17 @@ get_linux_path(MemArena *arena)
   ReleaseScratch(scratch);
 }
 
+
+// from caller's perspective might have scratch but calle view as permanent
+// give requestor ability to specify other arena's its using for permanent allocation
+// so calle can say it wants another scratch that it doesn't want to conflict with the another arena it's treating as permanent (which is scratch from the caller's perspective)
+
 int
 main(int argc, char *argv[])
 {
   IGNORED(argc);
   IGNORED(argv);
 
-  // IMPORTANT(Ryan): Ignore threading for now
   // just inits the 2 memory arenas to say, 8GiB
   //ThreadContext thread_context = init_thread_context();
   // set_thread_local_context(&thread_context);

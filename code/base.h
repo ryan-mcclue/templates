@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
+// TODO(Ryan): stb_sprintf.h and sse_mathfun.h
+
 #pragma mark - M_CONTEXT_CRACKING
 
 #if defined(__GNUC__)
@@ -22,6 +24,10 @@
     #define COMPILER_YEAR 2020
   #endif
 
+  #if __SANITIZE_ADDRESS__
+    #define NO_ASAN __attribute__((__no_sanitize_address__))
+  #endif
+
   #define PER_THREAD __thread
 #else
   #error Compiler not supported
@@ -41,19 +47,6 @@
   #define EXPORT
 #endif
 
-#define SCOPED_CDTOR(ctor, dtor) for(int _i_ = (ctor, 0); _i_ == 0; _i_ += 1, dtor)
-#define SCOPED_CDTOR_CHECKED(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
-
-// NOTE(Ryan): If decide to port, zero out
-#if !defined(COMPILER_GCC)
-  #define COMPILER_GCC 0
-#endif
-#if !defined(OS_LINUX)
-  #define OS_LINUX 0
-#endif
-#if !defined(ARCH_X86_64)
-  #define ARCH_X86_64 0
-#endif
 
 #pragma mark - M_TYPES_AND_CONSTANTS
 
@@ -69,6 +62,11 @@ typedef int64_t  s64;
 typedef float f32;
 typedef double f64;
 
+#define GLOBAL static
+#define LOCAL static
+#define INTERNAL static
+
+// TODO(Ryan): Seems use global variables for constants, macros for functions?
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
 GLOBAL s8 MIN_S8 = (s8)0x80; 
 GLOBAL s16 MIN_S16 = (s16)0x8000; 
@@ -100,6 +98,51 @@ GLOBAL f64 E_F64 =        2.718281828459045;
 GLOBAL f64 GOLD_BIG_F64 = 1.618033988749894;
 GLOBAL f64 GOLD_SMALL_F64 = 0.618033988749894;
 
+GLOBAL u64 BITMASKS[64] = { 
+    0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F,
+    0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF, 0x1FFF, 0x3FFF, 0x7FFF,
+    0xFFFF, 0x1FFFF, 0x3FFFF, 0x7FFFF, 0xFFFFF, 0x1FFFFF, 0x3FFFFF, 0x7FFFFF,
+    0xFFFFFF, 0x1FFFFFF, 0x3FFFFFF, 0x7FFFFFF, 0xFFFFFFF, 0x1FFFFFFF, 0x3FFFFFFF, 0x7FFFFFFF,
+    0xFFFFFFFF, 0x1FFFFFFFF, 0x3FFFFFFFF, 0x7FFFFFFFF, 0xFFFFFFFFF, 0x1FFFFFFFFF, 0x3FFFFFFFFF, 0x7FFFFFFFFF,
+    0xFFFFFFFFFF, 0x1FFFFFFFFFF, 0x3FFFFFFFFFF, 0x7FFFFFFFFFF, 0xFFFFFFFFFFF, 0x1FFFFFFFFFFF, 0x3FFFFFFFFFFF, 0x7FFFFFFFFFFF,
+    0xFFFFFFFFFFFF, 0x1FFFFFFFFFFFF, 0x3FFFFFFFFFFFF, 0x7FFFFFFFFFFFF, 0xFFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF, 0x3FFFFFFFFFFFFF, 0x7FFFFFFFFFFFFF, 
+    0xFFFFFFFFFFFFFF, 0x1FFFFFFFFFFFFFF, 0x3FFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFF, 0x1FFFFFFFFFFFFFFF, 0x3FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 
+    0xFFFFFFFFFFFFFFFF,
+};
+
+GLOBAL u32 BIT_1  = 1 << 0;
+GLOBAL u32 BIT_2  = 1 << 1;
+GLOBAL u32 BIT_3  = 1 << 2;
+GLOBAL u32 BIT_4  = 1 << 3;
+GLOBAL u32 BIT_5  = 1 << 4;
+GLOBAL u32 BIT_6  = 1 << 5;
+GLOBAL u32 BIT_7  = 1 << 6;
+GLOBAL u32 BIT_8  = 1 << 7;
+GLOBAL u32 BIT_9  = 1 << 8;
+GLOBAL u32 BIT_10 = 1 << 9;
+GLOBAL u32 BIT_11 = 1 << 10;
+GLOBAL u32 BIT_12 = 1 << 11;
+GLOBAL u32 BIT_13 = 1 << 12;
+GLOBAL u32 BIT_14 = 1 << 13;
+GLOBAL u32 BIT_15 = 1 << 14;
+GLOBAL u32 BIT_16 = 1 << 15;
+GLOBAL u32 BIT_17 = 1 << 16;
+GLOBAL u32 BIT_18 = 1 << 17;
+GLOBAL u32 BIT_19 = 1 << 18;
+GLOBAL u32 BIT_20 = 1 << 19;
+GLOBAL u32 BIT_21 = 1 << 20;
+GLOBAL u32 BIT_22 = 1 << 21;
+GLOBAL u32 BIT_23 = 1 << 22;
+GLOBAL u32 BIT_24 = 1 << 23;
+GLOBAL u32 BIT_25 = 1 << 24;
+GLOBAL u32 BIT_26 = 1 << 25;
+GLOBAL u32 BIT_27 = 1 << 26;
+GLOBAL u32 BIT_28 = 1 << 27;
+GLOBAL u32 BIT_29 = 1 << 28;
+GLOBAL u32 BIT_30 = 1 << 29;
+GLOBAL u32 BIT_31 = 1 << 30;
+GLOBAL u32 BIT_32 = 1 << 31;
+
 enum AXIS
 {
   // getting info out of vectors
@@ -113,23 +156,6 @@ enum SIDE
   // left-right, top-bottom
   SIDE_MIN,
   SIDE_MAX,
-};
-enum OS
-{
-  OS_NULL,
-  OS_WINDOWS,
-  OS_LINUX,
-  OS_MAC,
-  OS_COUNT
-};
-enum ARCH
-{
-  ARCH_NULL,
-  ARCH_X64,
-  ARCH_X32,
-  ARCH_ARM,
-  ARCH_ARM64,
-  ARCH_COUNT,
 };
 // dealing with file information
 enum MONTH
@@ -157,7 +183,6 @@ enum DAY_OF_WEEK
   DAY_OF_WEEK_FRI,
   DAY_OF_WEEK_SAT,
 };
-
 
 
 #pragma mark - M_BREAKPOINTS_AND_ASSERTS
@@ -188,33 +213,18 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
-// IMPORTANT(Ryan): If just using {}, will be a compound statement when closing with semicolon
-#define STATEMENT(s) do { s } while (0)
-
 #if defined(MAIN_DEBUG)
-  #define ASSERT(c) STATEMENT(if (!(c)) { FATAL_ERROR("ASSERTION"); })
+  #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR("ASSERTION"); }) } while (0)
 #else
   #define ASSERT(c)
 #endif
 
-// STATIC_ASSERT(sizeof(arr) < VALUE, array_check);
 #define STATIC_ASSERT(cond, line) typedef u8 PASTE(line, __LINE__) [(cond)?1:-1]
 
 #define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
 #define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
 #define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
 
-#define IGNORED(name) (void)sizeof(name)
-#define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
-#define DEG_TO_RAD(v) ((PI_F32 / 180.0f) * (v))
-#define RAD_TO_DEG(v) ((180.0f / PI_F32) * (v))
-#define PAD(n) char PASTE(pad, __LINE__)[n]
-
-#if defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__
-  #define STBSP__ASAN __attribute__((__no_sanitize_address__))
-#endif
-
-// TODO(Ryan): HSV, RGB colour routines
 
 #pragma mark - M_UTILITIES
 
@@ -224,6 +234,18 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #define PASTE_(a, b) a##b
 #define PASTE(a, b) PASTE_(a, b)
+
+#define PAD(n) char PASTE(pad, __LINE__)[n]
+
+#define SCOPED_CDTOR(ctor, dtor) for(int _i_ = (ctor, 0); _i_ == 0; _i_ += 1, dtor)
+#define SCOPED_CDTOR_CHECKED(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
+
+#define IGNORED(name) (void)sizeof(name)
+
+#define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
+
+#define DEG_TO_RAD(v) ((PI_F32 / 180.0f) * (v))
+#define RAD_TO_DEG(v) ((180.0f / PI_F32) * (v))
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
 
@@ -235,116 +257,11 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
 #define CAST_FROM_MEMBER(S,m,p) (S*)(((U8*)p) - OFFSET_OF_MEMBER(S,m))
 
-#define HasFlag(fl,fi) ((fl)&(fi))
-#define SetFlag(fl,fi) ((fl)|=(fi))
-#define RemFlag(fl,fi) ((fl)&=~(fi))
-#define ToggleFlag(fl,fi) ((fl)^=(fi))
-
-// IMPORTANT(Ryan): Seems use global variables for constants, macros for functions?
-read_only global U64 Bitmask[] =
-{
-    0x0,
-    0x1,
-    0x3,
-    0x7,
-    0xF,
-    0x1F,
-    0x3F,
-    0x7F,
-    0xFF,
-    0x1FF,
-    0x3FF,
-    0x7FF,
-    0xFFF,
-    0x1FFF,
-    0x3FFF,
-    0x7FFF,
-    0xFFFF,
-    0x1FFFF,
-    0x3FFFF,
-    0x7FFFF,
-    0xFFFFF,
-    0x1FFFFF,
-    0x3FFFFF,
-    0x7FFFFF,
-    0xFFFFFF,
-    0x1FFFFFF,
-    0x3FFFFFF,
-    0x7FFFFFF,
-    0xFFFFFFF,
-    0x1FFFFFFF,
-    0x3FFFFFFF,
-    0x7FFFFFFF,
-    0xFFFFFFFF,
-    0x1FFFFFFFF,
-    0x3FFFFFFFF,
-    0x7FFFFFFFF,
-    0xFFFFFFFFF,
-    0x1FFFFFFFFF,
-    0x3FFFFFFFFF,
-    0x7FFFFFFFFF,
-    0xFFFFFFFFFF,
-    0x1FFFFFFFFFF,
-    0x3FFFFFFFFFF,
-    0x7FFFFFFFFFF,
-    0xFFFFFFFFFFF,
-    0x1FFFFFFFFFFF,
-    0x3FFFFFFFFFFF,
-    0x7FFFFFFFFFFF,
-    0xFFFFFFFFFFFF,
-    0x1FFFFFFFFFFFF,
-    0x3FFFFFFFFFFFF,
-    0x7FFFFFFFFFFFF,
-    0xFFFFFFFFFFFFF,
-    0x1FFFFFFFFFFFFF,
-    0x3FFFFFFFFFFFFF,
-    0x7FFFFFFFFFFFFF,
-    0xFFFFFFFFFFFFFF,
-    0x1FFFFFFFFFFFFFF,
-    0x3FFFFFFFFFFFFFF,
-    0x7FFFFFFFFFFFFFF,
-    0xFFFFFFFFFFFFFFF,
-    0x1FFFFFFFFFFFFFFF,
-    0x3FFFFFFFFFFFFFFF,
-    0x7FFFFFFFFFFFFFFF,
-    0xFFFFFFFFFFFFFFFF,
-};
-
-read_only global U32 Bit1  = 1 << 0;
-read_only global U32 Bit2  = 1 << 1;
-read_only global U32 Bit3  = 1 << 2;
-read_only global U32 Bit4  = 1 << 3;
-read_only global U32 Bit5  = 1 << 4;
-read_only global U32 Bit6  = 1 << 5;
-read_only global U32 Bit7  = 1 << 6;
-read_only global U32 Bit8  = 1 << 7;
-read_only global U32 Bit9  = 1 << 8;
-read_only global U32 Bit10 = 1 << 9;
-read_only global U32 Bit11 = 1 << 10;
-read_only global U32 Bit12 = 1 << 11;
-read_only global U32 Bit13 = 1 << 12;
-read_only global U32 Bit14 = 1 << 13;
-read_only global U32 Bit15 = 1 << 14;
-read_only global U32 Bit16 = 1 << 15;
-read_only global U32 Bit17 = 1 << 16;
-read_only global U32 Bit18 = 1 << 17;
-read_only global U32 Bit19 = 1 << 18;
-read_only global U32 Bit20 = 1 << 19;
-read_only global U32 Bit21 = 1 << 20;
-read_only global U32 Bit22 = 1 << 21;
-read_only global U32 Bit23 = 1 << 22;
-read_only global U32 Bit24 = 1 << 23;
-read_only global U32 Bit25 = 1 << 24;
-read_only global U32 Bit26 = 1 << 25;
-read_only global U32 Bit27 = 1 << 26;
-read_only global U32 Bit28 = 1 << 27;
-read_only global U32 Bit29 = 1 << 28;
-read_only global U32 Bit30 = 1 << 29;
-read_only global U32 Bit31 = 1 << 30;
-read_only global U32 Bit32 = 1 << 31;
-
-
-
+#define SET_FLAG(field, flag) ((field) |= (flag))
+#define REMOVE_FLAG(field, flag) ((field) &= ~(flag))
+#define TOGGLE_FLAG(field, flag) ((field) ^= (flag))
+#define HAS_FLAGS_ANY(field, flags) (!!((field) & (flags)))
+#define HAS_FLAGS_ALL(field, flags) (((field) & (flags)) == (flags))
 
 #define MIN(x, y)
 #define MAX(x, y)
@@ -355,18 +272,6 @@ read_only global U32 Bit32 = 1 << 31;
 #define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
 #define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
 
-// Allows to search for all of them easily
-#define GLOBAL static
-#define LOCAL static
-#define INTERNAL static
-
-
-// use i+=1 in for loop syntax?
-// use separate line for each for loop
-
-// IMPORTANT(Ryan): all array macros assume static array
-//
-#include <string.h>
 
 // malloc designed for arbitrary sizes and lifetimes
 // this can lead to rats nests of lifetimes and computational issues freeing small nodes
@@ -423,6 +328,13 @@ read_only global U32 Bit32 = 1 << 31;
 // TODO(Ryan): malloc() is 16-byte aligned for possible SIMD (use of xmm registers)
 // understand this alignment?
 
+// use i+=1 in for loop syntax?
+// use separate line for each for loop
+
+#pragma mark - M_MEMORY
+
+#include <string.h>
+
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
@@ -443,8 +355,6 @@ read_only global U32 Bit32 = 1 << 31;
 #define BILLION(x)  ((x)*1000000000LL)
 #define TRILLION(x) ((x)*1000000000000LL)
 
-
-
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
 // i.e. no need for long living regression testing as whenever there is a bug
@@ -459,6 +369,8 @@ typedef void VoidFunc(void);
 
 // type conversion using unions is undefined behaviour (however seems to work on all major arches; however custom compilers on embedded)
 
+
+#if 0
 // NOTE(Ryan): Taken from https://docs.oracle.com/cd/E19205-01/819-5265/bjbeh/index.html
 INTERNAL f32
 inf_f32(void)
@@ -754,10 +666,6 @@ interval_axis(I2F32 r, AXIS axis)
 
 
 
-
-
-// IMPORTANT(Ryan): Only have globals for constants...
-
 // IMPORTANT(Ryan): This maps macros to enum constants
 INTERNAL OS
 os_from_context(void)
@@ -924,41 +832,6 @@ mem_arena_zero(MemArena *arena, u64 size)
 #define MEM_PUSH_ARRAY(a, t, c) (t *)mem_arena_push((a), sizeof(t) * (c))
 #define MEM_PUSH_ARRAY_ZERO(a, t, c) (t *)mem_arena_push_zero((a), sizeof(t) * (c))
 
-INTERNAL MemTemp
-mem_begin_temp(MemArena *arena)
-{
-  MemTemp temp = {arena, arena->pos};
-  return temp;
-}
-
-INTERNAL void
-mem_end_temp(MemTemp temp)
-{
-  mem_arena_pop_to(temp.arena, temp.pos);
-}
-
-MemTempBlock::MemTempBlock(MemArena *arena)
-{
-  this->temp = mem_begin_temp(arena);
-}
-
-MemTempBlock::~MemTempBlock(void)
-{
-  mem_end_temp(this->temp);
-}
-
-MemTempBlock::reset(void)
-{
-  mem_end_temp(this->temp);
-}
-
-// BaseMemory *base = malloc_base_memory();
-// MemArena arena = mem_make_arena(base);
-// MemTemp temp = mem_begin_temp(&arena);
-// Node *nodes = MEM_PUSH_ARRAY(&arena, Node, 64);
-// ...
-// mem_end_temp(&temp);
-
 // IMPORTANT(Ryan): Using memory arenas changes the mentality of memory usage
 // i.e. can only free things in reverse order
 // just learn to program this way, more benefits than negatives
@@ -1051,3 +924,5 @@ str8_list_push(MemArena *arena, String8List *list, String8 string)
 // utf-16 windows
 // utf-8 linux
 // utf-32 easiest as everything is 32bits
+
+#endif
