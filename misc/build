@@ -38,6 +38,17 @@ linker_flags=()
 # 2. library
 # 3. main
 
+# If wanting to build assets, would say have the relevent 'project' files, e.g. .blend files
+# Then create output files, e.g. .obj files by running say blender $blendFile --background --python ExportBlenderAssets.py
+# Then appropriate directory copy: rsync -a --stats *.obj ../Collision
+# Probably also introduce a clean.sh script as well
+
+# TODO(Ryan): tracy runtime profiler: 
+# https://github.com/makuto/spargus-vehicle-prototype/tree/master/Profiling
+
+# TODO(Ryan): renderdoc gpu profiler: 
+
+
 if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux" ]]; then
 
   # IMPORTANT(Ryan): Unfortunately new errors aren't added to -Wall and -Wextra for backwards compatibility
