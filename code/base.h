@@ -20,8 +20,8 @@
     #error Arch not supported
   #endif
 
-  #if __GNUC__ == 10
-    #define COMPILER_YEAR 2020
+  #if __GNUC__ < 10
+    #error GCC 10+ required for builtin static analysis
   #endif
 
   #if __SANITIZE_ADDRESS__
