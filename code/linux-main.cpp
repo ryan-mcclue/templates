@@ -54,6 +54,7 @@ struct MemArena
 };
 STATIC_ASSERT(sizeof(MemArena) <= MEM_COMMIT_BLOCK_SIZE, arena_size_check);
 
+
 INTERNAL void *
 linux_mem_reserve(u64 size)
 {
@@ -65,8 +66,8 @@ linux_mem_reserve(u64 size)
 INTERNAL b32
 linux_mem_commit(void *ptr, u64 size)
 {
-  u64 page_snapped_size = round_to_nearest(size, linux_get_page_size());
-  b32 result = (mprotect(ptr, size, PROT_READ | PROT_WRITE) == 0);
+  u64 page_rounded_size = round_to_nearest(size, linux_get_page_size());
+  b32 result = (mprotect(ptr, page_rounded_size, PROT_READ | PROT_WRITE) == 0);
   return result;
 }
 
@@ -98,6 +99,82 @@ mem_arena_allocate(u64 cap)
 
   return result;
 }
+
+INTERNAL void *
+mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
+{
+  void *result = NULL;
+
+  u64 clamped_align = CLAMP_BOTTOM(align, arena->align);
+
+  u64 pos_address = INT_FROM_PTR(arena) + arena->pos;
+  u64 aligned_pos = ALIGN_POW2_UP(pos_address, clamped_align);
+  u64 aligned_size = aligned_pos - pos_address;
+
+  U64 alignment_size = aligned_address - pos_address;
+  if (pos + alignment_size + size <= arena->max)
+  {
+    U8 *mem_base = (U8*)arena;
+    memory = mem_base + pos + alignment_size;
+    U64 new_pos = pos + alignment_size + size;
+    arena->pos = new_pos;
+
+    if (new_pos > arena->commit_pos)
+    {
+      U64 commit_grow = new_pos - arena->commit_pos;
+      commit_grow += M_COMMIT_SIZE - 1;
+      commit_grow -= commit_grow%M_COMMIT_SIZE;
+      M_IMPL_Commit(mem_base + arena->commit_pos, commit_grow);
+      arena->commit_pos += commit_grow;
+    }
+  }
+
+  return result;
+}
+
+static void
+MD_ArenaDefaultPopTo(MD_ArenaDefault *arena, MD_u64 pos)
+{
+    // pop chunks in the chain
+    MD_u64 pos_clamped = MD_ClampBot(MD_IMPL_ArenaMinPos, pos);
+    {
+        MD_ArenaDefault *node = arena->current;
+        for (MD_ArenaDefault *prev = 0;
+             node != 0 && node->base_pos >= pos;
+             node = prev)
+        {
+            prev = node->prev;
+            MD_IMPL_Release(node, node->cap);
+        }
+        arena->current = node;
+    }
+    
+    // reset the pos of the current
+    {
+        MD_ArenaDefault *current = arena->current;
+        MD_u64 local_pos_unclamped = pos - current->base_pos;
+        MD_u64 local_pos = MD_ClampBot(local_pos_unclamped, MD_IMPL_ArenaMinPos);
+        current->pos = local_pos;
+    }
+}
+
+INTERNAL void *
+mem_arena_push(MemArena *arena, u64 size)
+{
+  return mem_arena_push_aligned(arena, size, arena->align);
+}
+
+INTERNAL void *
+mem_arena_push_zero(MemArena *arena, u64 size)
+{
+ // void *memory = M_ArenaPush(arena, size);
+ // MemoryZero(memory, size);
+ // return memory;
+}
+  
+
+#define PushArray(a,T,c)     (T*)M_ArenaPush((a), sizeof(T)*(c))
+#define PushArrayZero(a,T,c) (T*)M_ArenaPushZero((a), sizeof(T)*(c))
 
 struct ThreadContext
 {
@@ -154,6 +231,7 @@ __thread_context_register_file_and_line(char *file, int line)
 // Will alternate between the two scratches for arbitrarily deep call stacks
 
 
+GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 int
 main(int argc, char *argv[])
@@ -162,6 +240,10 @@ main(int argc, char *argv[])
 
   ThreadContext tcx = thread_context_create();
   thread_context_set(&tcx);
+
+  linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
+
+  MemArena *arena = mem_arena_allocate(GB(16)); 
 
   String8 s = S8_LIT("hello world");
 

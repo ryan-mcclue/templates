@@ -290,8 +290,8 @@ INTERNAL void __bp(void) {}
 #define HAS_FLAGS_ANY(field, flags) (!!((field) & (flags)))
 #define HAS_FLAGS_ALL(field, flags) (((field) & (flags)) == (flags))
 
-#define MIN(x, y)
-#define MAX(x, y)
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define CLAMP(min,x,max) (((x)<(min))?(min):((max)<(x))?(max):(x))
 #define CLAMP_TOP(a,b) MIN(a,b)
 #define CLAMP_BOTTOM(a,b) MAX(a,b)
