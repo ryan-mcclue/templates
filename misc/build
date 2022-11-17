@@ -59,7 +59,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # NOTE(Ryan): Enable various warnings largely related to implicit signed, alignment, casting, promotion issues
   compiler_flags+=( "-Wall" "-Wextra" "-Wshadow" "-Wconversion" "-Wdouble-promotion" "-Wformat=2" "-pedantic" )
-  compiler_flags+=( "-Wundef" "-Wshadow" "-Wcast-align" "-Wcast-qual" "-Wpadded" "-fno-common" "-march=native" )
+  compiler_flags+=( "-Wundef" "-Wshadow" "-Wcast-align" "-Wpadded" "-fno-common" "-march=native" )
   compiler_flags+=( "-Wfloat-equal" "-Wlogical-op" "-Wredundant-decls" "-Wstrict-overflow=2" "-Warray-bounds=2" )
   compiler_flags+=( "-Wwrite-strings" "-Wpointer-arith" "-Wformat-truncation" "-Wmissing-include-dirs" )
   compiler_flags+=( "-Wcast-align" "-Wswitch-enum" "-Wsign-conversion" "-Wdisabled-optimization" )

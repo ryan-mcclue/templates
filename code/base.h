@@ -11,6 +11,7 @@
     #define OS_LINUX 1
     // TODO(Ryan): Synchronisation atomics
     // #define AtomicAdd64(ptr, v) _InterlockedExchangeAdd64((ptr), (v))
+    // #define MEMORY_BARRIER()
   #else
     #error OS not supported
   #endif
@@ -28,7 +29,7 @@
     #define NO_ASAN __attribute__((__no_sanitize_address__))
   #endif
 
-  #define PER_THREAD __thread
+  #define THREAD_LOCAL __thread
 
   #define IGNORE_WARNING_USELESS_CAST_PUSH() \
     _Pragma("GCC diagnostic push") \
@@ -36,6 +37,9 @@
   
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")
+
+  // TODO(Ryan): Perhaps also do #define MACRO_BEGIN ({
+  // for compiler specific expression statements
 #else
   #error Compiler not supported
 #endif
@@ -58,14 +62,18 @@
 #pragma mark - M_TYPES_AND_CONSTANTS
 
 #include <stdint.h>
+typedef int8_t i8;
+typedef int16_t  i16;
+typedef int32_t  i32;
+typedef int64_t  i64;
+typedef i8 b8;
+typedef i16 b16;
+typedef i32 b32;
+typedef i64 b64;
 typedef uint8_t u8;
 typedef uint16_t  u16;
 typedef uint32_t  u32;
 typedef uint64_t  u64;
-typedef int8_t s8;
-typedef int16_t  s16;
-typedef int32_t  s32;
-typedef int64_t  s64;
 typedef float f32;
 typedef double f64;
 
@@ -78,15 +86,15 @@ IGNORE_WARNING_USELESS_CAST_PUSH()
 
 // TODO(Ryan): Seems use global variables for constants, macros for functions?
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
-GLOBAL s8 MIN_S8 = (s8)0x80; 
-GLOBAL s16 MIN_S16 = (s16)0x8000; 
-GLOBAL s32 MIN_S32 = (s32)0x80000000; 
-GLOBAL s64 MIN_S64 = (s64)0x8000000000000000ll; 
+GLOBAL i8 MIN_S8 = (i8)0x80; 
+GLOBAL i16 MIN_S16 = (i16)0x8000; 
+GLOBAL i32 MIN_S32 = (i32)0x80000000; 
+GLOBAL i64 MIN_S64 = (i64)0x8000000000000000ll; 
 
-GLOBAL s8 MAX_S8 = (s8)0x7f; 
-GLOBAL s16 MAX_S16 = (s16)0x7fff; 
-GLOBAL s32 MAX_S32 = (s32)0x7fffffff; 
-GLOBAL s64 MAX_S64 = (s64)0x7fffffffffffffffll; 
+GLOBAL i8 MAX_S8 = (i8)0x7f; 
+GLOBAL i16 MAX_S16 = (i16)0x7fff; 
+GLOBAL i32 MAX_S32 = (i32)0x7fffffff; 
+GLOBAL i64 MAX_S64 = (i64)0x7fffffffffffffffll; 
 
 GLOBAL u8 MAX_U8 = (u8)0xff; 
 GLOBAL u16 MAX_U16 = (u16)0xffff; 
@@ -204,33 +212,37 @@ enum DAY_OF_WEEK
 #include <string.h>
 #include <errno.h>
 INTERNAL void __fatal_error(const char *file_name, const char *func_name, int line_num, 
-                            const char *optional_message)
+                            const char *message)
 { 
   fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
-          func_name, line_num, optional_message);
+          func_name, line_num, message);
   #if !defined(MAIN_DEBUG)
     exit(1); // perhaps call something like ExitProcess for multithreaded?
   #endif
 }
 
 INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
-                                  const char *optional_message)
+                                  const char *message)
 { 
   const char *errno_msg = strerror(errno);
   fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
-          func_name, line_num, errno_msg, optional_message);
+          func_name, line_num, errno_msg, message);
   #if !defined(MAIN_DEBUG)
     exit(1); // perhaps call something like ExitProcess for multithreaded?
   #endif
 }
+
+INTERNAL void __bp(void) {}
 
 #define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
   #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR("ASSERTION"); }) } while (0)
+  #define BP() __bp()
 #else
   #define ASSERT(c)
+  #define BP()
 #endif
 
 #define STATIC_ASSERT(cond, line) typedef u8 PASTE(line, __LINE__) [(cond)?1:-1]
@@ -282,11 +294,14 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 #define MAX(x, y)
 #define CLAMP(min,x,max) (((x)<(min))?(min):((max)<(x))?(max):(x))
 #define CLAMP_TOP(a,b) MIN(a,b)
-#define CLAMP_BOT(a,b) MAX(a,b)
+#define CLAMP_BOTTOM(a,b) MAX(a,b)
 
-#define ALIGN_UP_POW2(x, p) ((x) + (p) - 1) & ~((p) - 1)
-#define ALIGN_DOWN_POW2(x, p) ((x) & ~((p) - 1)) 
-
+#define IS_POW2_ALIGNED(x, p) (((x) & ((p) - 1)) == 0)
+#define IS_POW2(x) IS_POW2_ALIGNED(x, x) 
+// -x == ~(x - 1)?
+#define ALIGN_POW2_DOWN(x, p)       ((x) & -(p))
+#define ALIGN_POW2_UP(x, p)       (-(-(x) & -(p)))
+#define ALIGN_POW2_INCREASE(x, p)         (-(~(x) & -(p)))
 
 // malloc designed for arbitrary sizes and lifetimes
 // this can lead to rats nests of lifetimes and computational issues freeing small nodes
@@ -348,6 +363,8 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
 
 #pragma mark - M_MEMORY
 
+// TODO(Ryan): Seems that xxhash is best?
+
 #include <string.h>
 
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
@@ -384,6 +401,17 @@ typedef void VoidFunc(void);
 
 // type conversion using unions is undefined behaviour (however seems to work on all major arches; however custom compilers on embedded)
 
+
+INTERNAL u64
+round_to_nearest(u64 val, u64 near)
+{
+  u64 result = val;
+
+  result += near - 1;
+  result -= result % near;
+  
+  return result;
+}
 
 #if 0
 // NOTE(Ryan): Taken from https://docs.oracle.com/cd/E19205-01/819-5265/bjbeh/index.html
@@ -747,16 +775,6 @@ string_from_day_of_week(DAY_OF_WEEK day_of_week)
 //
 // benefits of non-continuity are we can push multiple data types, i.e. multiple linked list types
 
-INTERNAL u64
-round_to_nearest(u64 val, u64 near)
-{
-  u64 result = val;
-
-  result += near - 1;
-  result -= result % near;
-  
-  return result;
-}
 
 // IMPORTANT(Ryan): Function pointers define a sort of plugin system
 
