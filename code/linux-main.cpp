@@ -269,77 +269,63 @@ mem_arena_scratch_release(MemArenaTemp *temp)
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
+#define DLL_PUSH_FRONT(first, last, node) \
+  ((first) == NULL) ? \
+  (\
+    ((first) = (last) = (node)), \
+    ((node)->next = (node)->prev = NULL) \
+  )\
+  : \
+  (\
+    ((node)->prev = NULL), \
+    ((node)->next = (first)), \
+    ((first)->prev = (node)), \
+    ((first) = (node)) \
+  )
 
-INTERNAL void
-dll_push_front(void *first, void *last, void *node)
-{
-  if (first == NULL) 
-  {
-    first = last = node;
-    node->next = node->prev = NULL;
-  } 
-  else 
-  {
-    node->prev = NULL;
-    node->next = first;
-    first->prev = node;
-    first = node;
-  }
-}
+#define DLL_PUSH_BACK(first, last, node) \
+  ((first) == NULL) ? \
+  (\
+    ((first) = (last) = (node)), \
+    ((node)->next = (node)->prev = NULL) \
+  )\
+  : \
+  (\
+    ((node)->prev = (last)), \
+    ((node)->next = NULL), \
+    ((last)->next = (node)), \
+    ((last) = (node)) \
+  )
 
-INTERNAL void
-dll_push_back(void *first, void *last, void *node)
-{
-  if (first == NULL) 
-  {
-    first = last = node;
-    node->next = node->prev = NULL;
-  } 
-  else 
-  {
-    node->prev = last;
-    node->next = NULL;
-    last->next = node;
-    last = node;
-  }
-}
+#define DLL_REMOVE(first, last, node) \
+  ((node) == (first)) ? \
+  (\
+    ((first) == (last)) ? \
+    (\
+      ((first) = (last) = NULL) \
+    )\
+    : \
+    (\
+      ((first) = (first)->next), \
+      ((first)->prev = NULL) \
+    )\
+  )\
+  : \
+  (\
+    ((node) == (last)) ? \
+    (\
+      ((last) = (last)->prev), \
+      ((last)->next = NULL) \
+    )\
+    : \
+    (\
+      ((node)->next->prev = (node)->prev), \
+      ((node)->prev->next = (node)->next) \
+    )\
+  )
+     
 
-INTERNAL void
-dll_remove(void *first, void *last, void *node)
-{
-  if (node == first) 
-  {
-    if (first == last) 
-    {
-      first = last = NULL;
-    } 
-    else 
-    {
-      first = first->next;
-      first->prev = NULL;
-    }
-  } 
-  else if (node == last) 
-  {
-    last = last->prev;
-    last->next = NULL;
-  } 
-  else 
-  {
-    node->next->prev = node->prev;
-    node->prev->next = node->next;
-  }
-}
-
-// IMPORTANT(Ryan): Macro wrapper necessary for C++ version as no implicit void * casts
-#define DLL_PUSH_FRONT(first, last, node, type) \
-  dll_push_front((type *)(first), (type *)(last), (type *)(node))
-#define DLL_PUSH_BACK(first, last, node, type) \
-  dll_push_back((type *)(first), (type *)(last), (type *)(node))
-#define DLL_REMOVE(first, last, node, type) \
-  dll_remove((type *)(first), (type *)(last), (type *)(node))
-
-
+#if 0
 INTERNAL void
 sll_queue_push(void *first, void *last, void *node)
 {
@@ -372,11 +358,6 @@ sll_queue_pop(void *first, void *last)
   return result;
 }
 
-#define SLL_QUEUE_PUSH(first, last, node, type) \
-  sll_queue_push((type *)(first), (type *)(last), (type *)(node))
-#define SLL_QUEUE_POP(first, last, type) \
-  (type *)sll_queue_pop((type *)(first), (type *)(last))
-
 INTERNAL void
 sll_stack_push(void *first, void *node)
 {
@@ -397,11 +378,7 @@ sll_stack_pop(void *first)
   return result;
 }
 
-#define SLL_STACK_PUSH(first, node, type) \
-  sll_stack_push((type *)(first), (type *)(node))
-#define SLL_STACK_POP(first, type) \
-  (type *)sll_stack_pop((type *)(first))
-
+#endif
 
 
 
@@ -424,6 +401,15 @@ s8(u8 *str, u64 size)
 
 #define S8_LIT(s) s8((u8 *)s, sizeof(s) - 1)
 
+struct Node
+{
+  Node *prev;
+  Node *next;
+
+  u32 x;
+  u32 y;
+};
+
 int
 main(int argc, char *argv[])
 {
@@ -436,15 +422,21 @@ main(int argc, char *argv[])
 
   MemArena *arena = mem_arena_allocate(GB(16)); 
 
-  u32 arr_len = 10;
-  u32 *arr = MEM_ARENA_PUSH_ARRAY(arena, u32, arr_len);
+  u32 nodes_len = 10;
+  Node *nodes = MEM_ARENA_PUSH_ARRAY(arena, Node, nodes_len);
   for (u32 i = 0; i < 10; i++)
   {
-    arr[i] = i;
+    nodes[i].x = i;
   }
-  MEM_ARENA_POP_ARRAY(arena, u32, arr_len);
 
-  String8 s = S8_LIT("hello world");
+  Node *first = NULL, *last = NULL;
+  DLL_PUSH_FRONT(first, last, &nodes[0]);
+  DLL_PUSH_BACK(first, last, &nodes[1]);
+  DLL_REMOVE(first, last, &nodes[0]);
+  for (Node *iter = first; iter != NULL; iter = iter->next)
+  {
+    printf("%d \n", iter->x);
+  }
 
   return 0;
 }
