@@ -5,24 +5,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-struct String8
-{
-  u8 *str;
-  u64 size;
-};
-
-INTERNAL String8
-s8(u8 *str, u64 size)
-{
-  String8 result = {};
-
-  result.str = str;
-  result.size = size;
-
-  return result;
-}
-
-#define S8_LIT(s) s8((u8 *)s, sizeof(s) - 1)
 
 
 INTERNAL u64
@@ -287,118 +269,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
-int
-main(int argc, char *argv[])
-{
-  IGNORED(argc); IGNORED(argv);
-
-  ThreadContext tcx = thread_context_create();
-  thread_context_set(&tcx);
-
-  linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
-
-  MemArena *arena = mem_arena_allocate(GB(16)); 
-
-  u32 arr_len = 10;
-  u32 *arr = MEM_ARENA_PUSH_ARRAY(arena, u32, arr_len);
-  for (u32 i = 0; i < 10; i++)
-  {
-    arr[i] = i;
-  }
-  MEM_ARENA_POP_ARRAY(arena, u32, arr_len);
-
-  String8 s = S8_LIT("hello world");
-
-  return 0;
-}
-
-#if 0
-/*
-Table generation, i.e. enum to string table, often use X-Macros; however lose search features in editor (not necessarily a deal breaker)
-    Programmer’s Thoughts → Text in C Language (our authorship)
-
-    Text in C Language → C Tokens
-
-    C Tokens → C Abstract Syntax Tree
-
-    C Abstract Syntax Tree → C Type-Checked Tree
-
-    C Type-Checked Tree → IR Data Structure
-
-    IR Data Structure → Machine Code
-In reality, any language does not provide level of expressiveness for all problems
-Instead of overcomplicating compiler by providing more features, introduce a second stage of authorship
-So, compile a program before hand that will generate C code
-
-DEFINITION NODE:
-@table(name, str) MyEnumTable:
-{
-  { A "A" }
-  { B "B" }
-  { C "C" }
-}
-
-GENERATION NODE:
-@table_gen_enum
-MyEnum:
-{
-  @expand(MyEnumTable a)
-    `MyEnum_$(a.name),`;
-  `MyEnum_COUNT`;
-}
-
-@table_gen_data(`char *`)
-myenum_string_table:
-{
-  @expand(MyEnumTable a)
-    `"$(a.str)",`;
-}
-*/
-
-#endif
-
-
-
-
-#if 0
-/*
-Most ideas are bad, realise this uncomfortable truth
-So what’s the solution? In my mind, it has to do with directly engaging with this uncomfortable reality. 
-And, in doing so, ideas and projects will be shaped by reality, rather than divorced from it. 
-It begins with simply asking the question—“are you measuring your project against markets—against the perceptions and values of others—or aren’t you?”
-
-GENERAL PRINCIPLE: YOU GET WHAT YOU MEASURE
-
-If you never measure memory usage in your program, it’s far more likely that your program will have wasteful memory usage. 
-If you never measure a frame’s performance in your game, it’s far more likely that your game will drop frames. 
-If you never measure the size of your codebase, it’s far more likely that it grows indefinitely. 
-And if you never measure your idea against the values and needs of others, it’s far more likely that—to everyone but you—it’s a big waste of time. 
-And if it’s a big waste of time for everyone but you, then your project does not deserve—for instance—anyone else’s money.
-
-the important thing is simply that I’m actively writing, thinking, and engaging with an audience, even if it’s imperfect, sloppy, and uncomfortable.
-
-a follow on from this is how I view open source.
-not as the altruistic community participiation, but rather from tit-for-tat as a game theory for making an efficient product
-all users add features they want for themselves. the rule is they have to give them back.
-*/
-
-
-// Cryptic expression comma chaining necessary for returning a value
-
-struct TreeNode
-{
-  TreeNode *first_child;
-  TreeNode *last_child;
-  TreeNode *next_sibling;
-};
-
-struct Node
-{
-  Node *next;
-  Node *prev;
-
-  int x;
-};
 
 INTERNAL void
 dll_push_front(void *first, void *last, void *node)
@@ -531,6 +401,142 @@ sll_stack_pop(void *first)
   sll_stack_push((type *)(first), (type *)(node))
 #define SLL_STACK_POP(first, type) \
   (type *)sll_stack_pop((type *)(first))
+
+
+
+
+struct String8
+{
+  u8 *str;
+  u64 size;
+};
+
+INTERNAL String8
+s8(u8 *str, u64 size)
+{
+  String8 result = {};
+
+  result.str = str;
+  result.size = size;
+
+  return result;
+}
+
+#define S8_LIT(s) s8((u8 *)s, sizeof(s) - 1)
+
+int
+main(int argc, char *argv[])
+{
+  IGNORED(argc); IGNORED(argv);
+
+  ThreadContext tcx = thread_context_create();
+  thread_context_set(&tcx);
+
+  linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
+
+  MemArena *arena = mem_arena_allocate(GB(16)); 
+
+  u32 arr_len = 10;
+  u32 *arr = MEM_ARENA_PUSH_ARRAY(arena, u32, arr_len);
+  for (u32 i = 0; i < 10; i++)
+  {
+    arr[i] = i;
+  }
+  MEM_ARENA_POP_ARRAY(arena, u32, arr_len);
+
+  String8 s = S8_LIT("hello world");
+
+  return 0;
+}
+
+#if 0
+/*
+Table generation, i.e. enum to string table, often use X-Macros; however lose search features in editor (not necessarily a deal breaker)
+    Programmer’s Thoughts → Text in C Language (our authorship)
+
+    Text in C Language → C Tokens
+
+    C Tokens → C Abstract Syntax Tree
+
+    C Abstract Syntax Tree → C Type-Checked Tree
+
+    C Type-Checked Tree → IR Data Structure
+
+    IR Data Structure → Machine Code
+In reality, any language does not provide level of expressiveness for all problems
+Instead of overcomplicating compiler by providing more features, introduce a second stage of authorship
+So, compile a program before hand that will generate C code
+
+DEFINITION NODE:
+@table(name, str) MyEnumTable:
+{
+  { A "A" }
+  { B "B" }
+  { C "C" }
+}
+
+GENERATION NODE:
+@table_gen_enum
+MyEnum:
+{
+  @expand(MyEnumTable a)
+    `MyEnum_$(a.name),`;
+  `MyEnum_COUNT`;
+}
+
+@table_gen_data(`char *`)
+myenum_string_table:
+{
+  @expand(MyEnumTable a)
+    `"$(a.str)",`;
+}
+*/
+
+#endif
+
+
+
+
+#if 0
+/*
+Most ideas are bad, realise this uncomfortable truth
+So what’s the solution? In my mind, it has to do with directly engaging with this uncomfortable reality. 
+And, in doing so, ideas and projects will be shaped by reality, rather than divorced from it. 
+It begins with simply asking the question—“are you measuring your project against markets—against the perceptions and values of others—or aren’t you?”
+
+GENERAL PRINCIPLE: YOU GET WHAT YOU MEASURE
+
+If you never measure memory usage in your program, it’s far more likely that your program will have wasteful memory usage. 
+If you never measure a frame’s performance in your game, it’s far more likely that your game will drop frames. 
+If you never measure the size of your codebase, it’s far more likely that it grows indefinitely. 
+And if you never measure your idea against the values and needs of others, it’s far more likely that—to everyone but you—it’s a big waste of time. 
+And if it’s a big waste of time for everyone but you, then your project does not deserve—for instance—anyone else’s money.
+
+the important thing is simply that I’m actively writing, thinking, and engaging with an audience, even if it’s imperfect, sloppy, and uncomfortable.
+
+a follow on from this is how I view open source.
+not as the altruistic community participiation, but rather from tit-for-tat as a game theory for making an efficient product
+all users add features they want for themselves. the rule is they have to give them back.
+*/
+
+
+// Cryptic expression comma chaining necessary for returning a value
+
+struct TreeNode
+{
+  TreeNode *first_child;
+  TreeNode *last_child;
+  TreeNode *next_sibling;
+};
+
+struct Node
+{
+  Node *next;
+  Node *prev;
+
+  int x;
+};
+
 
 
 
