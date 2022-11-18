@@ -37,10 +37,12 @@ linux_get_page_size(void)
 }
 
 #define MEM_DEFAULT_RESERVE_SIZE GB(1)
-#define MEM_COMMIT_BLOCK_SIZE MB(64)
+#define MEM_COMMIT_BLOCK_SIZE KB(4)
+#define MEM_DECOMMIT_THRESHOLD KB(64)
 
 struct MemArena
 {
+  // I believe these are for growable arenas? 
   MemArena *first; // tree node first child?
   MemArena *last; // tree node last child?
   MemArena *next; // linked list?
@@ -107,24 +109,24 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
 
   u64 clamped_align = CLAMP_BOTTOM(align, arena->align);
 
-  u64 pos_address = INT_FROM_PTR(arena) + arena->pos;
-  u64 aligned_pos = ALIGN_POW2_UP(pos_address, clamped_align);
-  u64 aligned_size = aligned_pos - pos_address;
+  u64 pos = arena->pos;
 
-  U64 alignment_size = aligned_address - pos_address;
+  u64 pos_address = INT_FROM_PTR(arena) + pos;
+  u64 aligned_pos = ALIGN_POW2_UP(pos_address, clamped_align);
+  u64 alignment_size = aligned_pos - pos_address;
+
   if (pos + alignment_size + size <= arena->max)
   {
-    U8 *mem_base = (U8*)arena;
-    memory = mem_base + pos + alignment_size;
-    U64 new_pos = pos + alignment_size + size;
+    u8 *mem_base = (u8 *)arena;
+    result = mem_base + pos + alignment_size;
+    u64 new_pos = pos + alignment_size + size;
     arena->pos = new_pos;
 
     if (new_pos > arena->commit_pos)
     {
-      U64 commit_grow = new_pos - arena->commit_pos;
-      commit_grow += M_COMMIT_SIZE - 1;
-      commit_grow -= commit_grow%M_COMMIT_SIZE;
-      M_IMPL_Commit(mem_base + arena->commit_pos, commit_grow);
+      u64 commit_grow = new_pos - arena->commit_pos;
+      u64 commit_size = round_to_nearest(commit_grow, MEM_COMMIT_BLOCK_SIZE);
+      linux_mem_commit(mem_base + arena->commit_pos, commit_grow);
       arena->commit_pos += commit_grow;
     }
   }
@@ -132,30 +134,36 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
   return result;
 }
 
-static void
-MD_ArenaDefaultPopTo(MD_ArenaDefault *arena, MD_u64 pos)
+INTERNAL void
+mem_arena_set_pos_back(MemArena *arena, u64 pos)
 {
-    // pop chunks in the chain
-    MD_u64 pos_clamped = MD_ClampBot(MD_IMPL_ArenaMinPos, pos);
+  u64 clamped_pos = CLAMP_BOTTOM(sizeof(*arena), pos);
+
+  if (arena->pos > clamped_pos)
+  {
+    arena->pos = clamped_pos;
+
+    u64 decommit_pos = round_to_nearest(clamped_pos, MEM_COMMIT_BLOCK_SIZE);
+    u64 over_committed = arena->commit_pos - decommit_pos;
+    over_committed -= over_committed % MEM_COMMIT_BLOCK_SIZE;
+    if (decommit_pos > 0 && over_committed >= MEM_DECOMMIT_THRESHOLD)
     {
-        MD_ArenaDefault *node = arena->current;
-        for (MD_ArenaDefault *prev = 0;
-             node != 0 && node->base_pos >= pos;
-             node = prev)
-        {
-            prev = node->prev;
-            MD_IMPL_Release(node, node->cap);
-        }
-        arena->current = node;
+      linux_mem_decommit((u8 *)arena + decommit_pos, over_committed);
+      arena->commit_pos -= over_committed;
     }
-    
-    // reset the pos of the current
-    {
-        MD_ArenaDefault *current = arena->current;
-        MD_u64 local_pos_unclamped = pos - current->base_pos;
-        MD_u64 local_pos = MD_ClampBot(local_pos_unclamped, MD_IMPL_ArenaMinPos);
-        current->pos = local_pos;
-    }
+  }
+}
+
+INTERNAL void
+mem_arena_pop(MemArena *arena, u64 size)
+{
+  mem_arena_set_pos_back(arena, arena->pos - size);
+}
+
+INTERNAL void
+mem_arena_clear(MemArena *arena)
+{
+  mem_arena_set_pos_back(arena, arena->pos);
 }
 
 INTERNAL void *
@@ -167,14 +175,28 @@ mem_arena_push(MemArena *arena, u64 size)
 INTERNAL void *
 mem_arena_push_zero(MemArena *arena, u64 size)
 {
- // void *memory = M_ArenaPush(arena, size);
- // MemoryZero(memory, size);
- // return memory;
-}
-  
+  void *memory = mem_arena_push(arena, size);
 
-#define PushArray(a,T,c)     (T*)M_ArenaPush((a), sizeof(T)*(c))
-#define PushArrayZero(a,T,c) (T*)M_ArenaPushZero((a), sizeof(T)*(c))
+  MEMORY_ZERO(memory, size);
+
+  return memory;
+}
+
+INTERNAL void
+mem_arena_release(MemArena *arena)
+{
+  MemArena *next = NULL;
+  for (MemArena *child = arena->first; child != NULL; child = next)
+  {
+    next = child->next;
+    mem_arena_release(child);
+  }
+  mem_arena_release(arena);
+}
+
+#define MEM_ARENA_PUSH_ARRAY(a,T,c)     (T*)mem_arena_push((a), sizeof(T)*(c))
+#define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c))
+#define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
 
 struct ThreadContext
 {
@@ -222,14 +244,46 @@ __thread_context_register_file_and_line(char *file, int line)
   tctx->line_number = (u64)line;
 }
 
-// from caller's perspective might have scratch but calle view as permanent
-// give requestor ability to specify other arena's its using for permanent allocation
-// so calle can say it wants another scratch that it doesn't want to conflict with the another arena it's treating as permanent (which is scratch from the caller's perspective)
+struct MemArenaTemp
+{
+  MemArena *arena;
+  u64 pos;
+};
 
-// As long as only a single persistent arena is present at any point in any codepath, 
-// you will not need more than two scratch arenas.
-// Will alternate between the two scratches for arbitrarily deep call stacks
+INTERNAL MemArenaTemp
+mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
+{
+  MemArenaTemp scratch = {};
+  ThreadContext *tctx = thread_context_get();
 
+  for (u64 tctx_idx = 0; tctx_idx < ARRAY_COUNT(tctx->arenas); tctx_idx += 1)
+  {
+    b32 is_conflicting = 0;
+    for (MemArena **conflict = conflicts; conflict < conflicts+conflict_count; conflict += 1)
+    {
+      if (*conflict == tctx->arenas[tctx_idx])
+      {
+        is_conflicting = 1;
+        break;
+      }
+    }
+
+    if (is_conflicting == 0)
+    {
+      scratch.arena = tctx->arenas[tctx_idx];
+      scratch.pos = scratch.arena->pos;
+      break;
+    }
+  }
+
+  return scratch;
+}
+
+INTERNAL void
+mem_arena_scratch_release(MemArenaTemp *temp)
+{
+  mem_arena_set_pos_back(temp->arena, temp->arena->pos);
+}
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -244,6 +298,14 @@ main(int argc, char *argv[])
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
 
   MemArena *arena = mem_arena_allocate(GB(16)); 
+
+  u32 arr_len = 10;
+  u32 *arr = MEM_ARENA_PUSH_ARRAY(arena, u32, arr_len);
+  for (u32 i = 0; i < 10; i++)
+  {
+    arr[i] = i;
+  }
+  MEM_ARENA_POP_ARRAY(arena, u32, arr_len);
 
   String8 s = S8_LIT("hello world");
 

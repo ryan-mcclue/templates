@@ -20,7 +20,7 @@ param_arch=$arch
 param_verbose=$verbose
 set +u
 
-mkdir -p build
+mkdir -p build run
 
 compiler_flags=()
 linker_flags=()
@@ -122,6 +122,12 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   fi
 
   g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+
+  pushd run >/dev/null
+
+  ../build/linux-main
+
+  popd >/dev/null
 
 else
   printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
