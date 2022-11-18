@@ -22,6 +22,7 @@ linux_get_page_size(void)
 #define MEM_COMMIT_BLOCK_SIZE KB(4)
 #define MEM_DECOMMIT_THRESHOLD KB(64)
 
+typedef struct MemArena MemArena;
 struct MemArena
 {
   // I believe these are for growable arenas? 
@@ -372,6 +373,7 @@ GLOBAL MemArena *linux_mem_arena_perm = NULL;
     )\
 )
 
+typedef struct String8 String8;
 struct String8
 {
   u8 *str;
@@ -381,7 +383,7 @@ struct String8
 INTERNAL String8
 s8(u8 *str, u64 size)
 {
-  String8 result = {};
+  String8 result = ZERO_STRUCT;
 
   result.str = str;
   result.size = size;
@@ -390,6 +392,66 @@ s8(u8 *str, u64 size)
 }
 
 #define S8_LIT(s) s8((u8 *)s, sizeof(s) - 1)
+#define S8_CSTRING(s) s8((u8 *)s, strlen(s))
+
+INTERNAL String8
+s8_copy(MemArena *arena, String8 string)
+{
+  String8 result = ZERO_STRUCT;
+
+  result.size = string.size;
+  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, string.size + 1);
+  MEMORY_COPY(result.str, string.str, string.size);
+  result.str[string.size] = '\0';
+
+  return result;
+}
+
+INTERNAL String8
+s8_fmt(MemArena *arena, char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    String8 result = {};
+    MD_u64 needed_bytes = MD_IMPL_Vsnprintf(0, 0, fmt, args)+1;
+    result.str = MD_PushArray(arena, MD_u8, needed_bytes);
+    result.size = needed_bytes - 1;
+    result.str[needed_bytes-1] = 0;
+    MD_IMPL_Vsnprintf((char*)result.str, (int)needed_bytes, fmt, args2);
+
+    va_end(args);
+    return result;
+}
+
+INTERNAL String8 
+load_entire_file(MemArena *arena, String8 file_name)
+{
+  String8 result = {};
+
+    MD_ArenaTemp scratch = MD_GetScratch(&arena, 1);
+    MD_String8 file_contents = MD_ZERO_STRUCT;
+    MD_String8 filename_copy = MD_S8Copy(scratch.arena, filename);
+    FILE *file = fopen((char*)filename_copy.str, "rb");
+    if(file != 0)
+    {
+        fseek(file, 0, SEEK_END);
+        MD_u64 file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        file_contents.str = MD_PushArray(arena, MD_u8, file_size+1);
+        if(file_contents.str)
+        {
+            file_contents.size = file_size;
+            fread(file_contents.str, 1, file_size, file);
+            file_contents.str[file_contents.size] = 0;
+        }
+        fclose(file);
+    }
+    MD_ReleaseScratch(scratch);
+    return file_contents;
+
+  return result;
+}
 
 struct Node
 {

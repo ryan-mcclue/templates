@@ -27,8 +27,12 @@ TODO: when to use __attribute__((optimize("O0")))?
  //#pragma GCC optimize ("param=case-values-threshold=1")
  #define likely(x)   __builtin_expect(!!(x), 1) // use with if (likely()) perhaps inside for loops
  #define unlikely(x) __builtin_expect(!!(x), 0)
-#endif
 
+#   if __cplusplus <= 199711L
+#    define MD_CPP_VERSION 98
+
+#endif
+#endif
 
 // TODO(Ryan): stb_sprintf.h and sse_mathfun.h
 
@@ -80,11 +84,13 @@ TODO: when to use __attribute__((optimize("O0")))?
   #define EXPORT_BEGIN extern "C" {
   #define EXPORT_END }
   #define EXPORT extern "C"
+  #define ZERO_STRUCT {}
 #else
   #define LANG_C 1
   #define EXPORT_BEGIN
   #define EXPORT_END
   #define EXPORT
+  #define ZERO_STRUCT {0}
 #endif
 
 
