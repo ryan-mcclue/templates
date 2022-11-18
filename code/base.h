@@ -1,6 +1,32 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
+#if 0
+ #define NOINLINE   __attribute__((noinline))
+ #define USED_FUNC  __attribute__((used,noinline))
+ #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
+ #pragma GCC push_options
+ #pragma GCC optimize ("Os")
+ /**/
+ #pragma GCC optimize ("no-align-functions")
+ #pragma GCC optimize ("no-align-jumps")
+ #pragma GCC optimize ("no-align-loops")
+ #pragma GCC optimize ("no-align-labels")
+ #pragma GCC optimize ("reorder-blocks")
+ #pragma GCC optimize ("reorder-blocks-and-partition")
+ #pragma GCC optimize ("prefetch-loop-arrays")
+ /**/
+ //#pragma GCC optimize ("no-ipa-cp-clone")
+ #pragma GCC optimize ("inline-functions")
+ //#pragma GCC optimize ("conserve-stack")
+ //#pragma GCC optimize ("no-defer-pop")
+ #pragma GCC optimize ("tree-switch-conversion")
+ //#pragma GCC optimize ("param=case-values-threshold=1")
+ #define likely(x)   __builtin_expect(!!(x), 1) // use with if (likely()) perhaps inside for loops
+ #define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
+
+
 // TODO(Ryan): stb_sprintf.h and sse_mathfun.h
 
 #pragma mark - M_CONTEXT_CRACKING
