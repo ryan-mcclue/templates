@@ -271,6 +271,7 @@ mem_arena_scratch_release(MemArenaTemp *temp)
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 #define DLL_PUSH_FRONT(first, last, node) \
+(\
   ((first) == NULL) ? \
   (\
     ((first) = (last) = (node)), \
@@ -282,9 +283,12 @@ GLOBAL MemArena *linux_mem_arena_perm = NULL;
     ((node)->next = (first)), \
     ((first)->prev = (node)), \
     ((first) = (node)) \
-  )
+  )\
+)
+  
 
 #define DLL_PUSH_BACK(first, last, node) \
+(\
   ((first) == NULL) ? \
   (\
     ((first) = (last) = (node)), \
@@ -296,9 +300,11 @@ GLOBAL MemArena *linux_mem_arena_perm = NULL;
     ((node)->next = NULL), \
     ((last)->next = (node)), \
     ((last) = (node)) \
-  )
+  )\
+)
 
 #define DLL_REMOVE(first, last, node) \
+(\
   ((node) == (first)) ? \
   (\
     ((first) == (last)) ? \
@@ -323,65 +329,48 @@ GLOBAL MemArena *linux_mem_arena_perm = NULL;
       ((node)->next->prev = (node)->prev), \
       ((node)->prev->next = (node)->next) \
     )\
-  )
-     
+  )\
+)
 
-#if 0
-INTERNAL void
-sll_queue_push(void *first, void *last, void *node)
-{
-  if (first == NULL) 
-  {
-    first = last = node;
-    node->next = NULL;
-  } 
-  else 
-  {
-    node->next = first;
-    first = node;
-  }
-}
+#define SLL_QUEUE_PUSH(first, last, node) \
+(\
+  ((first) == NULL) ? \
+   (\
+    ((first) = (last) = (node)), \
+    ((node)->next = NULL) \
+   )\
+  : \
+  (\
+    ((node)->next = (first)), \
+    ((first) = (node)) \
+  )\
+)
 
-INTERNAL void *
-sll_queue_pop(void *first, void *last)
-{
-  void *result = first;
+#define SLL_QUEUE_POP(first, last) \
+(\
+  ((first) == (last)) ? \
+    (\
+     ((first) = (last) = NULL) \
+    ) \
+  : \
+  (\
+    ((first) = (first)->next) \
+  )\
+)
 
-  if (first == last)
-  {
-    first = last = NULL;
-  }
-  else
-  {
-    first = first->next;
-  }
+#define SLL_STACK_PUSH(first, node) \
+(\
+  ((node)->next = (first)), \
+  ((first) = (node)) \
+)
 
-  return result;
-}
-
-INTERNAL void
-sll_stack_push(void *first, void *node)
-{
-  node->next = first;
-  first = node;
-}
-
-INTERNAL void *
-sll_stack_pop(void *first)
-{
-  void *result = first;
-
-  if (first != NULL)
-  {
-    first = first->next;
-  }
-
-  return result;
-}
-
-#endif
-
-
+#define SLL_STACK_POP(first) \
+(\
+  ((first) != NULL) ? \
+    (\
+     ((first) = (first)->next) \
+    )\
+)
 
 struct String8
 {

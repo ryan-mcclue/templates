@@ -6,7 +6,10 @@
  #define USED_FUNC  __attribute__((used,noinline))
  #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
  #pragma GCC push_options
+ // IMPORTANT(Ryan): must #pragma GCC pop_options
  #pragma GCC optimize ("Os")
+ #pragma GCC target("avx,avx2,f16c,fma,sse3,ssse3,sse4.1,sse4.2")
+TODO: when to use __attribute__((optimize("O0")))?
  /**/
  #pragma GCC optimize ("no-align-functions")
  #pragma GCC optimize ("no-align-jumps")
