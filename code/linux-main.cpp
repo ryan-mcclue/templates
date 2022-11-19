@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
+#define STB_SPRINTF_IMPLEMENTATION 1
+#include "stb_sprintf.h"
+// ask here
+// https://developers.redhat.com/articles/2022/04/12/state-static-analysis-gcc-12-compiler#trying_it_out
+
 #include "base.h"
+
+// #define DO_PRAGMA(x) _Pragma (#x)
+//          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
+//          
+//          TODO(Remember to fix this)
 
 #include <unistd.h>
 #include <sys/mman.h>
-
-
 
 INTERNAL u64
 linux_get_page_size(void)
@@ -182,6 +190,7 @@ mem_arena_release(MemArena *arena)
 #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
 
 // get_nprocs() - 1
+typedef struct ThreadContext ThreadContext;
 struct ThreadContext
 {
   MemArena *arenas[2];  
@@ -194,7 +203,7 @@ THREAD_LOCAL ThreadContext *tl_thread_context = NULL;
 INTERNAL ThreadContext
 thread_context_create(void)
 {
-  ThreadContext result = {};
+  ThreadContext result = ZERO_STRUCT;
 
   for (u32 arena_i = 0; arena_i < ARRAY_COUNT(result.arenas); ++arena_i)
   {
@@ -228,6 +237,7 @@ __thread_context_register_file_and_line(char *file, int line)
   tctx->line_number = (u64)line;
 }
 
+typedef struct MemArenaTemp MemArenaTemp;
 struct MemArenaTemp
 {
   MemArena *arena;
@@ -237,7 +247,7 @@ struct MemArenaTemp
 INTERNAL MemArenaTemp
 mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
 {
-  MemArenaTemp scratch = {};
+  MemArenaTemp scratch = ZERO_STRUCT;
   ThreadContext *tctx = thread_context_get();
 
   for (u64 tctx_idx = 0; tctx_idx < ARRAY_COUNT(tctx->arenas); tctx_idx += 1)
@@ -410,49 +420,49 @@ s8_copy(MemArena *arena, String8 string)
 INTERNAL String8
 s8_fmt(MemArena *arena, char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
+  va_list args;
+  va_start(args, fmt);
 
-    String8 result = {};
-    MD_u64 needed_bytes = MD_IMPL_Vsnprintf(0, 0, fmt, args)+1;
-    result.str = MD_PushArray(arena, MD_u8, needed_bytes);
-    result.size = needed_bytes - 1;
-    result.str[needed_bytes-1] = 0;
-    MD_IMPL_Vsnprintf((char*)result.str, (int)needed_bytes, fmt, args2);
+  String8 result = ZERO_STRUCT;
+  u64 needed_bytes = (u64)stbsp_vsnprintf(NULL, 0, fmt, args) + 1;
+  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, needed_bytes);
+  result.size = needed_bytes - 1;
+  result.str[needed_bytes - 1] = 0;
+  stbsp_vsnprintf((char *)result.str, (int)needed_bytes, fmt, args);
 
-    va_end(args);
-    return result;
+  va_end(args);
+  return result;
 }
 
 INTERNAL String8 
 load_entire_file(MemArena *arena, String8 file_name)
 {
-  String8 result = {};
+  String8 result = ZERO_STRUCT;
 
-    MD_ArenaTemp scratch = MD_GetScratch(&arena, 1);
-    MD_String8 file_contents = MD_ZERO_STRUCT;
-    MD_String8 filename_copy = MD_S8Copy(scratch.arena, filename);
-    FILE *file = fopen((char*)filename_copy.str, "rb");
-    if(file != 0)
+  MemArenaTemp scratch = mem_arena_scratch_get(&arena, 1);
+  FILE *file = fopen((char *)file_name.str, "rb");
+
+  if (file != NULL)
+  {
+    fseek(file, 0, SEEK_END);
+    u64 file_size = (u64)ftell(file);
+    fseek(file, 0, SEEK_SET);
+    result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, file_size + 1);
+    if (result.str != NULL)
     {
-        fseek(file, 0, SEEK_END);
-        MD_u64 file_size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        file_contents.str = MD_PushArray(arena, MD_u8, file_size+1);
-        if(file_contents.str)
-        {
-            file_contents.size = file_size;
-            fread(file_contents.str, 1, file_size, file);
-            file_contents.str[file_contents.size] = 0;
-        }
-        fclose(file);
+      result.size = file_size;
+      fread(result.str, 1, file_size, file);
+      result.str[result.size] = '\0';
     }
-    MD_ReleaseScratch(scratch);
-    return file_contents;
+    fclose(file);
+  }
+
+  mem_arena_scratch_release(&scratch);
 
   return result;
 }
 
+typedef struct Node Node;
 struct Node
 {
   Node *prev;

@@ -68,6 +68,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
   compiler_flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
+  compiler_flags+=( "-Winvalid-pch" )
+
   # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
   compiler_flags+=( "-fdiagnostics-show-option" )
 
@@ -77,7 +79,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   # NOTE(Ryan): C++ specific
   compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy")
 
-  compiler_flags+=( "-Icode" )
+  compiler_flags+=( "-I code" "-isystem external")
 
   if [[ "$param_mode" == "debug" ]]; then
     compiler_flags+=( "-DMAIN_DEBUG" )
@@ -88,6 +90,11 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     compiler_flags+=("-Wno-unused-function" "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
 
     compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
+
+    # NOTE(Ryan): The \x part specifies any ascii character
+    # rg --no-line-number --only-matching "\[\-W[\x00-\x7F]+\]" warnings.txt | sort | uniq
+    # ignored_stb_sprintf_pch_compiler_flags=( "-Wno-cast-align" "-Wno-conversion" "-Wno-padded" "-Wno-sign-conversion" "-Wno-useless-cast" "-Wno-zero-as-null-pointer-constant" )
+    # g++ ${compiler_flags[*]} ${ignored_stb_sprintf_pch_compiler_flags[*]} -DSTB_SPRINTF_IMPLEMENTATION=1 ../learn/stb_sprintf.h -o external/stb_sprintf.h.gch ${linker_flags[*]}
 
     # IMPORTANT(Ryan): static analysis requires gcc-10
     compiler_flags+=( "-fanalyzer" )
