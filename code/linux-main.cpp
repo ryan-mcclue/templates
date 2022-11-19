@@ -2,15 +2,8 @@
 
 #define STB_SPRINTF_IMPLEMENTATION 1
 #include "stb_sprintf.h"
-// ask here
-// https://developers.redhat.com/articles/2022/04/12/state-static-analysis-gcc-12-compiler#trying_it_out
 
 #include "base.h"
-
-// #define DO_PRAGMA(x) _Pragma (#x)
-//          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
-//          
-//          TODO(Remember to fix this)
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -401,8 +394,10 @@ s8(u8 *str, u64 size)
   return result;
 }
 
-#define S8_LIT(s) s8((u8 *)s, sizeof(s) - 1)
-#define S8_CSTRING(s) s8((u8 *)s, strlen(s))
+#define s8_lit(s) s8((u8 *)(s), sizeof(s) - 1)
+#define s8_cstring(s) s8((u8 *)(s), strlen(s))
+#define s8_varg(s) (int)(s).size, (s).str
+// use like: \"%.*s\"", s8_varg(string)
 
 INTERNAL String8
 s8_copy(MemArena *arena, String8 string)
@@ -432,6 +427,32 @@ s8_fmt(MemArena *arena, char *fmt, ...)
 
   va_end(args);
   return result;
+}
+
+INTERNAL String8
+s8_substring(String8 str, u64 min, u64 max)
+{
+  if (max > str.size)
+  {
+    max = str.size;
+  }
+
+  if (min > str.size)
+  {
+    min = str.size;
+  }
+
+  if (min > max)
+  {
+    u64 swap = min;
+    min = max;
+    max = swap;
+  }
+
+  str.size = max - min;
+  str.str += min;
+
+  return str;
 }
 
 INTERNAL String8 
@@ -472,6 +493,31 @@ struct Node
   u32 y;
 };
 
+typedef struct NodeList NodeList;
+struct NodeList
+{
+  Node *first;
+  Node *last;
+  u64 node_count;
+};
+
+// ParseNodeSet -> TokenFromString 
+
+typedef struct String8List String8List;
+struct String8List
+{
+  String8 *first;
+  String8 *last;
+  u64 node_count;
+  u64 total_size;
+};
+
+INTERNAL String8List
+string8list_from_args(MemArena *arena, char **args, int arg_count)
+{
+   
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -482,23 +528,7 @@ main(int argc, char *argv[])
 
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
 
-  MemArena *arena = mem_arena_allocate(GB(16)); 
-
-  u32 nodes_len = 10;
-  Node *nodes = MEM_ARENA_PUSH_ARRAY(arena, Node, nodes_len);
-  for (u32 i = 0; i < 10; i++)
-  {
-    nodes[i].x = i;
-  }
-
-  Node *first = NULL, *last = NULL;
-  DLL_PUSH_FRONT(first, last, &nodes[0]);
-  DLL_PUSH_BACK(first, last, &nodes[1]);
-  DLL_REMOVE(first, last, &nodes[0]);
-  for (Node *iter = first; iter != NULL; iter = iter->next)
-  {
-    printf("%d \n", iter->x);
-  }
+  MemArena *arena = mem_arena_allocate(GB(16));
 
   return 0;
 }
@@ -575,21 +605,6 @@ all users add features they want for themselves. the rule is they have to give t
 
 
 // Cryptic expression comma chaining necessary for returning a value
-
-struct TreeNode
-{
-  TreeNode *first_child;
-  TreeNode *last_child;
-  TreeNode *next_sibling;
-};
-
-struct Node
-{
-  Node *next;
-  Node *prev;
-
-  int x;
-};
 
 void *RendererLibrary = dlopen("libHandmadeOpenGL.so", RTLD_NOW | RTLD_LOCAL);
 linux_load_renderer *LinuxLoadOpenGLRenderer = (linux_load_renderer *)dlsym(RendererLibrary, LinuxRendererFunctionTableNames[0]);

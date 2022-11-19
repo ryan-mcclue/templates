@@ -97,7 +97,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     # g++ ${compiler_flags[*]} ${ignored_stb_sprintf_pch_compiler_flags[*]} -DSTB_SPRINTF_IMPLEMENTATION=1 ../learn/stb_sprintf.h -o external/stb_sprintf.h.gch ${linker_flags[*]}
 
     # IMPORTANT(Ryan): static analysis requires gcc-10
-    compiler_flags+=( "-fanalyzer" )
+    # IMPORTANT(Ryan): significantly increases compilation time
+    # compiler_flags+=( "-fanalyzer" )
 
     # get debug and optimisation flags $(readelf -w build/server | grep producer)
     

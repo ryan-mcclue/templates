@@ -2,6 +2,10 @@
 #pragma once
 
 #if 0
+// #define DO_PRAGMA(x) _Pragma (#x)
+//          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
+//          
+//          TODO(Remember to fix this)
  #define NOINLINE   __attribute__((noinline))
  #define USED_FUNC  __attribute__((used,noinline))
  #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
