@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
 #define STB_SPRINTF_IMPLEMENTATION 1
-#include "stb_sprintf.h"
+#include "stb/stb_sprintf.h"
 
 #include "base.h"
 
@@ -272,7 +272,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
   mem_arena_set_pos_back(temp->arena, temp->arena->pos);
 }
 
-GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 #define DLL_PUSH_FRONT(first, last, node) \
 (\
@@ -512,24 +511,164 @@ struct String8List
   u64 total_size;
 };
 
-INTERNAL String8List
-string8list_from_args(MemArena *arena, char **args, int arg_count)
+
+typedef struct State State;
+struct State
 {
-   
+  MemArena *arena;
+  MemArena *frame_arenas[2];
+  b32 should_quit;
+  u32 frame_idx;
+  //APP_Window *first_window;
+  //APP_Window *last_window;
+  //APP_Window *free_window;
+  //R_Backend render_backend;
+  //R_Handle render_eqp;
+};
+
+GLOBAL State *state = NULL;
+
+INTERNAL MemArena *
+state_get_frame_arena(void)
+{
+  return state->frame_arenas[state->frame_idx % ARRAY_COUNT(state->frame_arenas)];
 }
+
+INTERNAL void
+get_events(MemArena *events_arena)
+{
+  SDL_Event event = {};
+
+  // W32_WindowProc
+  
+  b32 is_release = false;
+  while (SDL_PollEvent(&event))
+  {
+
+  }
+}
+
+INTERNAL void
+update_and_render(void)
+{
+  mem_arena_clear(state_get_frame_arena());
+
+  EventList events = get_events(state_get_frame_arena());
+
+  for(OS_Event *event = events.first;
+      event != 0;
+      event = event->next)
+  {
+    if (event->kind == OS_EventKind_WindowClose)
+    {
+
+    }
+    eat_event();
+  }
+
+  // render part
+  MemArenaTemp scratch = ;
+
+  for(APP_Window *w = app_state->first_window; w != 0; w = w->next)
+  {
+    app_state->render_backend.Begin(app_state->render_eqp, w->render_eqp, w->handle);
+    {
+      // NOTE(rjf): Submit R_Layer's to the backend here, for this window
+      R_Layer dummy_layer = {0};
+      // IMPORTANT(Ryan): this submit function will be unique to each window
+      // so, could pass in event state particular to a window
+      app_state->render_backend.Submit(app_state->render_eqp, w->render_eqp, w->handle,
+          Dim2F32(OS_ClientRectFromWindow(w->handle)),
+          dummy_layer);
+    }
+    app_state->render_backend.Finish(app_state->render_eqp, w->render_eqp, w->handle);
+  }
+
+  state->frame_idx += 1;
+}
+
+function APP_Window *
+APP_WindowOpen(String8 title, Vec2S64 size)
+{
+    APP_Window *window = app_state->free_window;
+    if(window == 0)
+    {
+        window = PushArrayZero(app_state->arena, APP_Window, 1);
+    }
+    else
+    {
+        StackPop(app_state->free_window);
+        MemoryZeroStruct(window);
+    }
+    window->handle = OS_WindowOpen(title, size);
+    DLLPushBack(app_state->first_window, app_state->last_window, window);
+    window->render_eqp = app_state->render_backend.EquipWindow(app_state->render_eqp, window->handle);
+    return window;
+}
+
+function void
+APP_WindowClose(APP_Window *window)
+{
+    app_state->render_backend.UnequipWindow(app_state->render_eqp, window->render_eqp, window->handle);
+    OS_WindowClose(window->handle);
+    DLLRemove(app_state->first_window, app_state->last_window, window);
+    StackPush(app_state->free_window, window);
+}
+
+INTERNAL void
+push_event()
+{
+
+}
+
+INTERNAL void
+eat_event(OS_EventList *events, OS_Event *event)
+{
+    OS_Event *next = event->next;
+    OS_Event *prev = event->prev;
+    DLLRemove(events->first, events->last, event);
+    events->count -= 1;
+    event->next = next;
+    event->prev = prev;
+}
+
+GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 int
 main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
 
+  // thread init
   ThreadContext tcx = thread_context_create();
   thread_context_set(&tcx);
 
+  // os init
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
-
+  // record timer start here
+  // command line arguments
+  //for (int i = 0; i < argc; i += 1){
+  //    String8 arg = str8_cstring((U8*)argv[i]);
+  //    str8_list_push(linux_mem_arena_perm, &linux_cmd_line, arg);
+  //}
+  // read binary path with readlink("/proc/self/exe")?
+  
+  // app init
   MemArena *arena = mem_arena_allocate(GB(16));
+  state = PushArrayZero(arena, APP_State, 1);
+  state->arena = arena;
+  for(int i = 0; i < ArrayCount(state->frame_arenas); i += 1)
+  {
+    state->frame_arenas[i] = M_ArenaAlloc(Gigabytes(16));
+  }
 
+  // renderer init
+  // find refresh rate
+  while (state->want_to_run)
+  {
+    update_and_render();
+  }
+  
   return 0;
 }
 

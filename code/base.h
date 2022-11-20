@@ -66,6 +66,8 @@ TODO: when to use __attribute__((optimize("O0")))?
     #define NO_ASAN __attribute__((__no_sanitize_address__))
   #endif
 
+  #define CASE_FALLTHROUGH __attribute__((fallthrough))
+
   #define THREAD_LOCAL __thread
 
   #define IGNORE_WARNING_USELESS_CAST_PUSH() \
