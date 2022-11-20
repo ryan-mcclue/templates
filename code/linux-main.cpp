@@ -820,8 +820,6 @@ inline u32 GetThreadID(void)
     return(ThreadID);
 }
 
-
-
 // UIs exist to transfer information between user and program (decide what is useful information)
 // So, when making a UI decision, if requires less information to be sent, then a good one (e.g. button press over typing a long string)
 // Also, how quickly the user can enter this information is important to
@@ -831,14 +829,65 @@ inline u32 GetThreadID(void)
 
 // when creating a good interface, implementation and user must agree on how something is inputted and recieved
 
-// core, buildler (majority of code), escape hatch code
+// core, builder (majority of code), escape hatch code
 
 // common UI code API has building and response code segmented, i.e. callbacks or event messages
 // also use retained-mode, i.e. individually manage widget lifetime to add/remove from heirarchy
 
-// immediate mode has all this in one spot, with widget hierarchy constructed on every frame
+// NOTE(Ryan): Can simplify code by making a parameter to all functions a global
+// immediate mode has all this in one spot, with widget hierarchy constructed on every frame (instead of stateful tree)
+// we are flexible to mutations, and display + interaction code together
+
+//UI_Widget *parent = ...;
+//UI_PushParent(parent);
+//if(UI_Button("Foo"))
+//{
+//  // clicked
+//}
+//if(UI_Button("Bar"))
+//{
+//  // clicked
+//}
+//UI_PopParent(parent);
+
 // indentation hierarchy acheived with stack
 // hierarchy of widgets, not layouts
-// widget rendering in IM is deferred; require frame of delay to perform offline (given all data, solve problem in one) autolayout
+// widget rendering in IM is deferred; 
+// require frame of delay to perform offline (given all data, solve problem in one) autolayout
 
 #endif
+
+#define UI DEFER_LOOP(ui_begin(), ui_end(), UNIQUE_INT)
+
+enum UI_SizeKind
+{
+  UI_SizeKind_Null,
+  UI_SizeKind_Pixels,
+  UI_SizeKind_TextContent,
+  UI_SizeKind_PercentOfParent,
+  UI_SizeKind_ChildrenSum,
+};
+
+struct UI_Size
+{
+  UI_SizeKind kind;
+  F32 value;
+
+  // percentage of how close to perfect pixel size willing to go, 
+  // 1.0 would be only allowing entire perfect pixel size
+  F32 strictness; 
+};
+
+enum Axis2
+{
+  Axis2_X,
+  Axis2_Y,
+  Axis2_COUNT
+};
+
+struct UI_Widget
+{
+  // ...
+  UI_Size semantic_size[Axis2_COUNT];
+  // ...
+};

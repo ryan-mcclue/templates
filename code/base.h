@@ -304,8 +304,11 @@ INTERNAL void __bp(void) {}
 
 #define PAD(n) char PASTE(pad, __LINE__)[n]
 
-#define SCOPED_CDTOR(ctor, dtor) for(int _i_ = (ctor, 0); _i_ == 0; _i_ += 1, dtor)
-#define SCOPED_CDTOR_CHECKED(begin, end) for(int _i_ = 2 * !(begin); (_i_ == 2 ? ((end), 0) : !_i_); _i_ += 1, (end))
+#define UNIQUE_INT PASTE(prefix, __COUNTER__)
+
+#define DEFER_LOOP(begin, end, var) for(int var = (begin, 0); var == 0; var += 1, end)
+#define DEFER_LOOP_CHECKED(begin, end, var) for(int var = 2 * !(begin); (var == 2 ? ((end), 0) : !var); var += 1, (end))
+
 
 // TODO(Ryan): Maybe have to do (void)sizeof(name) for C++?
 #define IGNORED(name) (void)(name) 
