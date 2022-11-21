@@ -393,10 +393,18 @@ s8(u8 *str, u64 size)
   return result;
 }
 
-#define s8_lit(s) s8((u8 *)(s), sizeof(s) - 1)
-#define s8_cstring(s) s8((u8 *)(s), strlen(s))
+#define s8_from_lit(s) s8((u8 *)(s), sizeof(s) - 1)
+#define s8_from_cstring(s) s8((u8 *)(s), strlen(s))
 #define s8_varg(s) (int)(s).size, (s).str
 // use like: \"%.*s\"", s8_varg(string)
+
+INTERNAL String8
+s8_from_range(u8 *start, u8 *one_past_last)
+{
+  String8 result = ZERO_STRUCT;
+
+  return result;
+}
 
 INTERNAL String8
 s8_copy(MemArena *arena, String8 string)
@@ -455,11 +463,10 @@ s8_substring(String8 str, u64 min, u64 max)
 }
 
 INTERNAL String8 
-load_entire_file(MemArena *arena, String8 file_name)
+s8_read_entire_file(MemArena *arena, String8 file_name)
 {
   String8 result = ZERO_STRUCT;
 
-  MemArenaTemp scratch = mem_arena_scratch_get(&arena, 1);
   FILE *file = fopen((char *)file_name.str, "rb");
 
   if (file != NULL)
@@ -477,10 +484,84 @@ load_entire_file(MemArena *arena, String8 file_name)
     fclose(file);
   }
 
-  mem_arena_scratch_release(&scratch);
-
   return result;
 }
+
+INTERNAL void
+s8_write_entire_file(String8 file_name, String8 data)
+{
+	FILE *file = fopen(file_name.str, "w+");
+
+  if (file != NULL)
+  {
+	  fputs(data.str, file);
+	  fclose(file);
+  }
+}
+
+INTERNAL void
+s8_append_to_file(String8 file_name, String8 data)
+{
+	FILE *file = fopen(file_name.str, "a");
+
+  if (file != NULL)
+  {
+	  fputs(data.str, file);
+	  fclose(file);
+  }
+}
+
+internal b32
+LinuxCopyFile(char *dest, char *source)
+{
+	FILE *source_fp;
+	fseek(source_fp, 0, SEEK_END);
+	u32 fsize = ftell(source_fp);
+	rewind(source_fp);
+
+	char *source_data = malloc(fsize + 1);
+	fread(source_data, 1, fsize, source_fp);
+	fclose(source_fp);
+
+	FILE *dest_fp;
+	dest_fp = fopen(dest, "w+");
+	fputs(dest_fp, source_data);
+	fclose(dest_fp);
+
+	// Return 0 on error
+	return 1;
+}
+
+INTERNAL b32
+linux_create_directory(String8 directory_name)
+{
+	if (mkdir(path) == 0)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+INTERNAL b32
+LinuxDoesFileExist(char *path)
+{
+	// This probably isn't the best way
+	if (access(path, F_OK) != -1)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+internal b32
+LinuxDoesDirectoryExist(char *path)
+{
+	return LinuxDoesFileExist(path);
+}
+
 
 internal void
 LinuxTimerBeginFrame(LinuxTimer *timer)
@@ -526,105 +607,6 @@ LinuxTimerEndFrame(LinuxTimer *timer, f64 milliseconds_per_frame)
 		start_t = end_t;
 	}
 }
-
-
-internal void
-LinuxSaveToFile(char *path, void *data, u32 data_len)
-{
-	FILE *fp;
-
-	fp = fopen(path, "w+");
-	fputs(data, fp);
-	fclose(fp);
-}
-
-internal void
-LinuxAppendToFile(char *path, void *data, u32 data_len)
-{
-	FILE *fp;
-
-	fp = fopen(path, "a");
-	fputs(data, fp);
-	fclose(fp);
-}
-
-internal char *
-LinuxLoadEntireFileAndNullTerminate(char *path)
-{
-	FILE *fp;
-	fp = fopen(path, "r");
-	if (fp == 0)
-	{
-		// printf("Failed to load file\n");
-		return 0;
-	}
-
-	fseek(fp, 0, SEEK_END);
-	u32 fsize = ftell(fp);
-	rewind(fp);
-
-	char *read_data = malloc(fsize + 1);
-	fread(read_data, 1, fsize, fp);
-	fclose(fp);
-
-	read_data[fsize] = 0;
-
-	return read_data;
-}
-
-internal b32
-LinuxMakeDirectory(char *path)
-{
-	if (mkdir(path) == 0)
-	{
-		return 1;
-	}
-	return 0;
-}
-
-internal b32
-LinuxDoesFileExist(char *path)
-{
-	// This probably isn't the best way
-	if (access(path, F_OK) != -1)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-internal b32
-LinuxDoesDirectoryExist(char *path)
-{
-	return LinuxDoesFileExist(path);
-}
-
-internal b32
-LinuxCopyFile(char *dest, char *source)
-{
-	FILE *source_fp;
-	fseek(source_fp, 0, SEEK_END);
-	u32 fsize = ftell(source_fp);
-	rewind(source_fp);
-
-	char *source_data = malloc(fsize + 1);
-	fread(source_data, 1, fsize, source_fp);
-	fclose(source_fp);
-
-	FILE *dest_fp;
-	dest_fp = fopen(dest, "w+");
-	fputs(dest_fp, source_data);
-	fclose(dest_fp);
-
-	// Return 0 on error
-	return 1;
-}
-
-
-
 
 
 
@@ -832,6 +814,77 @@ main(int argc, char *argv[])
   
   return 0;
 }
+
+
+#if 1
+
+//~ String-To-Ptr and Ptr-To-Ptr tables
+typedef struct MD_MapKey MD_MapKey;
+struct MD_MapKey
+{
+    MD_u64 hash;
+    MD_u64 size;
+    void *ptr;
+};
+
+typedef struct MD_MapSlot MD_MapSlot;
+struct MD_MapSlot
+{
+    MD_MapSlot *next;
+    MD_MapKey key;
+    void *val;
+};
+
+typedef struct MD_MapBucket MD_MapBucket;
+struct MD_MapBucket
+{
+    MD_MapSlot *first;
+    MD_MapSlot *last;
+};
+
+typedef struct MD_Map MD_Map;
+struct MD_Map
+{
+    MD_MapBucket *buckets;
+    MD_u64 bucket_count;
+};
+
+INTERNAL u64
+map_hash_str(String8 string)
+{
+  u64 result = 5381;
+  for (u64 i = 0; i < string.size; i += 1)
+  {
+    result = ((result << 5) + result) + string.str[i];
+  }
+
+  return result;
+}
+
+INTERNAL u64 
+map_hash_ptr(void *p)
+{
+  u64 h = (u64)p;
+  h = (h ^ (h >> 30)) * 0xbf58476d1ce4e5b9;
+  h = (h ^ (h >> 27)) * 0x94d049bb133111eb;
+  h = h ^ (h >> 31);
+  return h;
+}
+
+INTERNAL Map
+map_make(MemArena *arena, u64 bucket_count)
+{
+  Map result = {0};
+  result.bucket_count = bucket_count;
+  result.buckets = MD_PushArrayZero(arena, MapBucket, bucket_count);
+  return(result);
+}
+
+// have to know to cast to particular type
+map_insert(arena, &map, map_key_from_str(node->string), (void*)(MD_u64)eval_result);
+
+#endif
+
 
 #if 0
 /*
