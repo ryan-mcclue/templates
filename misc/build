@@ -4,6 +4,16 @@ set -e
 
 ctime -begin private/main.ctm
 
+# find . -name "*" -delete > /dev/null
+
+pushdir() {
+  command pushd "$@" > /dev/null
+}
+
+popdir() {
+  command popd "$@" > /dev/null
+}
+
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
   os="linux"
 else

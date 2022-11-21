@@ -68,6 +68,7 @@ TODO: when to use __attribute__((optimize("O0")))?
 
   #define CASE_FALLTHROUGH __attribute__((fallthrough))
 
+
   #define THREAD_LOCAL __thread
 
   #define IGNORE_WARNING_USELESS_CAST_PUSH() \
@@ -279,7 +280,7 @@ INTERNAL void __bp(void) {}
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
-  #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR("ASSERTION"); }) } while (0)
+  #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); }) } while (0)
   #define BP() __bp()
 #else
   #define ASSERT(c)
@@ -304,7 +305,8 @@ INTERNAL void __bp(void) {}
 
 #define PAD(n) char PASTE(pad, __LINE__)[n]
 
-#define UNIQUE_INT PASTE(prefix, __COUNTER__)
+#define UNIQUE_NAME PASTE(prefix, __COUNTER__)
+
 
 #define DEFER_LOOP(begin, end, var) for(int var = (begin, 0); var == 0; var += 1, end)
 #define DEFER_LOOP_CHECKED(begin, end, var) for(int var = 2 * !(begin); (var == 2 ? ((end), 0) : !var); var += 1, (end))
@@ -334,6 +336,7 @@ INTERNAL void __bp(void) {}
 #define HAS_FLAGS_ANY(field, flags) (!!((field) & (flags)))
 #define HAS_FLAGS_ALL(field, flags) (((field) & (flags)) == (flags))
 
+#define SIGN_OF(x) ((x > 0) - (x < 0))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define CLAMP(min,x,max) (((x)<(min))?(min):((max)<(x))?(max):(x))

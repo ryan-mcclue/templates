@@ -482,6 +482,154 @@ load_entire_file(MemArena *arena, String8 file_name)
   return result;
 }
 
+internal void
+LinuxTimerBeginFrame(LinuxTimer *timer)
+{
+	struct timespec t_spec = {0};
+	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+	timer->begin_frame = t_spec.tv_sec * NANOS + t_spec.tv_nsec;
+}
+
+internal void
+LinuxTimerEndFrame(LinuxTimer *timer, f64 milliseconds_per_frame)
+{
+	struct timespec t_spec = {0};
+	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+
+	long elapsed_milliseconds = ((t_spec.tv_sec * NANOS + t_spec.tv_nsec) - timer->begin_frame) / 1000000;
+	long milliseconds_to_sleep = milliseconds_per_frame - elapsed_milliseconds;
+
+	struct timespec start_spec = {0};
+	struct timespec end_spec = {0};
+
+	clock_gettime(CLOCK_MONOTONIC, &start_spec);
+	long start_t = start_spec.tv_sec * NANOS + start_spec.tv_nsec;
+
+	long end_t = 0;
+
+	while (milliseconds_to_sleep > 0)
+	{
+
+		if (timer->sleep_is_granular)
+		{
+			if (milliseconds_to_sleep > 0)
+			{
+				sleep(milliseconds_to_sleep / 1000);
+			}
+		}
+
+		clock_gettime(CLOCK_MONOTONIC, &end_spec);
+		end_t = end_spec.tv_sec * NANOS + end_spec.tv_nsec;
+
+		long nanoseconds_to_sleep = milliseconds_to_sleep * 1000000;
+		milliseconds_to_sleep = (nanoseconds_to_sleep - (end_t - start_t)) / 1000000;
+		start_t = end_t;
+	}
+}
+
+
+internal void
+LinuxSaveToFile(char *path, void *data, u32 data_len)
+{
+	FILE *fp;
+
+	fp = fopen(path, "w+");
+	fputs(data, fp);
+	fclose(fp);
+}
+
+internal void
+LinuxAppendToFile(char *path, void *data, u32 data_len)
+{
+	FILE *fp;
+
+	fp = fopen(path, "a");
+	fputs(data, fp);
+	fclose(fp);
+}
+
+internal char *
+LinuxLoadEntireFileAndNullTerminate(char *path)
+{
+	FILE *fp;
+	fp = fopen(path, "r");
+	if (fp == 0)
+	{
+		// printf("Failed to load file\n");
+		return 0;
+	}
+
+	fseek(fp, 0, SEEK_END);
+	u32 fsize = ftell(fp);
+	rewind(fp);
+
+	char *read_data = malloc(fsize + 1);
+	fread(read_data, 1, fsize, fp);
+	fclose(fp);
+
+	read_data[fsize] = 0;
+
+	return read_data;
+}
+
+internal b32
+LinuxMakeDirectory(char *path)
+{
+	if (mkdir(path) == 0)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+internal b32
+LinuxDoesFileExist(char *path)
+{
+	// This probably isn't the best way
+	if (access(path, F_OK) != -1)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+internal b32
+LinuxDoesDirectoryExist(char *path)
+{
+	return LinuxDoesFileExist(path);
+}
+
+internal b32
+LinuxCopyFile(char *dest, char *source)
+{
+	FILE *source_fp;
+	fseek(source_fp, 0, SEEK_END);
+	u32 fsize = ftell(source_fp);
+	rewind(source_fp);
+
+	char *source_data = malloc(fsize + 1);
+	fread(source_data, 1, fsize, source_fp);
+	fclose(source_fp);
+
+	FILE *dest_fp;
+	dest_fp = fopen(dest, "w+");
+	fputs(dest_fp, source_data);
+	fclose(dest_fp);
+
+	// Return 0 on error
+	return 1;
+}
+
+
+
+
+
+
+
+
 typedef struct Node Node;
 struct Node
 {
@@ -519,7 +667,7 @@ struct State
   MemArena *frame_arenas[2];
   b32 should_quit;
   u32 frame_idx;
-  //APP_Window *first_window;
+  //APP_Window *first_window; // these will have a field that is updated to indicate whether the window is active or not
   //APP_Window *last_window;
   //APP_Window *free_window;
   //R_Backend render_backend;
@@ -551,6 +699,8 @@ get_events(MemArena *events_arena)
 INTERNAL void
 update_and_render(void)
 {
+  begin_frame_timer();
+
   mem_arena_clear(state_get_frame_arena());
 
   EventList events = get_events(state_get_frame_arena());
@@ -585,6 +735,14 @@ update_and_render(void)
   }
 
   state->frame_idx += 1;
+
+  platform->current_time += 1.f / platform->target_frames_per_second;
+
+  // the application will have the ability to queue and wait for job completion
+  // the platform will execute the jobs and update their status at the end of every
+  // update iteration?
+  // TODO: threads: arcane/source/telescope/tsfoundation/tsfoundation_linux_threads.c
+  end_frame_timer();
 }
 
 function APP_Window *
@@ -639,6 +797,8 @@ main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
 
+  // TODO(Ryan): Drawing UI: arcane/game/source/arc/ui.ui.c: DrawEditorUI(); 
+
   // thread init
   ThreadContext tcx = thread_context_create();
   thread_context_set(&tcx);
@@ -651,7 +811,8 @@ main(int argc, char *argv[])
   //    String8 arg = str8_cstring((U8*)argv[i]);
   //    str8_list_push(linux_mem_arena_perm, &linux_cmd_line, arg);
   //}
-  // read binary path with readlink("/proc/self/exe")?
+  // binary dir: readlink("/proc/self/exe");
+  // cwd: getcwd();
   
   // app init
   MemArena *arena = mem_arena_allocate(GB(16));
