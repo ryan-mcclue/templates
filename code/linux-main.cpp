@@ -24,16 +24,17 @@ linux_get_page_size(void)
 #define MEM_DECOMMIT_THRESHOLD KB(64)
 
 // IMPORTANT(Ryan): The memory disconuitity of linked lists lends themselves well for arena allocators
+// Also, usually iterate sequentially
 
 typedef struct MemArena MemArena;
 struct MemArena
 {
   // I believe these are for growable arenas? 
-  MemArena *first; // tree node first child?
-  MemArena *last; // tree node last child?
-  MemArena *next; // linked list?
-  MemArena *prev; // linked list?
-  MemArena *parent; // tree node root? 
+  MemArena *first; 
+  MemArena *last; 
+  MemArena *next;
+  MemArena *prev;
+  MemArena *parent;
   void *memory;
   u64 commit_pos;
   u64 max;
@@ -411,7 +412,7 @@ s8_from_range(u8 *start, u8 *one_past_last)
 INTERNAL b32
 s8_match(String8 s1, String8 s2)
 {
-  return strncmp(s1.str, s2.str, s1.size);
+  return strncmp((char *)s1.str, (char *)s2.str, s1.size);
 }
 
 INTERNAL String8
@@ -498,11 +499,11 @@ s8_read_entire_file(MemArena *arena, String8 file_name)
 INTERNAL void
 s8_write_entire_file(String8 file_name, String8 data)
 {
-	FILE *file = fopen(file_name.str, "w+");
+	FILE *file = fopen((char *)file_name.str, "w+");
 
   if (file != NULL)
   {
-	  fputs(data.str, file);
+	  fputs((char *)data.str, file);
 	  fclose(file);
   }
 }
@@ -510,15 +511,16 @@ s8_write_entire_file(String8 file_name, String8 data)
 INTERNAL void
 s8_append_to_file(String8 file_name, String8 data)
 {
-	FILE *file = fopen(file_name.str, "a");
+	FILE *file = fopen((char *)file_name.str, "a");
 
   if (file != NULL)
   {
-	  fputs(data.str, file);
+	  fputs((char *)data.str, file);
 	  fclose(file);
   }
 }
 
+#if 0
 internal b32
 LinuxCopyFile(char *dest, char *source)
 {
@@ -615,7 +617,7 @@ LinuxTimerEndFrame(LinuxTimer *timer, f64 milliseconds_per_frame)
 		start_t = end_t;
 	}
 }
-
+#endif
 
 
 
@@ -649,7 +651,7 @@ struct String8List
   u64 total_size;
 };
 
-
+#if 0
 typedef struct State State;
 struct State
 {
@@ -779,6 +781,67 @@ eat_event(OS_EventList *events, OS_Event *event)
     event->next = next;
     event->prev = prev;
 }
+#endif
+
+// dijkstra's only for weighted, directed (e.g. only concerned with outgoing edges), positive weight graphs  
+
+typedef struct Vertex Vertex;
+struct Vertex
+{
+  u32 data;
+};
+
+typedef struct VertexEdge VertexEdge;
+struct VertexEdge
+{
+  VertexEdge *next;
+
+  Vertex *dest_vertex;
+  u64 weight;
+};
+
+typedef struct VertexEdges VertexEdges;
+struct VertexEdges
+{
+  VertexEdges *next;
+
+  VertexEdge *first; 
+  VertexEdge *last; 
+
+  Vertex *vertex;
+};
+
+typedef struct AdjacencyList AdjacencyList;
+struct AdjacencyList
+{
+  VertexEdges *first;
+  VertexEdges *last;
+};
+
+INTERNAL AdjacencyList *
+adjacency_list_create(MemArena *arena)
+{
+  AdjacencyList *result = NULL;
+
+  result = MEM_ARENA_PUSH_ARRAY_ZERO(arena, AdjacencyList, 1);
+
+  return result;
+}
+
+vertex_create();
+
+vertex_edge_create(dest_vertex, weight);
+
+vertex_edges_create(vertex);
+vertex_edges_push_vertex_edge();
+
+adjacency_list_push_vertex_edges();
+
+DijkstraResult dijkstra_result = compute_dijstrka(adjacency_list, start_vertex);
+
+// could compute naively with say DFS to compute all possible paths
+// when finding min value, log(n) with min-heap (which would have associated push/pop interfaces)
+// ∴ get O((v + e) · log(v))
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -805,21 +868,23 @@ main(int argc, char *argv[])
   // cwd: getcwd();
   
   // app init
-  MemArena *arena = mem_arena_allocate(GB(16));
-  state = PushArrayZero(arena, APP_State, 1);
-  state->arena = arena;
-  for(int i = 0; i < ArrayCount(state->frame_arenas); i += 1)
-  {
-    state->frame_arenas[i] = M_ArenaAlloc(Gigabytes(16));
-  }
+  //MemArena *arena = mem_arena_allocate(GB(16));
+  //state = PushArrayZero(arena, APP_State, 1);
+  //state->arena = arena;
+  //for(int i = 0; i < ArrayCount(state->frame_arenas); i += 1)
+  //{
+  //  state->frame_arenas[i] = M_ArenaAlloc(Gigabytes(16));
+  //}
 
   // renderer init
   // find refresh rate
-  while (state->want_to_run)
-  {
-    update_and_render();
-  }
+  //while (state->want_to_run)
+  //{
+  //  update_and_render();
+  //}
   
+  AdjacencyList *adjacency_list = adjacency_list_create(linux_mem_arena_perm);
+
   return 0;
 }
 
@@ -837,6 +902,7 @@ struct MapKey
   void *ptr;
 };
 
+// IMPORTANT(Ryan): Using chaining
 typedef struct MapSlot MapSlot;
 struct MapSlot
 {
@@ -920,24 +986,10 @@ map_key_ptr(void *ptr)
 INTERNAL Map
 map_create(MemArena *arena, u64 bucket_count)
 {
-  Map result = {0};
+  Map result = ZERO_STRUCT;
 
   result.bucket_count = bucket_count;
   result.buckets = MEM_ARENA_PUSH_ARRAY_ZERO(arena, MapBucket, bucket_count);
-
-  return result;
-}
-
-INTERNAL MapSlot *
-map_lookup(Map *map, MapKey key)
-{
-  MapSlot *result = NULL;
-
-  if (map->bucket_count > 0)
-  {
-    u64 index = key.hash % map->bucket_count;
-    result = map_scane(map->buckets[index].first, key);
-  }
 
   return result;
 }
@@ -978,6 +1030,21 @@ map_scan(MapSlot *first_slot, MapKey key)
 
   return result;
 }
+
+INTERNAL MapSlot *
+map_lookup(Map *map, MapKey key)
+{
+  MapSlot *result = NULL;
+
+  if (map->bucket_count > 0)
+  {
+    u64 index = key.hash % map->bucket_count;
+    result = map_scan(map->buckets[index].first, key);
+  }
+
+  return result;
+}
+
 
 INTERNAL MapSlot *
 map_insert(MemArena *arena, Map *map, MapKey key, void *val)
@@ -1217,36 +1284,3 @@ inline u32 GetThreadID(void)
 #endif
 
 #define UI DEFER_LOOP(ui_begin(), ui_end(), UNIQUE_INT)
-
-enum UI_SizeKind
-{
-  UI_SizeKind_Null,
-  UI_SizeKind_Pixels,
-  UI_SizeKind_TextContent,
-  UI_SizeKind_PercentOfParent,
-  UI_SizeKind_ChildrenSum,
-};
-
-struct UI_Size
-{
-  UI_SizeKind kind;
-  F32 value;
-
-  // percentage of how close to perfect pixel size willing to go, 
-  // 1.0 would be only allowing entire perfect pixel size
-  F32 strictness; 
-};
-
-enum Axis2
-{
-  Axis2_X,
-  Axis2_Y,
-  Axis2_COUNT
-};
-
-struct UI_Widget
-{
-  // ...
-  UI_Size semantic_size[Axis2_COUNT];
-  // ...
-};
