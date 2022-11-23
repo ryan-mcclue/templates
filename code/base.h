@@ -2,34 +2,18 @@
 #pragma once
 
 #if 0
+TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
 // #define DO_PRAGMA(x) _Pragma (#x)
 //          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
-//          
-//          TODO(Remember to fix this)
+//          TODO(Some comment here to fix this)
  #define NOINLINE   __attribute__((noinline))
  #define USED_FUNC  __attribute__((used,noinline))
  #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
  #pragma GCC push_options
- // IMPORTANT(Ryan): must #pragma GCC pop_options
- #pragma GCC optimize ("Os")
- #pragma GCC target("avx,avx2,f16c,fma,sse3,ssse3,sse4.1,sse4.2")
-TODO: when to use __attribute__((optimize("O0")))?
- /**/
- #pragma GCC optimize ("no-align-functions")
- #pragma GCC optimize ("no-align-jumps")
- #pragma GCC optimize ("no-align-loops")
- #pragma GCC optimize ("no-align-labels")
- #pragma GCC optimize ("reorder-blocks")
- #pragma GCC optimize ("reorder-blocks-and-partition")
- #pragma GCC optimize ("prefetch-loop-arrays")
- /**/
- //#pragma GCC optimize ("no-ipa-cp-clone")
- #pragma GCC optimize ("inline-functions")
- //#pragma GCC optimize ("conserve-stack")
- //#pragma GCC optimize ("no-defer-pop")
- #pragma GCC optimize ("tree-switch-conversion")
- //#pragma GCC optimize ("param=case-values-threshold=1")
- #define likely(x)   __builtin_expect(!!(x), 1) // use with if (likely()) perhaps inside for loops
+ #pragma GCC optimize ("O3")
+ #pragma GCC pop_options
+ #define likely(x)   __builtin_expect(!!(x), 1) 
+ // use with if (likely()) perhaps inside for loops
  #define unlikely(x) __builtin_expect(!!(x), 0)
 
 #   if __cplusplus <= 199711L
@@ -212,6 +196,8 @@ enum AXIS
   AXIS_Y,
   AXIS_Z,
   AXIS_W,
+  AXIS_COUNT,
+  AXIS_MAKE_ENUM_32BIT = U32_MAX,
 };
 enum SIDE
 {
@@ -296,6 +282,22 @@ INTERNAL void __bp(void) {}
 
 #pragma mark - M_UTILITIES
 
+// TODO(Ryan): various intrinsics; seem to primarily be bitscanning
+//
+//#include <intrin.h>
+//
+//static inline uint64_t count_set_bits64(uint64_t x)
+//{
+//#if _MSC_VER
+//    return __popcnt64(x);
+//#else
+//#error TODO: Implement
+//#endif
+//}
+
+// to get (count, array); use to pass array inline to function
+#define ARRAY_EXPAND(type, ...) ARRAY_COUNT(((type[]){ __VA_ARGS__ })), (type[]){ __VA_ARGS__ }
+
 // NOTE(Ryan): Avoid having to worry about pernicous macro expansion
 #define STRINGIFY_(s) #s
 #define STRINGIFY(s) STRINGIFY_(s)
@@ -307,9 +309,9 @@ INTERNAL void __bp(void) {}
 
 #define UNIQUE_NAME PASTE(prefix, __COUNTER__)
 
-
 #define DEFER_LOOP(begin, end, var) for(int var = (begin, 0); var == 0; var += 1, end)
 #define DEFER_LOOP_CHECKED(begin, end, var) for(int var = 2 * !(begin); (var == 2 ? ((end), 0) : !var); var += 1, (end))
+// TODO: MEM_SCOPED() which encases a scratch arena
 
 
 // TODO(Ryan): Maybe have to do (void)sizeof(name) for C++?
@@ -414,6 +416,42 @@ INTERNAL void __bp(void) {}
 
 #include <string.h>
 
+void set_memory(void *memory, size_t size, char value)
+{
+    unsigned char *data = (unsigned char *)memory;
+#ifdef _MSC_VER
+    __stosb(data, value, size);
+#else
+    while (size--)
+    {
+        *data++ = value;
+    }
+#endif
+}
+
+void copy_memory(void *dest_init, const void *source_init, size_t size)
+{
+    if (source_init == dest_init) return;
+
+    const unsigned char *source = (const unsigned char *)source_init;
+    unsigned char *dest = (unsigned char *)dest_init;
+
+    ASSERT(dest + size <= source || dest >= source + size);
+
+#ifdef _MSC_VER
+    __movsb(dest, source, size);
+#elif defined(__i386__) || defined(__x86_64__)
+    __asm__ __volatile__("rep movsb" : "+c"(size), "+S"(source), "+D"(dest): : "memory");
+#else
+    while (size--)
+    {
+        *dest++ = *source++;
+    }
+#endif
+}
+
+
+
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
@@ -458,6 +496,71 @@ round_to_nearest(u64 val, u64 near)
   result -= result % near;
   
   return result;
+}
+
+typedef u32 random_series;
+// Due to ASLR, address will be different each time
+random_series entropy = (u32)PTR_TO_INT(plane);
+// could also call linux getentropy();
+
+INTERNAL u32 
+rand_u32(random_series *r)
+{
+    uint32_t x = r->state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    r->state = x;
+    return r->state;
+}
+
+// returns random [0, 1) float
+static inline float random_unilateral (random_series_t *r)
+{
+    // NOTE: Stolen from rnd.h, courtesy of Jonatan Hedborg
+    uint32_t exponent = 127;
+    uint32_t mantissa = random_uint32(r) >> 9;
+    uint32_t bits = (exponent << 23) | mantissa;
+    float result = *(float *)&bits - 1.0f;
+    return result;
+}
+
+// returns random [-1, 1) float
+static inline float random_bilateral(random_series_t *r)
+{
+    return -1.0f + 2.0f*random_unilateral(r);
+}
+
+// returns random number in range [0, range)
+static inline uint32_t random_choice(random_series_t *r, uint32_t range)
+{
+    uint32_t result = random_uint32(r) % range;
+    return result;
+}
+
+// returns random number in range [1, sides]
+static inline uint32_t dice_roll(random_series_t *r, uint32_t sides)
+{
+    uint32_t result = 1 + random_choice(r, sides);
+    return result;
+}
+
+// returns random number in range [min, max]
+static inline int32_t random_range_i32(random_series_t *r, int32_t min, int32_t max)
+{
+    if (max < min)
+        max = min;
+
+    int32_t result = min + (int32_t)random_uint32(r) % (max - min + 1);
+    return result;
+}
+
+// returns random float in range [min, max)
+static inline float random_range_f32(random_series_t *r, float min, float max)
+{
+    float range = random_unilateral(r);
+    float result = min + range*(max - min);
+    return result;
 }
 
 #if 0
@@ -520,6 +623,9 @@ sin_f32(f32 x)
 {
   return sinf(x);
 }
+28:#define STBTT_pow(x, y)  __builtin_powf(x, y)
+29:#define STBTT_fmod(x, y) __builtin_fmodf(x, y)
+31:#define STBTT_acos(x)    __builtin_acosf(x)
 
 INTERNAL f32
 cos_f32(f32 x)
@@ -543,6 +649,17 @@ INTERNAL f64
 sqrt_f64(f64 x)
 {
   return sqrt(x);
+}
+
+TODO(Ryan): Investigate retro-fps math sse routines
+INTERNAL f32 sqrt_ss(f32 x)
+{
+  return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
+}
+
+static inline float rsqrt_ss(float x)
+{
+    return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set1_ps(x)));
 }
 
 INTERNAL f64
@@ -591,6 +708,7 @@ unlerp(f32 a, f32 b, f32 t)
 
 // TODO(Ryan): Perhaps include round_to, ceil functions etc.
 
+#define M(mat, row, col) (mat)->e[(mat)->n*(col) + (row)]
 
 // IMPORTANT(Ryan): although typing out tedious, better than codegen complexity
 // i.e. prefer tedious over complexity

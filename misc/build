@@ -126,9 +126,19 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     compiler_flags+=( "-O3" )
     compiler_flags+=( "-ffunction-sections" "-fdata-sections" ) 
 
+    # IMPORTANT: should not be used for embedded as it may inline pieces of code and place
+    # them in the same memory region.
+    # also may increase stack usage
+    compiler_flags+=( "-flto" )
+
+    compiler_flags+=( "-ffast-math" )
+
+    # pointer analysis; large compile times
+    compiler_flags+=( "-fipa-pta" )
+    
     # NOTE(Ryan): C++ specific attempt to convert calls to virtual functions to direct calls
-    compiler_flags+=( "-fdevirtualize" )
-    # -ffast-math
+    compiler_flags+=( "-fdevirtualize-at-ltrans" )
+
     linker_flags+=( "-Wl,--gc-sections" )
   else
     printf "Error: Build currently only supports debug and release modes\n" >&2
