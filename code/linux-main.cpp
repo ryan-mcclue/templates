@@ -89,8 +89,26 @@ mem_arena_allocate(u64 cap)
   return result;
 }
 
+#if defined(MAIN_DEBUG)
+  GLOBAL u64 debug_mem_max = 0;
+  GLOBAL u64 debug_mem_current = 0;
+  GLOBAL const char *debug_mem_max_func_name = NULL;
+  GLOBAL u64 debug_mem_max_line_num = 0;
+  #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c), __LINE__, __func__)
+  #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c), __LINE__, __func__)
+  #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
+#else
+  #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c))
+  #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c))
+  #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
+#endif
+
 INTERNAL void *
+#if defined(MAIN_DEBUG)
+mem_arena_push_aligned(MemArena *arena, u64 size, u64 align, u64 line_number, const char *function_name)
+#else
 mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
+#endif
 {
   void *result = NULL;
 
@@ -109,6 +127,16 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
     u64 new_pos = pos + alignment_size + size;
     arena->pos = new_pos;
 
+#if defined(MAIN_DEBUG)
+    debug_mem_current += (new_pos - debug_mem_current);
+    if (debug_mem_current >= debug_mem_max)
+    {
+      debug_mem_max = debug_mem_current;
+      debug_mem_max_func_name = function_name;
+      debug_mem_max_line_num = line_num;
+    }
+#endif
+
     if (new_pos > arena->commit_pos)
     {
       u64 commit_grow = new_pos - arena->commit_pos;
@@ -121,38 +149,23 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
   return result;
 }
 
-INTERNAL void
-mem_arena_set_pos_back(MemArena *arena, u64 pos)
+#if defined(MAIN_DEBUG)
+INTERNAL void *
+mem_arena_push(MemArena *arena, u64 size, u64 line_number, const char *function_name)
 {
-  u64 clamped_pos = CLAMP_BOTTOM(sizeof(*arena), pos);
-
-  if (arena->pos > clamped_pos)
-  {
-    arena->pos = clamped_pos;
-
-    u64 decommit_pos = round_to_nearest(clamped_pos, MEM_COMMIT_BLOCK_SIZE);
-    u64 over_committed = arena->commit_pos - decommit_pos;
-    over_committed -= over_committed % MEM_COMMIT_BLOCK_SIZE;
-    if (decommit_pos > 0 && over_committed >= MEM_DECOMMIT_THRESHOLD)
-    {
-      linux_mem_decommit((u8 *)arena + decommit_pos, over_committed);
-      arena->commit_pos -= over_committed;
-    }
-  }
+  return mem_arena_push_aligned(arena, size, arena->align, line_number, function_name);
 }
 
-INTERNAL void
-mem_arena_pop(MemArena *arena, u64 size)
+INTERNAL void *
+mem_arena_push_zero(MemArena *arena, u64 size, u64 line_number, const char *function_name)
 {
-  mem_arena_set_pos_back(arena, arena->pos - size);
-}
+  void *memory = mem_arena_push(arena, size, line_number, function_name);
 
-INTERNAL void
-mem_arena_clear(MemArena *arena)
-{
-  mem_arena_set_pos_back(arena, arena->pos);
-}
+  MEMORY_ZERO(memory, size);
 
+  return memory;
+}
+#else
 INTERNAL void *
 mem_arena_push(MemArena *arena, u64 size)
 {
@@ -168,6 +181,46 @@ mem_arena_push_zero(MemArena *arena, u64 size)
 
   return memory;
 }
+#endif
+
+INTERNAL void
+mem_arena_set_pos_back(MemArena *arena, u64 pos)
+{
+  u64 clamped_pos = CLAMP_BOTTOM(sizeof(*arena), pos);
+
+  if (arena->pos > clamped_pos)
+  {
+    arena->pos = clamped_pos;
+
+#if defined(MAIN_DEBUG)
+    debug_mem_current -= (clamped_pos - debug_mem_current);
+#endif
+
+    u64 decommit_pos = round_to_nearest(clamped_pos, MEM_COMMIT_BLOCK_SIZE);
+    u64 over_committed = arena->commit_pos - decommit_pos;
+    over_committed -= over_committed % MEM_COMMIT_BLOCK_SIZE;
+    if (decommit_pos > 0 && over_committed >= MEM_DECOMMIT_THRESHOLD)
+    {
+      linux_mem_decommit((u8 *)arena + decommit_pos, over_committed);
+      arena->commit_pos -= over_committed;
+    }
+  }
+}
+#endif
+
+
+INTERNAL void
+mem_arena_pop(MemArena *arena, u64 size)
+{
+  mem_arena_set_pos_back(arena, arena->pos - size);
+}
+
+INTERNAL void
+mem_arena_clear(MemArena *arena)
+{
+  mem_arena_set_pos_back(arena, arena->pos);
+}
+
 
 INTERNAL void
 mem_arena_release(MemArena *arena)
@@ -181,9 +234,6 @@ mem_arena_release(MemArena *arena)
   mem_arena_release(arena);
 }
 
-#define MEM_ARENA_PUSH_ARRAY(a,T,c)     (T*)mem_arena_push((a), sizeof(T)*(c))
-#define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c))
-#define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
 
 // get_nprocs() - 1
 typedef struct ThreadContext ThreadContext;

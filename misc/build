@@ -8,6 +8,17 @@ ctime -begin private/main.ctm
 
 # find . -name "*" -delete > /dev/null
 
+print_longest_function() {
+  # IMPORTANT(Ryan): Must run with universal ctags
+  # also run after preprocessing
+  ctags --c-kinds=f --fields=+ne -o - --sort=no code/linux-main.cpp > misc/ctags-info.txt
+  local max_function_name
+  local max_function_loc
+  while read -r line; do
+    function_name=${line}
+  done < misc/ctags-info.txt
+}
+
 pushdir() {
   command pushd "$@" > /dev/null
 }
@@ -15,6 +26,7 @@ pushdir() {
 popdir() {
   command popd "$@" > /dev/null
 }
+
 
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
   os="linux"
