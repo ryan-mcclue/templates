@@ -9,15 +9,7 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
  #define NOINLINE   __attribute__((noinline))
  #define USED_FUNC  __attribute__((used,noinline))
  #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
- #pragma GCC push_options
- #pragma GCC optimize ("O3")
- #pragma GCC pop_options
- #define likely(x)   __builtin_expect(!!(x), 1) 
- // use with if (likely()) perhaps inside for loops
- #define unlikely(x) __builtin_expect(!!(x), 0)
 
-#   if __cplusplus <= 199711L
-#    define MD_CPP_VERSION 98
 
 #endif
 #endif
@@ -52,8 +44,14 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
 
   #define CASE_FALLTHROUGH __attribute__((fallthrough))
 
-
   #define THREAD_LOCAL __thread
+
+  #define PUSH_OPTIMISATION_MODE() \
+    _Pragma("GCC push_options") \
+    _Pragma("GCC optimize (\"O3\")")
+
+  #define POP_OPTIMISATION_MODE() \
+    _Pragma("GCC pop_options")
 
   #define IGNORE_WARNING_USELESS_CAST_PUSH() \
     _Pragma("GCC diagnostic push") \
@@ -62,6 +60,10 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")
 
+  #define LIKELY(x)   __builtin_expect(!!(x), 1) 
+  // use with if (likely()) perhaps inside for loops
+  #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
   // TODO(Ryan): Perhaps also do #define MACRO_BEGIN ({
   // for compiler specific expression statements
 #else
@@ -69,6 +71,12 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
 #endif
 
 #if defined(__cplusplus)
+  #if __cplusplus <= 199711L
+    #define CPP_VERSION 98
+  #elif __cplusplus <= 201103L
+    #define CPP_VERSION 11
+  #endif
+
   #define LANG_CPP 1
   // NOTE(Ryan): Avoid confusing auto-indenter
   // TODO: if on windows, require dll specifier
@@ -77,6 +85,12 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
   #define EXPORT extern "C"
   #define ZERO_STRUCT {}
 #else
+  #if __STDC_VERSION__ <= 199901L
+    #define C_VERSION 99
+  #elif __STDC_VERSION__ <= 201112L
+    #define C_VERSION 11
+  #endif
+
   #define LANG_C 1
   #define EXPORT_BEGIN
   #define EXPORT_END
