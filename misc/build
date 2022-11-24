@@ -2,6 +2,8 @@
 
 set -e
 
+# start_time=$(date +%s.%N)
+# runtime=$( echo "$end_time - $start_time)" | bc -l )
 ctime -begin private/main.ctm
 
 # find . -name "*" -delete > /dev/null
@@ -58,6 +60,28 @@ linker_flags=()
 
 # TODO(Ryan): renderdoc gpu profiler: 
 
+# -Wl,--print-memory-usage
+# 
+# void *pFnBottom = (void *)MyFunc;
+# void *pFnTop;
+# unsigned int uiStackUsage;
+# 
+# void MyFunc( void )
+# {
+#   __asm__ ( mov pFnTop, esp );
+#   uiStackUsage = (unsigned int)(pFnTop - pFnBottom);
+# }
+# 
+# -finstrument-functions (we get pointer to function)
+# 
+# ctags -x --c-kinds=f filename.c
+# awk 'NR > first && /^}$/ { print NR; exit }' first=$FIRST_LINE filename.c
+
+# must have universal ctags (maintained version of exuberant ctags)
+# ctags --fields=+ne -o - --sort=no foo.c
+
+# note that function braces in first column
+# INTERNAL\n.*\n{\n
 
 if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux" ]]; then
 
@@ -152,11 +176,9 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   fi
 
   # g++ ${compiler_flags[*]} -E -P code/linux-main.cpp -o build/linux-main.i ${linker_flags[*]}
-  # LOC
-  #wc -l build/linux-main.i
-  # puncover for stack usage
-  # binary size
-  # perhaps $(cccc) .xml file parse?
+  # wc -l build/linux-main.i
+  # LOC, largest function lines, section/binary sizes
+  # max heap usage, max stack usage, execution time
 
   g++ ${compiler_flags[*]} -E -P code/linux-main.i -o build/linux-main ${linker_flags[*]}
 
