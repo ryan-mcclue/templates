@@ -959,6 +959,8 @@ main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
 
+  // IMPORTANT(Ryan): For switch statements, put default at top 
+
   // TODO(Ryan): Drawing UI: arcane/game/source/arc/ui.ui.c: DrawEditorUI(); 
 
   // thread init
@@ -1275,7 +1277,14 @@ So what’s the solution? In my mind, it has to do with directly engaging with t
 And, in doing so, ideas and projects will be shaped by reality, rather than divorced from it. 
 It begins with simply asking the question—“are you measuring your project against markets—against the perceptions and values of others—or aren’t you?”
 
+seems that static analysis tools give us some of these metrics? 
 GENERAL PRINCIPLE: YOU GET WHAT YOU MEASURE
+memory usage
+lines of code
+cyclomatic complexity? (perhaps count number of dependencies in a function to determine complexity?)
+(this is because cyclomatic just tells us how risky to change a function)
+longest function lengths?
+for qualitative analysis, perhaps require a linter?
 
 If you never measure memory usage in your program, it’s far more likely that your program will have wasteful memory usage. 
 If you never measure a frame’s performance in your game, it’s far more likely that your game will drop frames. 

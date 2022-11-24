@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
-#if 0
-TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
-// #define DO_PRAGMA(x) _Pragma (#x)
-//          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
-//          TODO(Some comment here to fix this)
- #define NOINLINE   __attribute__((noinline))
- #define USED_FUNC  __attribute__((used,noinline))
- #define VERYINLINE __attribute__((optimize("inline-functions"),always_inline))
-
-
-#endif
-#endif
+// TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
 
 // TODO(Ryan): stb_sprintf.h and sse_mathfun.h
 
@@ -46,6 +35,10 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
 
   #define THREAD_LOCAL __thread
 
+  #define NEVER_INLINE   __attribute__((noinline))
+  #define USED_FUNC  __attribute__((used,noinline))
+  #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
+
   #define PUSH_OPTIMISATION_MODE() \
     _Pragma("GCC push_options") \
     _Pragma("GCC optimize (\"O3\")")
@@ -61,7 +54,6 @@ TODO(Ryan): Enable optimisation flags for particular math routines we have no ne
     _Pragma("GCC diagnostic pop")
 
   #define LIKELY(x)   __builtin_expect(!!(x), 1) 
-  // use with if (likely()) perhaps inside for loops
   #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
   // TODO(Ryan): Perhaps also do #define MACRO_BEGIN ({
@@ -120,7 +112,6 @@ typedef double f64;
 #define GLOBAL static
 #define LOCAL static
 #define INTERNAL static
-
 
 IGNORE_WARNING_USELESS_CAST_PUSH()
 
@@ -203,6 +194,7 @@ GLOBAL u32 BIT_30 = 1 << 29;
 GLOBAL u32 BIT_31 = 1 << 30;
 GLOBAL u32 BIT_32 = (u32)1 << 31;
 
+typedef enum AXIS AXIS;
 enum AXIS
 {
   // getting info out of vectors
@@ -213,39 +205,14 @@ enum AXIS
   AXIS_COUNT,
   AXIS_MAKE_ENUM_32BIT = U32_MAX,
 };
+
+typedef enum SIDE SIDE;
 enum SIDE
 {
   // left-right, top-bottom
   SIDE_MIN,
   SIDE_MAX,
 };
-// dealing with file information
-enum MONTH
-{
-  MONTH_JAN,
-  MONTH_FEB,
-  MONTH_MAR,
-  MONTH_APR,
-  MONTH_MAY,
-  MONTH_JUN,
-  MONTH_JUL,
-  MONTH_AUG,
-  MONTH_SEP,
-  MONTH_OCT,
-  MONTH_NOV,
-  MONTH_DEC,
-};
-enum DAY_OF_WEEK
-{
-  DAY_OF_WEEK_SUN,
-  DAY_OF_WEEK_MON,
-  DAY_OF_WEEK_TUE,
-  DAY_OF_WEEK_WED,
-  DAY_OF_WEEK_THU,
-  DAY_OF_WEEK_FRI,
-  DAY_OF_WEEK_SAT,
-};
-
 
 #pragma mark - M_BREAKPOINTS_AND_ASSERTS
 
@@ -258,7 +225,7 @@ INTERNAL void __fatal_error(const char *file_name, const char *func_name, int li
 { 
   fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
           func_name, line_num, message);
-  #if !defined(MAIN_DEBUG)
+  #if !defined(MAIN_DEBUGGER)
     exit(1); // perhaps call something like ExitProcess for multithreaded?
   #endif
 }
@@ -269,7 +236,7 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
   const char *errno_msg = strerror(errno);
   fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
           func_name, line_num, errno_msg, message);
-  #if !defined(MAIN_DEBUG)
+  #if !defined(MAIN_DEBUGGER)
     exit(1); // perhaps call something like ExitProcess for multithreaded?
   #endif
 }
@@ -296,18 +263,6 @@ INTERNAL void __bp(void) {}
 
 #pragma mark - M_UTILITIES
 
-// TODO(Ryan): various intrinsics; seem to primarily be bitscanning
-//
-//#include <intrin.h>
-//
-//static inline uint64_t count_set_bits64(uint64_t x)
-//{
-//#if _MSC_VER
-//    return __popcnt64(x);
-//#else
-//#error TODO: Implement
-//#endif
-//}
 
 // to get (count, array); use to pass array inline to function
 #define ARRAY_EXPAND(type, ...) ARRAY_COUNT(((type[]){ __VA_ARGS__ })), (type[]){ __VA_ARGS__ }
@@ -327,8 +282,7 @@ INTERNAL void __bp(void) {}
 #define DEFER_LOOP_CHECKED(begin, end, var) for(int var = 2 * !(begin); (var == 2 ? ((end), 0) : !var); var += 1, (end))
 // TODO: MEM_SCOPED() which encases a scratch arena
 
-
-// TODO(Ryan): Maybe have to do (void)sizeof(name) for C++?
+// IMPORTANT(Ryan): Maybe have to do (void)sizeof(name) for C++?
 #define IGNORED(name) (void)(name) 
 
 #define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
@@ -338,7 +292,6 @@ INTERNAL void __bp(void) {}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
 
-// NOTE(Ryan): Could use heap addresses as unique IDs
 #define INT_FROM_PTR(p) ((unsigned long long)((char *)p - (char *)0))
 #define PTR_FROM_INT(n) ((void *)((char *)0 + (n)))
 
@@ -365,6 +318,33 @@ INTERNAL void __bp(void) {}
 #define ALIGN_POW2_DOWN(x, p)       ((x) & -(p))
 #define ALIGN_POW2_UP(x, p)       (-(-(x) & -(p)))
 #define ALIGN_POW2_INCREASE(x, p)         (-(~(x) & -(p)))
+
+#if defined(COMPILER_GCC) && defined(ARCH_X86_64)
+  #include <x86intrin.h>
+
+  INTERNAL u32 
+  count_bits_set_u32(u32 val)
+  {
+    return __builtin_popcount(val);
+  }
+
+  // NOTE(Ryan): This is from most significant bits
+  INTERNAL ALWAYS_INLINE u32 
+  count_leading_zeroes(u32 val)
+  {
+    return __builtin_clz(val);
+    return __builtin_clzl(val);
+
+  }
+__builtin_ctz
+__builtin_parity
+
+r64 __builtin_powi(r64, u32)
+r32 __builtin_powif(r32, u32)
+__builtin_bswap16
+__builtin_bswap32
+__builtin_bswap64
+#endif
 
 // malloc designed for arbitrary sizes and lifetimes
 // this can lead to rats nests of lifetimes and computational issues freeing small nodes
@@ -430,42 +410,7 @@ INTERNAL void __bp(void) {}
 
 #include <string.h>
 
-void set_memory(void *memory, size_t size, char value)
-{
-    unsigned char *data = (unsigned char *)memory;
-#ifdef _MSC_VER
-    __stosb(data, value, size);
-#else
-    while (size--)
-    {
-        *data++ = value;
-    }
-#endif
-}
-
-void copy_memory(void *dest_init, const void *source_init, size_t size)
-{
-    if (source_init == dest_init) return;
-
-    const unsigned char *source = (const unsigned char *)source_init;
-    unsigned char *dest = (unsigned char *)dest_init;
-
-    ASSERT(dest + size <= source || dest >= source + size);
-
-#ifdef _MSC_VER
-    __movsb(dest, source, size);
-#elif defined(__i386__) || defined(__x86_64__)
-    __asm__ __volatile__("rep movsb" : "+c"(size), "+S"(source), "+D"(dest): : "memory");
-#else
-    while (size--)
-    {
-        *dest++ = *source++;
-    }
-#endif
-}
-
-
-
+// IMPORTANT(Ryan): For large copies, perhaps builtin rep instruction better performance?
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))

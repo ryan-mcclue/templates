@@ -91,6 +91,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   compiler_flags+=( "-I code" "-isystem external")
 
+  # -Wl,-Map=build/main.map 
+
   if [[ "$param_mode" == "debug" ]]; then
     compiler_flags+=( "-DMAIN_DEBUG" )
 
@@ -149,7 +151,14 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     echo g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
   fi
 
-  g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+  # g++ ${compiler_flags[*]} -E -P code/linux-main.cpp -o build/linux-main.i ${linker_flags[*]}
+  # LOC
+  #wc -l build/linux-main.i
+  # puncover for stack usage
+  # binary size
+  # perhaps $(cccc) .xml file parse?
+
+  g++ ${compiler_flags[*]} -E -P code/linux-main.i -o build/linux-main ${linker_flags[*]}
 
   pushd run >/dev/null
 
