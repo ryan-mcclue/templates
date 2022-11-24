@@ -1,0 +1,43 @@
+MD_LINUX_FileIterIncrement	code/linux-main.cpp	/^MD_LINUX_FileIterIncrement(MD_Arena *arena, MD_FileIter *opaque_it, MD_String8 path,$/;"	f	line:627	typeref:typename:MD_b32	file:	end:675
+__thread_context_register_file_and_line	code/linux-main.cpp	/^__thread_context_register_file_and_line(char *file, int line)$/;"	f	line:279	typeref:typename:INTERNAL void	end:284
+adjacency_list_create	code/linux-main.cpp	/^adjacency_list_create(MemArena *arena)$/;"	f	line:981	typeref:typename:INTERNAL AdjacencyList *	end:988
+linux_get_page_size	code/linux-main.cpp	/^linux_get_page_size(void)$/;"	f	line:12	typeref:typename:INTERNAL u64	end:20
+linux_mem_commit	code/linux-main.cpp	/^linux_mem_commit(void *ptr, u64 size)$/;"	f	line:56	typeref:typename:INTERNAL b32	end:61
+linux_mem_decommit	code/linux-main.cpp	/^linux_mem_decommit(void *ptr, u64 size)$/;"	f	line:64	typeref:typename:INTERNAL void	end:68
+linux_mem_release	code/linux-main.cpp	/^linux_mem_release(void *ptr, u64 size)$/;"	f	line:71	typeref:typename:INTERNAL void	end:74
+linux_mem_reserve	code/linux-main.cpp	/^linux_mem_reserve(u64 size)$/;"	f	line:48	typeref:typename:INTERNAL void *	end:53
+main	code/linux-main.cpp	/^main(int argc, char *argv[])$/;"	f	line:1008	typeref:typename:int	end:1050
+map_create	code/linux-main.cpp	/^map_create(MemArena *arena, u64 bucket_count)$/;"	f	line:1148	typeref:typename:INTERNAL Map	end:1156
+map_hash_ptr	code/linux-main.cpp	/^map_hash_ptr(void *p)$/;"	f	line:1121	typeref:typename:INTERNAL u64	end:1130
+map_hash_str	code/linux-main.cpp	/^map_hash_str(String8 string)$/;"	f	line:1090	typeref:typename:INTERNAL u64	end:1100
+map_insert	code/linux-main.cpp	/^map_insert(MemArena *arena, Map *map, MapKey key, void *val)$/;"	f	line:1211	typeref:typename:INTERNAL MapSlot *	end:1227
+map_key_ptr	code/linux-main.cpp	/^map_key_ptr(void *ptr)$/;"	f	line:1133	typeref:typename:INTERNAL MapKey	end:1145
+map_key_str	code/linux-main.cpp	/^map_key_str(String8 string)$/;"	f	line:1103	typeref:typename:INTERNAL MapKey	end:1118
+map_lookup	code/linux-main.cpp	/^map_lookup(Map *map, MapKey key)$/;"	f	line:1196	typeref:typename:INTERNAL MapSlot *	end:1207
+map_overwrite	code/linux-main.cpp	/^map_overwrite(MemArena *arena, Map *map, MapKey key, void *val)$/;"	f	line:1230	typeref:typename:INTERNAL MapSlot *	end:1244
+map_scan	code/linux-main.cpp	/^map_scan(MapSlot *first_slot, MapKey key)$/;"	f	line:1159	typeref:typename:INTERNAL MapSlot *	end:1193
+mem_arena_allocate	code/linux-main.cpp	/^mem_arena_allocate(u64 cap)$/;"	f	line:77	typeref:typename:INTERNAL MemArena *	end:90
+mem_arena_clear	code/linux-main.cpp	/^mem_arena_clear(MemArena *arena)$/;"	f	line:219	typeref:typename:INTERNAL void	end:222
+mem_arena_pop	code/linux-main.cpp	/^mem_arena_pop(MemArena *arena, u64 size)$/;"	f	line:213	typeref:typename:INTERNAL void	end:216
+mem_arena_push	code/linux-main.cpp	/^mem_arena_push(MemArena *arena, u64 size)$/;"	f	line:170	typeref:typename:INTERNAL void *	end:173
+mem_arena_push	code/linux-main.cpp	/^mem_arena_push(MemArena *arena, u64 size, u64 line_number, const char *function_name)$/;"	f	line:154	typeref:typename:INTERNAL void *	end:157
+mem_arena_push_aligned	code/linux-main.cpp	/^mem_arena_push_aligned(MemArena *arena, u64 size, u64 align, u64 line_number, const char *functi/;"	f	line:108	typeref:typename:INTERNAL void *	end:150
+mem_arena_push_zero	code/linux-main.cpp	/^mem_arena_push_zero(MemArena *arena, u64 size)$/;"	f	line:176	typeref:typename:INTERNAL void *	end:183
+mem_arena_push_zero	code/linux-main.cpp	/^mem_arena_push_zero(MemArena *arena, u64 size, u64 line_number, const char *function_name)$/;"	f	line:160	typeref:typename:INTERNAL void *	end:167
+mem_arena_release	code/linux-main.cpp	/^mem_arena_release(MemArena *arena)$/;"	f	line:226	typeref:typename:INTERNAL void	end:235
+mem_arena_scratch_get	code/linux-main.cpp	/^mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)$/;"	f	line:294	typeref:typename:INTERNAL MemArenaTemp	end:320
+mem_arena_scratch_release	code/linux-main.cpp	/^mem_arena_scratch_release(MemArenaTemp *temp)$/;"	f	line:323	typeref:typename:INTERNAL void	end:326
+mem_arena_set_pos_back	code/linux-main.cpp	/^mem_arena_set_pos_back(MemArena *arena, u64 pos)$/;"	f	line:187	typeref:typename:INTERNAL void	end:208
+os_file_rename	code/linux-main.cpp	/^os_file_rename(String8 og_name, String8 new_name){$/;"	f	line:574	typeref:typename:function B32	end:583
+s8	code/linux-main.cpp	/^s8(u8 *str, u64 size)$/;"	f	line:439	typeref:typename:INTERNAL String8	end:447
+s8_append_to_file	code/linux-main.cpp	/^s8_append_to_file(String8 file_name, String8 data)$/;"	f	line:562	typeref:typename:INTERNAL void	end:571
+s8_copy	code/linux-main.cpp	/^s8_copy(MemArena *arena, String8 string)$/;"	f	line:469	typeref:typename:INTERNAL String8	end:479
+s8_fmt	code/linux-main.cpp	/^s8_fmt(MemArena *arena, char *fmt, ...)$/;"	f	line:482	typeref:typename:INTERNAL String8	end:496
+s8_from_range	code/linux-main.cpp	/^s8_from_range(u8 *start, u8 *one_past_last)$/;"	f	line:455	typeref:typename:INTERNAL String8	end:460
+s8_match	code/linux-main.cpp	/^s8_match(String8 s1, String8 s2)$/;"	f	line:463	typeref:typename:INTERNAL b32	end:466
+s8_read_entire_file	code/linux-main.cpp	/^s8_read_entire_file(MemArena *arena, String8 file_name)$/;"	f	line:525	typeref:typename:INTERNAL String8	end:547
+s8_substring	code/linux-main.cpp	/^s8_substring(String8 str, u64 min, u64 max)$/;"	f	line:499	typeref:typename:INTERNAL String8	end:522
+s8_write_entire_file	code/linux-main.cpp	/^s8_write_entire_file(String8 file_name, String8 data)$/;"	f	line:550	typeref:typename:INTERNAL void	end:559
+thread_context_create	code/linux-main.cpp	/^thread_context_create(void)$/;"	f	line:250	typeref:typename:INTERNAL ThreadContext	end:260
+thread_context_get	code/linux-main.cpp	/^thread_context_get(void)$/;"	f	line:271	typeref:typename:INTERNAL ThreadContext *	end:274
+thread_context_set	code/linux-main.cpp	/^thread_context_set(ThreadContext *tcx)$/;"	f	line:263	typeref:typename:INTERNAL void	end:268
