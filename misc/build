@@ -8,6 +8,17 @@ ctime -begin private/main.ctm
 
 # find . -name "*" -delete > /dev/null
 
+# cflow --number --omit-symbol-names --omit-arguments code/app.c  
+# use stack to print out longest indentation
+# push(indentations, 0)
+# active_indentation = 0
+# for line in file:
+#   line_indentation = len(line) - len(line.lstrip())
+#   if line_indentation > active_indentation:
+#     push(indentations, 
+#   else:
+
+
 print_longest_function() {
   # IMPORTANT(Ryan): Must run with universal ctags
   # also run after preprocessing
