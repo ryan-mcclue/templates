@@ -263,7 +263,6 @@ INTERNAL void __bp(void) {}
 
 #pragma mark - M_UTILITIES
 
-
 // to get (count, array); use to pass array inline to function
 #define ARRAY_EXPAND(type, ...) ARRAY_COUNT(((type[]){ __VA_ARGS__ })), (type[]){ __VA_ARGS__ }
 
@@ -322,7 +321,7 @@ INTERNAL void __bp(void) {}
 #if defined(COMPILER_GCC) && defined(ARCH_X86_64)
   #include <x86intrin.h>
 
-  INTERNAL u32 
+  INTERNAL ALWAYS_INLINE u32 
   count_bits_set_u32(u32 val)
   {
     return __builtin_popcount(val);
@@ -330,21 +329,47 @@ INTERNAL void __bp(void) {}
 
   // NOTE(Ryan): This is from most significant bits
   INTERNAL ALWAYS_INLINE u32 
-  count_leading_zeroes(u32 val)
+  count_leading_zeroes_u32(u32 val)
   {
     return __builtin_clz(val);
-    return __builtin_clzl(val);
-
   }
-__builtin_ctz
-__builtin_parity
 
-r64 __builtin_powi(r64, u32)
-r32 __builtin_powif(r32, u32)
-__builtin_bswap16
-__builtin_bswap32
-__builtin_bswap64
+  INTERNAL ALWAYS_INLINE u32 
+  count_trailing_zeroes_u32(u32 val)
+  {
+    return __builtin_ctz(val);
+  }
+
+  INTERNAL ALWAYS_INLINE u32 
+  get_parity_u32(u32 val)
+  {
+    return __builtin_parity(val);
+  }
+
+  INTERNAL ALWAYS_INLINE u16 
+  endianness_swap_u16(u16 val)
+  {
+    return __builtin_bswap16(val);
+  }
+
+  INTERNAL ALWAYS_INLINE u32 
+  endianness_swap_u32(u32 val)
+  {
+    return __builtin_bswap32(val);
+  }
+
+  INTERNAL ALWAYS_INLINE u64 
+  endianness_swap_u64(u64 val)
+  {
+    return __builtin_bswap64(val);
+  }
+
+  // math.h functions
+  r64 __builtin_powi(r64, u32)
+  r32 __builtin_powif(r32, u32)
+
 #endif
+
 
 // malloc designed for arbitrary sizes and lifetimes
 // this can lead to rats nests of lifetimes and computational issues freeing small nodes
@@ -427,9 +452,16 @@ __builtin_bswap64
 #define TB(x) (((u64)x) << 40)
 
 #define THOUSAND(x) ((x)*1000LL)
+#define MILLIS(x) ((x)*1000UL)
+
 #define MILLION(x)  ((x)*1000000LL)
+#define MICROS(x)  ((x)*1000000UL)
+
 #define BILLION(x)  ((x)*1000000000LL)
+#define NANOS(x)  ((x)*1000000000UL)
+
 #define TRILLION(x) ((x)*1000000000000LL)
+#define PICOS(x) ((x)*1000000000000UL)
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
@@ -782,6 +814,22 @@ i2s32(s32 x0, s32 y0, s32 x1, s32 y1)
   }
 }
 
+
+// IMPORTANT(Ryan): Only works on multiples of 2
+#define VECTOR_SIZE(amount, type) \
+  vector_size(amount * sizeof(type))
+
+typedef r32 v2 __attribute__((VECTOR_SIZE(2, r32)));
+typedef union V2
+{
+  v2 vec;
+  struct
+  {
+    r32 x, y;
+  };
+  r32 e[2];
+} V2;
+
 V2S32 operator+(const V2S32 &a, const V2S32 &b);
 V2S32 operator-(const V2S32 &a, const V2S32 &b);
 V2S32 operator*(const V2S32 &a, s32 b);
@@ -1081,5 +1129,95 @@ str8_list_push(MemArena *arena, String8List *list, String8 string)
 // utf-16 windows
 // utf-8 linux
 // utf-32 easiest as everything is 32bits
+
+INTERNAL u32
+round_r32_to_u32(r32 real32)
+{
+  u32 result = 0;
+
+  result = (u32)roundf(real32);
+
+  return result;
+}
+
+INTERNAL s32
+round_r32_to_s32(r32 real32)
+{
+  s32 result = 0;
+
+  result = (s32)roundf(real32);
+
+  return result;
+}
+
+INTERNAL u32
+floor_r32_to_u32(r32 real32)
+{
+  u32 result = 0;
+
+  result = (u32)floorf(real32);
+
+  return result;
+}
+
+INTERNAL s32
+floor_r32_to_s32(r32 real32)
+{
+  s32 result = 0;
+
+  result = (s32)floorf(real32);
+
+  return result;
+}
+
+INTERNAL u32
+ceil_r32_to_u32(r32 real32)
+{
+  u32 result = 0;
+
+  result = ceilf(real32);
+
+  return result;
+}
+
+INTERNAL s32
+ceil_r32_to_s32(r32 real32)
+{
+  s32 result = 0;
+
+  result = ceilf(real32);
+
+  return result;
+}
+
+INTERNAL r32
+square(r32 x)
+{
+  r32 result = 0.0f;
+
+  result = x * x;
+
+  return result;
+}
+
+INTERNAL r32
+square_root(r32 val)
+{
+    r32 result = 0.0f;
+
+    result = sqrt(val);
+
+    return result;
+}
+
+INTERNAL r32
+lerp(r32 start, r32 end, r32 p)
+{
+  r32 result = 0.0f;
+
+  result = ((end - start) * p) + start;
+
+  return result;
+}
 
 #endif

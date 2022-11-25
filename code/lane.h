@@ -7,7 +7,7 @@
 // This gives us load instructions.
 #if defined(__SSE4_1__) && defined(__AVX__)
 #define LANE_WIDTH 4
-struct LaneR32
+struct LaneF32
 {
   __m128 value;
 };

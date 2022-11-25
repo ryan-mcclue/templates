@@ -3,7 +3,10 @@
 #define STB_SPRINTF_IMPLEMENTATION 1
 #include "stb/stb_sprintf.h"
 
+// .h includes
 #include "base.h"
+
+// .c includes
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -89,6 +92,7 @@ mem_arena_allocate(u64 cap)
   return result;
 }
 
+// TODO(Ryan): Make thread safe when required
 #if defined(MAIN_DEBUG)
   GLOBAL u64 debug_mem_max = 0;
   GLOBAL u64 debug_mem_current = 0;
@@ -325,7 +329,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
   mem_arena_set_pos_back(temp->arena, temp->arena->pos);
 }
 
-
 #define DLL_PUSH_FRONT(first, last, node) \
 (\
   ((first) == NULL) ? \
@@ -427,6 +430,45 @@ mem_arena_scratch_release(MemArenaTemp *temp)
      ((first) = (first)->next) \
     )\
 )
+
+#if 0
+
+typedef struct BufferHeader BufferHeader;
+struct BufferHeader
+{
+	u64 len;
+	u64 cap;
+	u8* buffer;
+};
+
+u32 *buffer = BUFFER_CREATE(u32, 10);
+BUFFER_PUSH(buffer);
+buffer_
+
+#define __BUFFER_HEADER(buf)	\
+	((BufferHeader *)((u8 *)(buf) - offsetof(BufferHeader, buffer)))
+
+#define BUFFER_LEN(buf)	\
+	(((buf) != NULL) ? __BUFFER_HEADER(buf)->len: 0)
+
+#define BUFFER_CAP(buf)	\
+	(((buf) != NULL) ? __BUFFER_HEADER(buf)->cap: 0)
+
+#define __BUFFER_FITS(buf, amount) \
+	(BUFFER_LEN(buf) + (amount) <= BUFFER_CAP(buf))
+
+#define __BUFFER_FIT(buf, amount)	\
+	(BUF__FITS(b, 1) ? 0 : ((b) = buf__grow((b), BUF_LENGTH(b) + (amount), sizeof(*(b)))))
+
+#define BUF_PUSH(b, element)	\
+	(BUF__FIT(b, 1), b[BUF_LENGTH(b)] = (element), BUF__HEADER(b)->length++) 
+
+#define BUF_FREE(b)	\
+	(((b) != NULL) ? free(BUF__HEADER(b)) : 0, (b) = NULL)
+
+// perhaps could do generic buffer with stretchy buf variants (but forego the stretchiness due to arenas)?
+// heap is complete binary tree
+#endif
 
 typedef struct String8 String8;
 struct String8
@@ -570,7 +612,7 @@ s8_append_to_file(String8 file_name, String8 data)
   }
 }
 
-function B32
+INTERNAL b32
 os_file_rename(String8 og_name, String8 new_name){
     // convert name
     M_ArenaTemp scratch = m_get_scratch(0, 0);
@@ -731,51 +773,6 @@ LinuxDoesDirectoryExist(char *path)
 	return LinuxDoesFileExist(path);
 }
 
-
-internal void
-LinuxTimerBeginFrame(LinuxTimer *timer)
-{
-	struct timespec t_spec = {0};
-	clock_gettime(CLOCK_MONOTONIC, &t_spec);
-	timer->begin_frame = t_spec.tv_sec * NANOS + t_spec.tv_nsec;
-}
-
-internal void
-LinuxTimerEndFrame(LinuxTimer *timer, f64 milliseconds_per_frame)
-{
-	struct timespec t_spec = {0};
-	clock_gettime(CLOCK_MONOTONIC, &t_spec);
-
-	long elapsed_milliseconds = ((t_spec.tv_sec * NANOS + t_spec.tv_nsec) - timer->begin_frame) / 1000000;
-	long milliseconds_to_sleep = milliseconds_per_frame - elapsed_milliseconds;
-
-	struct timespec start_spec = {0};
-	struct timespec end_spec = {0};
-
-	clock_gettime(CLOCK_MONOTONIC, &start_spec);
-	long start_t = start_spec.tv_sec * NANOS + start_spec.tv_nsec;
-
-	long end_t = 0;
-
-	while (milliseconds_to_sleep > 0)
-	{
-
-		if (timer->sleep_is_granular)
-		{
-			if (milliseconds_to_sleep > 0)
-			{
-				sleep(milliseconds_to_sleep / 1000);
-			}
-		}
-
-		clock_gettime(CLOCK_MONOTONIC, &end_spec);
-		end_t = end_spec.tv_sec * NANOS + end_spec.tv_nsec;
-
-		long nanoseconds_to_sleep = milliseconds_to_sleep * 1000000;
-		milliseconds_to_sleep = (nanoseconds_to_sleep - (end_t - start_t)) / 1000000;
-		start_t = end_t;
-	}
-}
 #endif
 
 
@@ -1004,10 +1001,47 @@ DijkstraResult dijkstra_result = compute_dijstrka(adjacency_list, start_vertex);
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
+typedef struct Timer Timer;
+struct Timer
+{
+  u64 ticks_start;
+  u64 ticks_end;
+  u64 ticks_per_sec; 
+};
+
+INTERNAL Timer
+linux_timer_get(void)
+{
+  Timer result = ZERO_STRUCT;
+
+  result.ticks_per_sec = NANOS;
+
+  return result;
+}
+
+INTERNAL void
+linux_timer_start(Timer *timer)
+{
+	struct timespec t_spec = ZERO_STRUCT;
+	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+	timer->ticks_start = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
+}
+
+INTERNAL void
+linux_timer_end(Timer *timer)
+{
+	struct timespec t_spec = ZERO_STRUCT;
+	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+	timer->ticks_end = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
+}
+
 int
 main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
+
+  Timer timer = linux_timer_get();
+  linux_timer_start(&timer);
 
   // IMPORTANT(Ryan): For switch statements, put default at top 
 
@@ -1045,6 +1079,9 @@ main(int argc, char *argv[])
   //}
   
   AdjacencyList *adjacency_list = adjacency_list_create(linux_mem_arena_perm);
+
+  linux_timer_end(&timer);
+  fprintf(stdout + file, );
 
   return 0;
 }
