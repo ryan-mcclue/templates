@@ -112,7 +112,7 @@ typedef double f64;
 
 IGNORE_WARNING_USELESS_CAST_PUSH()
 
-// TODO(Ryan): Seems use global variables for constants, macros for functions?
+// TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
 GLOBAL i8 MIN_S8 = (i8)0x80; 
 GLOBAL i16 MIN_S16 = (i16)0x8000; 
@@ -128,6 +128,8 @@ GLOBAL u8 MAX_U8 = (u8)0xff;
 GLOBAL u16 MAX_U16 = (u16)0xffff; 
 GLOBAL u32 MAX_U32 = (u32)0xffffffff; 
 GLOBAL u64 MAX_U64 = (u64)0xffffffffffffffffllu; 
+
+#define ENUM_U32_SIZE 0xffffffff
 
 IGNORE_WARNING_POP()
 
@@ -191,8 +193,7 @@ GLOBAL u32 BIT_30 = 1 << 29;
 GLOBAL u32 BIT_31 = 1 << 30;
 GLOBAL u32 BIT_32 = (u32)1 << 31;
 
-typedef enum AXIS AXIS;
-enum AXIS
+typedef enum AXIS
 {
   // getting info out of vectors
   AXIS_X,
@@ -200,16 +201,15 @@ enum AXIS
   AXIS_Z,
   AXIS_W,
   AXIS_COUNT,
-  AXIS_MAKE_ENUM_32BIT = U32_MAX,
-};
+  AXIS_MAKE_ENUM_32BIT = ENUM_U32_SIZE,
+} AXIS;
 
-typedef enum SIDE SIDE;
-enum SIDE
+typedef enum SIDE
 {
   // left-right, top-bottom
   SIDE_MIN,
   SIDE_MAX,
-};
+} SIDE;
 
 #pragma mark - M_BREAKPOINTS_AND_ASSERTS
 
@@ -246,8 +246,8 @@ INTERNAL void __bp(void) {}
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
-  #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); }) } while (0)
-  #define ERRNO_ASSERT(c) do { (if (!(c)) { ERRNO_FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); }) } while (0)
+  #define ASSERT(c) do { (if !(c)) { FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); } } while (0)
+  #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
   #define BP() __bp()
 #else
   #define ASSERT(c)
@@ -449,16 +449,16 @@ INTERNAL void __bp(void) {}
 #define TB(x) (((u64)x) << 40)
 
 #define THOUSAND(x) ((x)*1000LL)
-#define MILLIS(x) ((x)*1000UL)
+#define MILLI_TO_SEC(x) ((x)*1000UL)
 
 #define MILLION(x)  ((x)*1000000LL)
-#define MICROS(x)  ((x)*1000000UL)
+#define MICRO_TO_SEC(x)  ((x)*1000000UL)
 
 #define BILLION(x)  ((x)*1000000000LL)
-#define NANOS(x)  ((x)*1000000000UL)
+#define NANO_TO_SEC(x)  ((x)*1000000000UL)
 
 #define TRILLION(x) ((x)*1000000000000LL)
-#define PICOS(x) ((x)*1000000000000UL)
+#define PICO_TO_SEC(x) ((x)*1000000000000UL)
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
@@ -486,6 +486,7 @@ round_to_nearest(u64 val, u64 near)
   return result;
 }
 
+#if 0
 // IMPORTANT(Ryan): Due to ASLR, could use pointer address where appropriate 
 INTERNAL void
 linux_get_entropy(void *buffer, size_t length)
@@ -553,7 +554,6 @@ static inline float random_range_f32(random_series_t *r, float min, float max)
     return result;
 }
 
-#if 0
 // NOTE(Ryan): Taken from https://docs.oracle.com/cd/E19205-01/819-5265/bjbeh/index.html
 INTERNAL f32
 inf_f32(void)

@@ -10,6 +10,7 @@
 
 #include <unistd.h>
 #include <sys/mman.h>
+#include <time.h>
 
 INTERNAL u64
 linux_get_page_size(void)
@@ -17,8 +18,10 @@ linux_get_page_size(void)
   u64 result = 0;
   
   // TODO(Ryan): Investigate obtaining POSIX information with sysconf() and related functions
-  result = (u64)sysconf(_SC_PAGESIZE);
-  ERRNO_ASSERT(result != -1);
+  i64 sysconf_result = sysconf(_SC_PAGESIZE);
+  ERRNO_ASSERT(sysconf_result != -1);
+
+  result = (u64)sysconf_result;
 
   return result;
 }
@@ -138,7 +141,7 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
     {
       debug_mem_max = debug_mem_current;
       debug_mem_max_func_name = function_name;
-      debug_mem_max_line_num = line_num;
+      debug_mem_max_line_num = line_number;
     }
 #endif
 
@@ -211,7 +214,6 @@ mem_arena_set_pos_back(MemArena *arena, u64 pos)
     }
   }
 }
-#endif
 
 
 INTERNAL void
@@ -968,8 +970,8 @@ GLOBAL MemArena *linux_mem_arena_perm = NULL;
 typedef struct Timer Timer;
 struct Timer
 {
-  u64 ticks_start;
-  u64 ticks_end;
+  u64 start;
+  u64 end;
   u64 ticks_per_sec; 
 };
 
@@ -978,7 +980,7 @@ linux_timer_get(void)
 {
   Timer result = ZERO_STRUCT;
 
-  result.ticks_per_sec = NANOS;
+  result.ticks_per_sec = NANO_TO_SEC(1);
 
   return result;
 }
@@ -988,7 +990,8 @@ linux_timer_start(Timer *timer)
 {
 	struct timespec t_spec = ZERO_STRUCT;
 	ERRNO_ASSERT(clock_gettime(CLOCK_MONOTONIC_RAW, &t_spec) != -1);
-	timer->ticks_start = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
+  // NOTE(Ryan): time_t can be negative as it represents offset from epoch
+	timer->start = (u64)t_spec.tv_sec * timer->ticks_per_sec + (u64)t_spec.tv_nsec;
 }
 
 INTERNAL void
@@ -996,7 +999,7 @@ linux_timer_end(Timer *timer)
 {
 	struct timespec t_spec = ZERO_STRUCT;
 	ERRNO_ASSERT(clock_gettime(CLOCK_MONOTONIC_RAW, &t_spec) != -1);
-	timer->ticks_end = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
+	timer->end = (u64)t_spec.tv_sec * timer->ticks_per_sec + (u64)t_spec.tv_nsec;
 }
 
 int
@@ -1042,17 +1045,16 @@ main(int argc, char *argv[])
   //  update_and_render();
   //}
   
-  AdjacencyList *adjacency_list = adjacency_list_create(linux_mem_arena_perm);
+  //AdjacencyList *adjacency_list = adjacency_list_create(linux_mem_arena_perm);
 
   linux_timer_end(&timer);
-  fprintf(stdout + file, );
+  fprintf(stdout, "%f\n", (f64)(timer.end - timer.start) / (f64)timer.ticks_per_sec);
 
   return 0;
 }
 
 
 #if 1
-
 
 typedef struct MapKey MapKey;
 struct MapKey
