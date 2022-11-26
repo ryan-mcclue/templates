@@ -4,9 +4,7 @@ set -e
 
 # IMPORTANT(Ryan): Every day start by running print_stats script that will display gnu plot graphs
 
-# start_time=$(date +%s.%N)
-# runtime=$( echo "$end_time - $start_time)" | bc -l )
-ctime -begin private/main.ctm
+build_start_time=$(date +%s.%N)
 
 # find . -name "*" -delete > /dev/null
 
@@ -22,25 +20,6 @@ ctime -begin private/main.ctm
 
 # print out installed system RAM to obtain percentage of used heap: $(free | awk 'FNR == 2 {print $2}')
 
-print_longest_function() {
-  # IMPORTANT(Ryan): Must run with universal ctags
-  # also run after preprocessing
-  ctags --c-kinds=f --fields=+ne -o - code/linux-main.cpp.i > misc/ctags-info.txt
-  local max_function_name
-  local max_function_loc
-  while read -r line; do
-    function_name="${line%% *}"
-    line_start_pre="${line%%*line:}"
-    line_num="${line_start_pre## *}"
-    line_end_pre="${line%%*end:}"
-    line_end="${line_end_pre## *}"
-    length=$(( line_end - line_start ))
-    if [[ $length -ge max_length ]]; then
-      max_length=$length
-      max_function_name="$function_name"
-    fi
-  done < misc/ctags-info.txt
-}
 
 push_dir() {
   command pushd "$@" > /dev/null
@@ -76,6 +55,7 @@ linker_flags=()
 #   -fstack-usage  generates .su files
 #   -Wstack-usage=255 (warn if usage over 255 bytes)
 #   Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
+#   (better to use Ozone 'callgraph feature' to analyze stack
 #
 #   run arm-none-eabi-size to inspect output file
 #   -Os instead of -O3 optimisation 
@@ -95,7 +75,6 @@ linker_flags=()
 
 # TODO(Ryan): renderdoc gpu profiler: 
 
-# -Wl,--print-memory-usage
 # 
 # void *pFnBottom = (void *)MyFunc;
 # void *pFnTop;
@@ -149,6 +128,9 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy" )
 
   compiler_flags+=( "-I code" "-isystem code/external" )
+
+  # use for embedded, as will take into account region names specified in a linker script
+  # compiler_flags+=( "-Wl,--print-memory-usage" )
 
   # -Wl,-Map=build/main.map 
 
@@ -217,15 +199,47 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
-  pushd run >/dev/null
+  push_dir run
 
   ../build/linux-main
 
-  popd >/dev/null
+  pop_dir
 
 else
   printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
   exit 1
 fi
 
-ctime -end private/main.ctm
+# IMPORTANT(Ryan): Must run with universal ctags
+ctags --c-kinds=f --fields=+ne -o - code/* > misc/ctags-info.txt
+
+line="LaneR32_from_r32	code/lane.h	/^LaneR32_from_r32(r32 replicate)$/;\"	f	line:230	typeref:typename:INTERNAL LaneR32	end:237"
+
+set -x
+function_name="${line%% *}"
+line_start_pre="${line%%*line:}"
+line_num="${line_start_pre## *}"
+line_end_pre="${line%%*end:}"
+line_end="${line_end_pre## *}"
+set +x
+
+#while read -r line; do
+#  function_name="${line%% *}"
+#  line_start_pre="${line%%*line:}"
+#  line_num="${line_start_pre## *}"
+#  line_end_pre="${line%%*end:}"
+#  line_end="${line_end_pre## *}"
+#  length=$(( line_end - line_start ))
+#  if [[ $length -ge max_length ]]; then
+#    max_length=$length
+#    max_function_name="$function_name"
+#  fi
+#done < misc/ctags-info.txt
+
+# IMPORTANT(Ryan): This does not show debug information
+# Also assuming .bss negligable due to zero intialisation paradigm
+#size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
+
+build_end_time=$(date +%s.%N)
+build_time=$( echo "($build_end_time - $build_start_time)" | bc -l )
+#printf "Build time: %.4fs\n" "$build_time"
