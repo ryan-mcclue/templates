@@ -226,7 +226,8 @@ INTERNAL void __fatal_error(const char *file_name, const char *func_name, int li
   fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
           func_name, line_num, message);
   #if !defined(MAIN_DEBUGGER)
-    exit(1); // perhaps call something like ExitProcess for multithreaded?
+    // IMPORTANT(Ryan): If using fork(), will not exit entire program
+    exit(1); 
   #endif
 }
 
@@ -237,7 +238,8 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
   fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
           func_name, line_num, errno_msg, message);
   #if !defined(MAIN_DEBUGGER)
-    exit(1); // perhaps call something like ExitProcess for multithreaded?
+    // IMPORTANT(Ryan): If using fork(), will not exit entire program
+    exit(1);
   #endif
 }
 
@@ -248,9 +250,11 @@ INTERNAL void __bp(void) {}
 
 #if defined(MAIN_DEBUG)
   #define ASSERT(c) do { (if (!(c)) { FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); }) } while (0)
+  #define ERRNO_ASSERT(c) do { (if (!(c)) { ERRNO_FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); }) } while (0)
   #define BP() __bp()
 #else
   #define ASSERT(c)
+  #define ERRNO_ASSERT(c)
   #define BP()
 #endif
 
@@ -415,14 +419,6 @@ INTERNAL void __bp(void) {}
 // functions ask the user where to allocate
 // function(Arena *arena)
 
-// reusing memory can be acheived by composing arenas
-// conflicts are any arenas that are used for persistent allocations
-// ArenaTemp GetScratch(Arena **conflicts, U64 conflict_count); // grabs a thread-local scratch arena
-//
-// arena can grow and shrink (effectively a dynamic array)
-// if on embedded, abort when memory exceeds
-// if on OS, can grow
-
 // TODO(Ryan): malloc() is 16-byte aligned for possible SIMD (use of xmm registers)
 // understand this alignment?
 
@@ -435,7 +431,7 @@ INTERNAL void __bp(void) {}
 
 #include <string.h>
 
-// IMPORTANT(Ryan): For large copies, perhaps builtin rep instruction better performance?
+// TODO(Ryan): For large copies, perhaps builtin rep instruction better performance?
 #define MEMORY_ZERO(p, n) memset((p), 0, (n))
 #define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
 #define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
@@ -489,10 +485,12 @@ round_to_nearest(u64 val, u64 near)
   return result;
 }
 
-typedef u32 random_series;
-// Due to ASLR, address will be different each time
-random_series entropy = (u32)PTR_TO_INT(plane);
-// could also call linux getentropy();
+// IMPORTANT(Ryan): Due to ASLR, could use pointer address where appropriate 
+INTERNAL void
+linux_get_entropy(void *buffer, size_t length)
+{
+  ERRNO_ASSERT(getentropy(buffer, length) != -1);
+}
 
 INTERNAL u32 
 rand_u32(random_series *r)
@@ -1033,9 +1031,6 @@ mem_arena_zero(MemArena *arena, u64 size)
   MEMORY_ZERO(result, size);
   return result;
 }
-
-#define MEM_PUSH_ARRAY(a, t, c) (t *)mem_arena_push((a), sizeof(t) * (c))
-#define MEM_PUSH_ARRAY_ZERO(a, t, c) (t *)mem_arena_push_zero((a), sizeof(t) * (c))
 
 // IMPORTANT(Ryan): Using memory arenas changes the mentality of memory usage
 // i.e. can only free things in reverse order

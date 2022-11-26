@@ -2,6 +2,8 @@
 
 set -e
 
+# IMPORTANT(Ryan): Every day start by running print_stats script that will display gnu plot graphs
+
 # start_time=$(date +%s.%N)
 # runtime=$( echo "$end_time - $start_time)" | bc -l )
 ctime -begin private/main.ctm
@@ -18,6 +20,7 @@ ctime -begin private/main.ctm
 #     push(indentations, 
 #   else:
 
+# print out installed system RAM to obtain percentage of used heap: $(free | awk 'FNR == 2 {print $2}')
 
 print_longest_function() {
   # IMPORTANT(Ryan): Must run with universal ctags
@@ -39,11 +42,11 @@ print_longest_function() {
   done < misc/ctags-info.txt
 }
 
-pushdir() {
+push_dir() {
   command pushd "$@" > /dev/null
 }
 
-popdir() {
+pop_dir() {
   command popd "$@" > /dev/null
 }
 

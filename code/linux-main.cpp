@@ -18,6 +18,7 @@ linux_get_page_size(void)
   
   // TODO(Ryan): Investigate obtaining POSIX information with sysconf() and related functions
   result = (u64)sysconf(_SC_PAGESIZE);
+  ERRNO_ASSERT(result != -1);
 
   return result;
 }
@@ -437,36 +438,22 @@ typedef struct BufferHeader BufferHeader;
 struct BufferHeader
 {
 	u64 len;
-	u64 cap;
-	u8* buffer;
+	u8 *buffer;
 };
 
-u32 *buffer = BUFFER_CREATE(u32, 10);
-BUFFER_PUSH(buffer);
-buffer_
+#if defined(MAIN_DEBUG)
+  #define BUFFER_CREATE(arena, type, len) \
+    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(BufferHeader) + sizeof(type) * (len), __LINE__, __func__) + \
+      OFFSET_OF_MEMBER(BufferHeader, buffer))
+#else
+  #define BUFFER_CREATE(arena, type, len) \
+    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(BufferHeader) + sizeof(type) * (len)) + \
+      OFFSET_OF_MEMBER(BufferHeader, buffer))
+#endif
 
-#define __BUFFER_HEADER(buf)	\
-	((BufferHeader *)((u8 *)(buf) - offsetof(BufferHeader, buffer)))
+#define BUFFER_PUSH(buf, elem) \
+  (buf)[CAST_FROM_MEMBER(BufferHeader, buffer, buf)->len++] = (elem);
 
-#define BUFFER_LEN(buf)	\
-	(((buf) != NULL) ? __BUFFER_HEADER(buf)->len: 0)
-
-#define BUFFER_CAP(buf)	\
-	(((buf) != NULL) ? __BUFFER_HEADER(buf)->cap: 0)
-
-#define __BUFFER_FITS(buf, amount) \
-	(BUFFER_LEN(buf) + (amount) <= BUFFER_CAP(buf))
-
-#define __BUFFER_FIT(buf, amount)	\
-	(BUF__FITS(b, 1) ? 0 : ((b) = buf__grow((b), BUF_LENGTH(b) + (amount), sizeof(*(b)))))
-
-#define BUF_PUSH(b, element)	\
-	(BUF__FIT(b, 1), b[BUF_LENGTH(b)] = (element), BUF__HEADER(b)->length++) 
-
-#define BUF_FREE(b)	\
-	(((b) != NULL) ? free(BUF__HEADER(b)) : 0, (b) = NULL)
-
-// perhaps could do generic buffer with stretchy buf variants (but forego the stretchiness due to arenas)?
 // heap is complete binary tree
 #endif
 
@@ -1023,7 +1010,7 @@ INTERNAL void
 linux_timer_start(Timer *timer)
 {
 	struct timespec t_spec = ZERO_STRUCT;
-	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+	ERRNO_ASSERT(clock_gettime(CLOCK_MONOTONIC_RAW, &t_spec) != -1);
 	timer->ticks_start = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
 }
 
@@ -1031,7 +1018,7 @@ INTERNAL void
 linux_timer_end(Timer *timer)
 {
 	struct timespec t_spec = ZERO_STRUCT;
-	clock_gettime(CLOCK_MONOTONIC, &t_spec);
+	ERRNO_ASSERT(clock_gettime(CLOCK_MONOTONIC_RAW, &t_spec) != -1);
 	timer->ticks_end = t_spec.tv_sec * timer->ticks_per_sec + t_spec.tv_nsec;
 }
 
