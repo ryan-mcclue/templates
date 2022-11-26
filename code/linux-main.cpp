@@ -157,39 +157,39 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
   return result;
 }
 
+INTERNAL void *
 #if defined(MAIN_DEBUG)
-INTERNAL void *
 mem_arena_push(MemArena *arena, u64 size, u64 line_number, const char *function_name)
-{
-  return mem_arena_push_aligned(arena, size, arena->align, line_number, function_name);
-}
-
-INTERNAL void *
-mem_arena_push_zero(MemArena *arena, u64 size, u64 line_number, const char *function_name)
-{
-  void *memory = mem_arena_push(arena, size, line_number, function_name);
-
-  MEMORY_ZERO(memory, size);
-
-  return memory;
-}
 #else
-INTERNAL void *
 mem_arena_push(MemArena *arena, u64 size)
+#endif
 {
+
+#if defined(MAIN_DEBUG)
+  return mem_arena_push_aligned(arena, size, arena->align, line_number, function_name);
+#else
   return mem_arena_push_aligned(arena, size, arena->align);
+#endif
 }
 
 INTERNAL void *
+#if defined(MAIN_DEBUG)
+mem_arena_push_zero(MemArena *arena, u64 size, u64 line_number, const char *function_name)
+#else
 mem_arena_push_zero(MemArena *arena, u64 size)
+#endif
 {
+
+#if defined(MAIN_DEBUG)
+  void *memory = mem_arena_push(arena, size, line_number, function_name);
+#else
   void *memory = mem_arena_push(arena, size);
+#endif
 
   MEMORY_ZERO(memory, size);
 
   return memory;
 }
-#endif
 
 INTERNAL void
 mem_arena_set_pos_back(MemArena *arena, u64 pos)

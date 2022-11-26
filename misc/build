@@ -241,6 +241,8 @@ BEGIN {
 lines_of_code=$(cat code/* | wc -l)
 printf "LOC: %d\n" $lines_of_code
 
+# cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null
+
 # IMPORTANT(Ryan): This does not show debug information
 # Also assuming .bss negligable due to zero intialisation paradigm
 #size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
