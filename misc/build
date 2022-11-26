@@ -241,7 +241,24 @@ BEGIN {
 lines_of_code=$(cat code/* | wc -l)
 printf "LOC: %d\n" $lines_of_code
 
-# cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null
+flow_lines=()
+while IFS= read -r flow_line; do
+  flow_lines+=( "$flow_line" )
+done < <(cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null)
+
+function_names=()
+function_call_count=()
+for ((i = 0 ; i < ${#flow_lines[@]}; i++)); do
+  line_length=${#flow_lines[$i]}
+  read lstrip_line <<< "${flow_lines[$i]}"
+  function_name="${lstrip_line%% *}"
+  lstrip_line_length=${#lstrip_line}
+  line_indentation=$(( line_length - lstrip_line_length ))
+  printf "function: %s, indentation: %d\n" "$function_name" $line_indentation
+done
+
+# printf "${flow_lines[1]}\n"
+
 
 # IMPORTANT(Ryan): This does not show debug information
 # Also assuming .bss negligable due to zero intialisation paradigm
