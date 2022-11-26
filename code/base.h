@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 #pragma once
 
-// TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
-
-// TODO(Ryan): stb_sprintf.h and sse_mathfun.h
 
 #pragma mark - M_CONTEXT_CRACKING
 
@@ -322,6 +319,7 @@ INTERNAL void __bp(void) {}
 #define ALIGN_POW2_UP(x, p)       (-(-(x) & -(p)))
 #define ALIGN_POW2_INCREASE(x, p)         (-(~(x) & -(p)))
 
+#if 0
 #if defined(COMPILER_GCC) && defined(ARCH_X86_64)
   #include <x86intrin.h>
 
@@ -368,9 +366,12 @@ INTERNAL void __bp(void) {}
     return __builtin_bswap64(val);
   }
 
+  // TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
   // math.h functions
   r64 __builtin_powi(r64, u32)
   r32 __builtin_powif(r32, u32)
+
+#endif
 
 #endif
 

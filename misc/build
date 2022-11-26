@@ -210,12 +210,12 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     echo g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
   fi
 
-  # g++ ${compiler_flags[*]} -E -P code/linux-main.cpp -o build/linux-main.i ${linker_flags[*]}
+  g++ ${compiler_flags[*]} -E -P code/linux-main.cpp -o build/linux-main.i ${linker_flags[*]}
   # wc -l build/linux-main.i
   # LOC, largest function lines, section/binary sizes
   # max heap usage, max stack usage, execution time
 
-  g++ ${compiler_flags[*]} -E -P code/linux-main.i -o build/linux-main ${linker_flags[*]}
+  g++ ${compiler_flags[*]} build/linux-main.i -o build/linux-main ${linker_flags[*]}
 
   pushd run >/dev/null
 

@@ -6,6 +6,6 @@
 
 !*/
 !code/**/*.cpp
-!code/**/*.h
+!code/**/*.[ch]
 
 !misc/**/*

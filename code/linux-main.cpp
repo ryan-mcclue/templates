@@ -432,8 +432,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
-#if 0
-
 typedef struct BufferHeader BufferHeader;
 struct BufferHeader
 {
@@ -455,7 +453,6 @@ struct BufferHeader
   (buf)[CAST_FROM_MEMBER(BufferHeader, buffer, buf)->len++] = (elem);
 
 // heap is complete binary tree
-#endif
 
 typedef struct String8 String8;
 struct String8
@@ -599,6 +596,7 @@ s8_append_to_file(String8 file_name, String8 data)
   }
 }
 
+#if 0
 INTERNAL b32
 os_file_rename(String8 og_name, String8 new_name){
     // convert name
@@ -761,29 +759,8 @@ LinuxDoesDirectoryExist(char *path)
 }
 
 #endif
+#endif
 
-
-
-
-typedef struct Node Node;
-struct Node
-{
-  Node *prev;
-  Node *next;
-
-  u32 x;
-  u32 y;
-};
-
-typedef struct NodeList NodeList;
-struct NodeList
-{
-  Node *first;
-  Node *last;
-  u64 node_count;
-};
-
-// ParseNodeSet -> TokenFromString 
 
 typedef struct String8List String8List;
 struct String8List
@@ -924,7 +901,6 @@ eat_event(OS_EventList *events, OS_Event *event)
     event->next = next;
     event->prev = prev;
 }
-#endif
 
 // dijkstra's only for weighted, directed (e.g. only concerned with outgoing edges), positive weight graphs  
 
@@ -985,6 +961,7 @@ DijkstraResult dijkstra_result = compute_dijstrka(adjacency_list, start_vertex);
 // could compute naively with say DFS to compute all possible paths
 // when finding min value, log(n) with min-heap (which would have associated push/pop interfaces)
 // ∴ get O((v + e) · log(v))
+#endif
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
