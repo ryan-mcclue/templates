@@ -3,6 +3,7 @@
 
 // TODO(Ryan): sse_mathfun.h
 
+// better to use #pragma region, #pragma endregion?
 #pragma mark - M_CONTEXT_CRACKING
 
 #if defined(__GNUC__)
@@ -74,6 +75,7 @@
   #define EXPORT_END }
   #define EXPORT extern "C"
   #define ZERO_STRUCT {}
+  #define LITERAL(t) t
 #else
   #if __STDC_VERSION__ <= 199901L
     #define C_VERSION 99
@@ -86,8 +88,8 @@
   #define EXPORT_END
   #define EXPORT
   #define ZERO_STRUCT {0}
+  #define LITERAL(t) (t)
 #endif
-
 
 #pragma mark - M_TYPES_AND_CONSTANTS
 
@@ -100,6 +102,8 @@ typedef i8 b8;
 typedef i16 b16;
 typedef i32 b32;
 typedef i64 b64;
+// TODO(Ryan): It seems that on embedded, using say 'uint_fast8_t' can provide information to compiler to possibly
+// use a register to hold the value for say array index incrementing
 typedef uint8_t u8;
 typedef uint16_t  u16;
 typedef uint32_t  u32;
@@ -194,6 +198,15 @@ GLOBAL u32 BIT_30 = 1 << 29;
 GLOBAL u32 BIT_31 = 1 << 30;
 GLOBAL u32 BIT_32 = (u32)1 << 31;
 
+typedef struct SourceLocation SourceLocation;
+struct SourceLocation
+{
+  const char *file_name;
+  const char *function_name;
+  u64 line_number;
+};
+#define CURRENT_SOURCE_LOCATION { __FILE__, __func__, __LINE__ }
+
 typedef enum AXIS
 {
   // getting info out of vectors
@@ -247,7 +260,7 @@ INTERNAL void __bp(void) {}
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
-  #define ASSERT(c) do { (if !(c)) { FATAL_ERROR(PASTE(ASSERTION, STRINGIFY(c)); } } while (0)
+  #define ASSERT(c) do { (if !(c)) { FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
   #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
   #define BP() __bp()
 #else
@@ -277,10 +290,21 @@ INTERNAL void __bp(void) {}
 
 #define PAD(n) char PASTE(pad, __LINE__)[n]
 
-#define UNIQUE_NAME PASTE(prefix, __COUNTER__)
+#define UNIQUE_NAME(name) PASTE(name, __LINE__)
 
-#define DEFER_LOOP(begin, end, var) for(int var = (begin, 0); var == 0; var += 1, end)
-#define DEFER_LOOP_CHECKED(begin, end, var) for(int var = 2 * !(begin); (var == 2 ? ((end), 0) : !var); var += 1, (end))
+#define DEFER_LOOP(begin, end) \
+  for (int UNIQUE_NAME(var) = (begin, 0); \
+       UNIQUE_NAME(var) == 0; \
+       UNIQUE_NAME(var) += 1, end)
+#define DEFER_LOOP_CHECKED(begin, end) \
+  for (int UNIQUE_NAME(var) = 2 * !(begin); \
+       (UNIQUE_NAME(var) == 2 ? ((end), 0) : !UNIQUE_NAME(var)); \
+       UNIQUE_NAME(var) += 1, (end))
+#define SCOPED(end) \
+  for (int UNIQUE_NAME(var) = 0; \
+       UNIQUE_NAME(var) == 0; \
+       UNIQUE_NAME(var) += 1, end)
+
 // TODO: MEM_SCOPED() which encases a scratch arena
 
 // IMPORTANT(Ryan): Maybe have to do (void)sizeof(name) for C++?
@@ -1049,6 +1073,16 @@ struct String8
 {
   u8 *str;
   u64 size;
+};
+
+// By iterating over these, we are lazy loading. 
+// This means we save time not having to do expensive allocations up front
+// String8 match = s8_consume_first_by_delim(&src, delim)
+
+// This is something that has been allocated and we can add to
+struct String8Buf
+{
+
 };
 
 struct String8Node

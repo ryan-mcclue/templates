@@ -36,6 +36,7 @@ linux_get_page_size(void)
 typedef struct MemArena MemArena;
 struct MemArena
 {
+  // TODO(Ryan): Investigate growable arenas from ryan fluery
   // I believe these are for growable arenas? 
   MemArena *first; 
   MemArena *last; 
@@ -434,6 +435,7 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
+// TODO(Ryan): Change to Array
 typedef struct BufferHeader BufferHeader;
 struct BufferHeader
 {
@@ -1006,6 +1008,8 @@ int
 main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
+
+  linux_timer_start(LITERAL(Timer) {1,2,3});
 
   Timer timer = linux_timer_get();
   linux_timer_start(&timer);
