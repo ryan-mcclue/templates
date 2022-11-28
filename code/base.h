@@ -37,6 +37,8 @@
   #define NEVER_INLINE   __attribute__((noinline))
   #define USED_FUNC  __attribute__((used,noinline))
   #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
+  
+  #define UNREACHABLE() __builtin_unreachable()
 
   #define PUSH_OPTIMISATION_MODE() \
     _Pragma("GCC push_options") \
@@ -263,18 +265,18 @@ INTERNAL void __bp(void) {}
   #define ASSERT(c) do { (if !(c)) { FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
   #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
   #define BP() __bp()
+  #define UNREACHABLE_CODE_PATH ASSERT(!"UNREACHABLE_CODE_PATH")
+  #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE_CODE_PATH }
 #else
   #define ASSERT(c)
   #define ERRNO_ASSERT(c)
   #define BP()
+  #define UNREACHABLE_CODE_PATH UNREACHABLE() 
+  #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE() }
 #endif
 
 #define STATIC_ASSERT(cond, line) typedef u8 PASTE(line, __LINE__) [(cond)?1:-1]
-
-#define INVALID_CODE_PATH ASSERT(!"INVALID_CODE_PATH");
-#define INVALID_DEFAULT_CASE default: { INVALID_CODE_PATH }
 #define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
-
 
 #pragma mark - M_UTILITIES
 
