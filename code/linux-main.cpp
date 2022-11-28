@@ -100,11 +100,9 @@ mem_arena_allocate(u64 cap)
 // TODO(Ryan): Make thread safe when required
 #if defined(MAIN_DEBUG)
   GLOBAL u64 debug_mem_max = 0;
-  GLOBAL u64 debug_mem_current = 0;
-  GLOBAL const char *debug_mem_max_func_name = NULL;
-  GLOBAL u64 debug_mem_max_line_num = 0;
-  #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c), __LINE__, __func__)
-  #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c), __LINE__, __func__)
+  GLOBAL SourceLocation debug_mem_max_info = 0;
+  #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
+  #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
   #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
 #else
   #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c))
@@ -114,7 +112,7 @@ mem_arena_allocate(u64 cap)
 
 INTERNAL void *
 #if defined(MAIN_DEBUG)
-mem_arena_push_aligned(MemArena *arena, u64 size, u64 align, u64 line_number, const char *function_name)
+mem_arena_push_aligned(MemArena *arena, u64 size, u64 align, SourceLocation source_location)
 #else
 mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
 #endif
@@ -160,14 +158,14 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
 
 INTERNAL void *
 #if defined(MAIN_DEBUG)
-mem_arena_push(MemArena *arena, u64 size, u64 line_number, const char *function_name)
+mem_arena_push(MemArena *arena, u64 size, SourceLocation source_location)
 #else
 mem_arena_push(MemArena *arena, u64 size)
 #endif
 {
 
 #if defined(MAIN_DEBUG)
-  return mem_arena_push_aligned(arena, size, arena->align, line_number, function_name);
+  return mem_arena_push_aligned(arena, size, arena->align, source_location);
 #else
   return mem_arena_push_aligned(arena, size, arena->align);
 #endif
@@ -175,14 +173,14 @@ mem_arena_push(MemArena *arena, u64 size)
 
 INTERNAL void *
 #if defined(MAIN_DEBUG)
-mem_arena_push_zero(MemArena *arena, u64 size, u64 line_number, const char *function_name)
+mem_arena_push_zero(MemArena *arena, u64 size, SourceLocation source_location)
 #else
 mem_arena_push_zero(MemArena *arena, u64 size)
 #endif
 {
 
 #if defined(MAIN_DEBUG)
-  void *memory = mem_arena_push(arena, size, line_number, function_name);
+  void *memory = mem_arena_push(arena, size, source_location);
 #else
   void *memory = mem_arena_push(arena, size);
 #endif

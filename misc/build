@@ -119,7 +119,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-Winvalid-pch" )
 
   # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
-  compiler_flags+=( "-fdiagnostics-show-option" )
+  compiler_flags+=( "-fdiagnostics-show-option" "-fdiagnostics-color=always" )
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )

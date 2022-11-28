@@ -207,7 +207,8 @@ struct SourceLocation
   const char *function_name;
   u64 line_number;
 };
-#define CURRENT_SOURCE_LOCATION { __FILE__, __func__, __LINE__ }
+#define SOURCE_LOCATION { __FILE__, __func__, __LINE__ }
+#define LITERAL_SOURCE_LOCATION LITERAL(SourceLocation) SOURCE_LOCATION 
 
 typedef enum AXIS
 {
@@ -1077,9 +1078,9 @@ struct String8
   u64 size;
 };
 
-// By iterating over these, we are lazy loading. 
-// This means we save time not having to do expensive allocations up front
 // String8 match = s8_consume_first_by_delim(&src, delim)
+// For say split, we are fine with just lazy loading
+// This means we save time not having to do expensive allocations up front
 
 // This is something that has been allocated and we can add to
 struct String8Buf
