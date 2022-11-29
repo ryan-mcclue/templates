@@ -63,6 +63,10 @@
   #error Compiler not supported
 #endif
 
+#define LCOV_EXCL_LINE
+#define LCOV_EXCL_START
+#define LCOV_EXCL_STOP
+
 #if defined(__cplusplus)
   #if __cplusplus <= 199711L
     #define CPP_VERSION 98

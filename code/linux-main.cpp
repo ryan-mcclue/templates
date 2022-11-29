@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <time.h>
 
+
 INTERNAL u64
 linux_get_page_size(void)
 {
@@ -99,8 +100,8 @@ mem_arena_allocate(u64 cap)
 
 // TODO(Ryan): Make thread safe when required
 #if defined(MAIN_DEBUG)
-  GLOBAL u64 debug_mem_max = 0;
-  GLOBAL SourceLocation debug_mem_max_info = 0;
+  GLOBAL u64 debug_mem_max = 0, debug_mem_current = 0;
+  GLOBAL SourceLocation debug_mem_max_info = ZERO_STRUCT;
   #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
   #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
   #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
@@ -139,8 +140,7 @@ mem_arena_push_aligned(MemArena *arena, u64 size, u64 align)
     if (debug_mem_current >= debug_mem_max)
     {
       debug_mem_max = debug_mem_current;
-      debug_mem_max_func_name = function_name;
-      debug_mem_max_line_num = line_number;
+      debug_mem_max_info = source_location;
     }
 #endif
 
@@ -1006,8 +1006,6 @@ int
 main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
-
-  linux_timer_start(LITERAL(Timer) {1,2,3});
 
   Timer timer = linux_timer_get();
   linux_timer_start(&timer);

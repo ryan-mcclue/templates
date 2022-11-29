@@ -2,6 +2,13 @@
 
 set -e
 
+if [[ "$1" != "app" && "$1" != "tests" ]]; then
+  printf "Usage: ./build <app|tests>\n" >&2
+  exit 1
+fi
+
+BUILD_TYPE="$1"
+
 # IMPORTANT(Ryan): Every day start by running print_stats script that will display gnu plot graphs
 
 build_start_time=$(date +%s.%N)
@@ -75,17 +82,6 @@ linker_flags=()
 
 # TODO(Ryan): renderdoc gpu profiler: 
 
-# 
-# void *pFnBottom = (void *)MyFunc;
-# void *pFnTop;
-# unsigned int uiStackUsage;
-# 
-# void MyFunc( void )
-# {
-#   __asm__ ( mov pFnTop, esp );
-#   uiStackUsage = (unsigned int)(pFnTop - pFnBottom);
-# }
-# 
 # -finstrument-functions (we get pointer to function)
 # 
 # ctags -x --c-kinds=f filename.c
@@ -93,9 +89,6 @@ linker_flags=()
 
 # must have universal ctags (maintained version of exuberant ctags)
 # ctags --fields=+ne -o - --sort=no foo.c
-
-# note that function braces in first column
-# INTERNAL\n.*\n{\n
 
 if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux" ]]; then
 
@@ -112,14 +105,12 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-Wwrite-strings" "-Wpointer-arith" "-Wformat-truncation" "-Wmissing-include-dirs" )
   compiler_flags+=( "-Wcast-align" "-Wswitch-enum" "-Wsign-conversion" "-Wdisabled-optimization" )
   compiler_flags+=( "-Winline" "-Wmissing-declarations" "-Wdouble-promotion" "-Wshadow" "-Wtrampolines" )
-  compiler_flags+=( "-Wvector-operation-performance" "-Wnull-dereference" )
+  compiler_flags+=( "-Wvector-operation-performance" "-Wnull-dereference" "-Winvalid-pch" )
   compiler_flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
   compiler_flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
-  compiler_flags+=( "-Winvalid-pch" )
-
   # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
-  compiler_flags+=( "-fdiagnostics-show-option" "-fdiagnostics-color=always" )
+  compiler_flags+=( "-fdiagnostics-show-option")
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" )
@@ -131,10 +122,11 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # use for embedded, as will take into account region names specified in a linker script
   # compiler_flags+=( "-Wl,--print-memory-usage" )
-
   # -Wl,-Map=build/main.map 
 
   if [[ "$param_mode" == "debug" ]]; then
+    # build external 
+
     compiler_flags+=( "-DMAIN_DEBUG" )
 
     # NOTE(Ryan): -g3 gives macro definitions
@@ -144,35 +136,41 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
     compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
 
-    # NOTE(Ryan): The \x part specifies any ascii character
-    # rg --no-line-number --only-matching "\[\-W[\x00-\x7F]+\]" warnings.txt | sort | uniq
-    # ignored_stb_sprintf_pch_compiler_flags=( "-Wno-cast-align" "-Wno-conversion" "-Wno-padded" "-Wno-sign-conversion" "-Wno-useless-cast" "-Wno-zero-as-null-pointer-constant" )
-    # g++ ${compiler_flags[*]} ${ignored_stb_sprintf_pch_compiler_flags[*]} -DSTB_SPRINTF_IMPLEMENTATION=1 ../learn/stb_sprintf.h -o external/stb_sprintf.h.gch ${linker_flags[*]}
-
     # IMPORTANT(Ryan): static analysis requires gcc-10
     # IMPORTANT(Ryan): significantly increases compilation time
     # compiler_flags+=( "-fanalyzer" )
 
+    # NOTE(Ryan): The \x part specifies any ascii character
+    # rg --no-line-number --only-matching "\[\-W[\x00-\x7F]+\]" warnings.txt | sort | uniq
+    
+    # IMPORTANT(Ryan): Replace gcov binary to new symlink when updated gcc as well
+
+    # IMPORTANT(Ryan): Only run tests on debug builds
+    if [[ "$BUILD_TYPE" == "tests" ]]; then
+      g++ -DMAIN_TEST --coverage ${compiler_flags[*]} \
+        code/linux-main.cpp -o build/linux-main-test ${linker_flags[*]}
+      # NOTE(Ryan): gcov complains if overriding existing .gcda files
+      rm -f linux-main.gcda
+      #find -name '*.gcda' -exec rm {} +
+      push_dir run
+      ../build/linux-main-test
+      pop_dir
+      gcov -b -o . code/linux-main.cpp >/dev/null
+      gcovr -e ".*\.h"
+    fi
+    # find . -name '*.gcov' -and -not -name 'linux-main.cpp.gcov' -exec rm {} +
+    
     # get debug and optimisation flags $(readelf -w build/server | grep producer)
     
     # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
     
-    # .gcno -> .gcda -> .gcov
-    # compiler_flags+=( "--coverage" ) "-fprofile-arcs -ftest-coverage" 
-    # gcov main.c
-    # lcov --capture --directory . --output-file coverage.info
-    #	-@find $(BUILD) -name '*.gcda' -exec rm {} +
-    #	./$(EXECUTABLE)
-    #	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
-    #	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
-    #	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
     
   elif [[ "$param_mode" == "release" ]]; then
     compiler_flags+=( "-DMAIN_RELEASE" )
     compiler_flags+=( "-O3" )
     compiler_flags+=( "-ffunction-sections" "-fdata-sections" ) 
 
-    # IMPORTANT: should not be used for embedded as it may inline pieces of code and place
+    # IMPORTANT(Ryan): Should not be used for embedded as it may inline pieces of code and place
     # them in the same memory region.
     # also may increase stack usage
     compiler_flags+=( "-flto" )
@@ -195,18 +193,13 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     echo g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
   fi
 
-  # g++ ${compiler_flags[*]} -E -P code/linux-main.cpp -o build/linux-main.i ${linker_flags[*]}
-  # wc -l build/linux-main.i
-  # LOC, largest function lines, section/binary sizes
-  # max heap usage, max stack usage, execution time
-
   g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
-  push_dir run
+  # push_dir run
 
-  ../build/linux-main
+  # ../build/linux-main
 
-  pop_dir
+  # pop_dir
 
 else
   printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
