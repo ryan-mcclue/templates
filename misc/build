@@ -157,7 +157,10 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     
     # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
     
-    # compiler_flags+=( "--coverage" ) (only for test builds)
+    # .gcno -> .gcda -> .gcov
+    # compiler_flags+=( "--coverage" ) "-fprofile-arcs -ftest-coverage" 
+    # gcov main.c
+    # lcov --capture --directory . --output-file coverage.info
     #	-@find $(BUILD) -name '*.gcda' -exec rm {} +
     #	./$(EXECUTABLE)
     #	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
