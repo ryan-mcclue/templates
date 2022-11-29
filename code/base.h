@@ -77,6 +77,7 @@
   #define EXPORT_END }
   #define EXPORT extern "C"
   #define ZERO_STRUCT {}
+  #define RESTRICT __restrict__
   #define LITERAL(t) t
 #else
   #if __STDC_VERSION__ <= 199901L
@@ -89,6 +90,7 @@
   #define EXPORT_BEGIN
   #define EXPORT_END
   #define EXPORT
+  #define RESTRICT restrict
   #define ZERO_STRUCT {0}
   #define LITERAL(t) (t)
 #endif
