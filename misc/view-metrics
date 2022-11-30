@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+if [[ $# < 1 ]]; then
+  gnuplot -c plot.gp *.metric
+else
+  gnuplot -c plot.gp "$@"
+fi
+
+xdg-open metrics.png

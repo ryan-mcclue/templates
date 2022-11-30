@@ -1049,6 +1049,12 @@ main(int argc, char *argv[])
   linux_timer_end(&timer);
   fprintf(stdout, "%f\n", (f64)(timer.end - timer.start) / (f64)timer.ticks_per_sec);
 
+#if MAIN_DEBUG
+  fprintf(stdout, "Max heap usage: %ldbytes, %s:%s():%ld\n", debug_mem_max,
+          debug_mem_max_info.file_name, debug_mem_max_info.function_name, 
+          debug_mem_max_info.line_number);
+#endif
+
   return 0;
 }
 

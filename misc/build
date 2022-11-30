@@ -13,6 +13,70 @@ BUILD_TYPE="$1"
 
 build_start_time=$(date +%s.%N)
 
+print_metrics() {
+  if [[ "$BUILD_TYPE" == "app" ]]; then
+    flow_lines=()
+    while IFS= read -r flow_line; do
+      flow_lines+=( "$flow_line" )
+    done < <(cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null)
+  
+    function_names=()
+    function_call_count=()
+    for ((i = 0 ; i < ${#flow_lines[@]}; i++)); do
+      line_length=${#flow_lines[$i]}
+      read lstrip_line <<< "${flow_lines[$i]}"
+      function_name="${lstrip_line%% *}"
+      lstrip_line_length=${#lstrip_line}
+      line_indentation=$(( line_length - lstrip_line_length ))
+      printf "function: %s, indentation: %d\n" "$function_name" $line_indentation
+    done
+  
+    # IMPORTANT(Ryan): Must run with universal ctags
+    ctags --c-kinds=f --fields=+ne -o - code/* | awk '
+    BEGIN { 
+      max_line_range = 0
+      max_function_name = ""
+      line_start_temp = 0
+      line_end_temp = 0
+      max_line_range_temp = 0
+    }
+    {
+      for (i = 1; i <= NF; i++) {
+        if (index($i, "line:") != 0) {
+          line_start_temp = substr($i, 6)
+        }
+      if (index($i, "end:") != 0) {
+        line_end_temp = substr($i, 5)
+      }
+    }
+    max_line_range_temp = line_end_temp - line_start_temp 
+    if (max_line_range_temp >= max_line_range) {
+      max_line_range = max_line_range_temp
+      max_function_name = $1
+    }
+    } END {
+      printf("Longest function %s():%d lines\n", max_function_name, max_line_range)
+    }
+    '
+  
+    lines_of_code=$(cat code/* | wc -l)
+    printf "LOC: %d\n" $lines_of_code
+  
+    # IMPORTANT(Ryan): This does not show debug information
+    # Also assuming .bss negligable due to zero intialisation paradigm
+    size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
+  fi
+
+  build_end_time=$(date +%s.%N)
+  build_time=$( echo "($build_end_time - $build_start_time)" | bc -l )
+
+  if [[ "$BUILD_TYPE" == "app" ]]; then 
+    printf "Build Time: %.4fs\n\n" "$build_time" 
+    printf "%.4f\n" "$build_time" >> misc/build-time.metric
+  else
+    printf "Build and Test Time: %.4fs\n\n" "$build_time" 
+  fi
+}
 
 push_dir() {
   command pushd "$@" > /dev/null
@@ -147,14 +211,22 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
         code/linux-main.cpp -o build/linux-main-test ${linker_flags[*]}
       # NOTE(Ryan): gcov complains if overriding existing .gcda files
       rm -f linux-main.gcda
-      #find -name '*.gcda' -exec rm {} +
+      # find -name '*.gcda' -exec rm {} +
       push_dir run
       ../build/linux-main-test
       pop_dir
       gcov -b -o . code/linux-main.cpp >/dev/null
       gcovr -e ".*\.h"
+
+      print_metrics
     else
       g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+
+      print_metrics
+
+      push_dir run
+      ../build/linux-main
+      pop_dir
     fi
     # find . -name '*.gcov' -and -not -name 'linux-main.cpp.gcov' -exec rm {} +
     
@@ -184,78 +256,18 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
     g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
+    print_metrics
+
+    push_dir run
+    ../build/linux-main
+    pop_dir
+
   else
     printf "Error: Build currently only supports debug and release modes\n" >&2
     exit 1
   fi
-
-  # push_dir run
-
-  # ../build/linux-main
-
-  # pop_dir
-
 else
   printf "Error: Build currently only supports x86_64 g++ on linux\n" >&2
   exit 1
 fi
 
-build_end_time=$(date +%s.%N)
-build_time=$( echo "($build_end_time - $build_start_time)" | bc -l )
-printf "Build time: %.4fs\n" "$build_time" 
-
-if [[ "$BUILD_TYPE" == "app" ]]; then
-  printf "%.4f\n" "$build_time" >> misc/build-time.metric
-
-  flow_lines=()
-  while IFS= read -r flow_line; do
-    flow_lines+=( "$flow_line" )
-  done < <(cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null)
-
-  function_names=()
-  function_call_count=()
-  for ((i = 0 ; i < ${#flow_lines[@]}; i++)); do
-    line_length=${#flow_lines[$i]}
-    read lstrip_line <<< "${flow_lines[$i]}"
-    function_name="${lstrip_line%% *}"
-    lstrip_line_length=${#lstrip_line}
-    line_indentation=$(( line_length - lstrip_line_length ))
-    printf "function: %s, indentation: %d\n" "$function_name" $line_indentation
-  done
-
-  # IMPORTANT(Ryan): Must run with universal ctags
-  ctags --c-kinds=f --fields=+ne -o - code/* | awk '
-  BEGIN { 
-    max_line_range = 0
-    max_function_name = ""
-    line_start_temp = 0
-    line_end_temp = 0
-    max_line_range_temp = 0
-  }
-  {
-    for (i = 1; i <= NF; i++) {
-      if (index($i, "line:") != 0) {
-        line_start_temp = substr($i, 6)
-      }
-    if (index($i, "end:") != 0) {
-      line_end_temp = substr($i, 5)
-    }
-  }
-  max_line_range_temp = line_end_temp - line_start_temp 
-  if (max_line_range_temp >= max_line_range) {
-    max_line_range = max_line_range_temp
-    max_function_name = $1
-  }
-  } END {
-    printf("Longest function %s():%d lines\n", max_function_name, max_line_range)
-  }
-  '
-
-  lines_of_code=$(cat code/* | wc -l)
-  printf "LOC: %d\n" $lines_of_code
-
-  # IMPORTANT(Ryan): This does not show debug information
-  # Also assuming .bss negligable due to zero intialisation paradigm
-  size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
-
-fi
