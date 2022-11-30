@@ -12,7 +12,6 @@
 #include <sys/mman.h>
 #include <time.h>
 
-
 INTERNAL u64
 linux_get_page_size(void)
 {

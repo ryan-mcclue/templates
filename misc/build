@@ -13,20 +13,6 @@ BUILD_TYPE="$1"
 
 build_start_time=$(date +%s.%N)
 
-# find . -name "*" -delete > /dev/null
-
-# cflow --number --omit-symbol-names --omit-arguments code/app.c  
-# use stack to print out longest indentation
-# push(indentations, 0)
-# active_indentation = 0
-# for line in file:
-#   line_indentation = len(line) - len(line.lstrip())
-#   if line_indentation > active_indentation:
-#     push(indentations, 
-#   else:
-
-# print out installed system RAM to obtain percentage of used heap: $(free | awk 'FNR == 2 {print $2}')
-
 
 push_dir() {
   command pushd "$@" > /dev/null
@@ -125,8 +111,6 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   # -Wl,-Map=build/main.map 
 
   if [[ "$param_mode" == "debug" ]]; then
-    # build external 
-
     compiler_flags+=( "-DMAIN_DEBUG" )
 
     # NOTE(Ryan): -g3 gives macro definitions
@@ -147,6 +131,18 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
     # IMPORTANT(Ryan): Only run tests on debug builds
     if [[ "$BUILD_TYPE" == "tests" ]]; then
+      mkdir -p lib
+
+      # IMPORTANT(Ryan): Don't incur cost of cmake checking
+      if [[ ! -f lib/libcmocka.so ]]; then
+       # IMPORTANT(Ryan): grep for option() in *.cmake
+       mkdir -p external/cmocka/build
+       cmake external/cmocka -DCMAKE_BUILD_TYPE=Debug -DWITH_EXAMPLES=OFF -DUNIT_TESTING=OFF \
+         -Bexternal/cmocka/build
+       cmake --build external/cmocka/build -j $(getconf _NPROCESSORS_ONLN)
+       cp external/cmocka/build/src/libcmocka.so lib/
+      fi
+
       g++ -DMAIN_TEST --coverage ${compiler_flags[*]} \
         code/linux-main.cpp -o build/linux-main-test ${linker_flags[*]}
       # NOTE(Ryan): gcov complains if overriding existing .gcda files
@@ -157,13 +153,14 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
       pop_dir
       gcov -b -o . code/linux-main.cpp >/dev/null
       gcovr -e ".*\.h"
+    else
+      g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
     fi
     # find . -name '*.gcov' -and -not -name 'linux-main.cpp.gcov' -exec rm {} +
     
     # get debug and optimisation flags $(readelf -w build/server | grep producer)
     
     # pragma warning(disable: 4201) // nonstandard extension used: nameless struct/union
-    
     
   elif [[ "$param_mode" == "release" ]]; then
     compiler_flags+=( "-DMAIN_RELEASE" )
@@ -184,16 +181,13 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     compiler_flags+=( "-fdevirtualize-at-ltrans" )
 
     linker_flags+=( "-Wl,--gc-sections" )
+
+    g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+
   else
     printf "Error: Build currently only supports debug and release modes\n" >&2
     exit 1
   fi
-
-  if [[ "$param_verbose" == "1" ]]; then
-    echo g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
-  fi
-
-  g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
   # push_dir run
 
@@ -206,20 +200,43 @@ else
   exit 1
 fi
 
-# IMPORTANT(Ryan): Must run with universal ctags
-ctags --c-kinds=f --fields=+ne -o - code/* | awk '
-BEGIN { 
-  max_line_range = 0
-  max_function_name = ""
-  line_start_temp = 0
-  line_end_temp = 0
-  max_line_range_temp = 0
-}
-{
-  for (i = 1; i <= NF; i++) {
-    if (index($i, "line:") != 0) {
-      line_start_temp = substr($i, 6)
-    }
+build_end_time=$(date +%s.%N)
+build_time=$( echo "($build_end_time - $build_start_time)" | bc -l )
+printf "Build time: %.4fs\n" "$build_time" 
+
+if [[ "$BUILD_TYPE" == "app" ]]; then
+  printf "%.4f\n" "$build_time" >> misc/build-time.metric
+
+  flow_lines=()
+  while IFS= read -r flow_line; do
+    flow_lines+=( "$flow_line" )
+  done < <(cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null)
+
+  function_names=()
+  function_call_count=()
+  for ((i = 0 ; i < ${#flow_lines[@]}; i++)); do
+    line_length=${#flow_lines[$i]}
+    read lstrip_line <<< "${flow_lines[$i]}"
+    function_name="${lstrip_line%% *}"
+    lstrip_line_length=${#lstrip_line}
+    line_indentation=$(( line_length - lstrip_line_length ))
+    printf "function: %s, indentation: %d\n" "$function_name" $line_indentation
+  done
+
+  # IMPORTANT(Ryan): Must run with universal ctags
+  ctags --c-kinds=f --fields=+ne -o - code/* | awk '
+  BEGIN { 
+    max_line_range = 0
+    max_function_name = ""
+    line_start_temp = 0
+    line_end_temp = 0
+    max_line_range_temp = 0
+  }
+  {
+    for (i = 1; i <= NF; i++) {
+      if (index($i, "line:") != 0) {
+        line_start_temp = substr($i, 6)
+      }
     if (index($i, "end:") != 0) {
       line_end_temp = substr($i, 5)
     }
@@ -229,37 +246,16 @@ BEGIN {
     max_line_range = max_line_range_temp
     max_function_name = $1
   }
-} END {
-  printf("Longest function %s, %d\n", max_function_name, max_line_range)
-}
-'
+  } END {
+    printf("Longest function %s():%d lines\n", max_function_name, max_line_range)
+  }
+  '
 
-lines_of_code=$(cat code/* | wc -l)
-printf "LOC: %d\n" $lines_of_code
+  lines_of_code=$(cat code/* | wc -l)
+  printf "LOC: %d\n" $lines_of_code
 
-flow_lines=()
-while IFS= read -r flow_line; do
-  flow_lines+=( "$flow_line" )
-done < <(cflow --include-dir=external code/linux-main.cpp --omit-arguments --omit-symbol-name 2>/dev/null)
+  # IMPORTANT(Ryan): This does not show debug information
+  # Also assuming .bss negligable due to zero intialisation paradigm
+  size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
 
-function_names=()
-function_call_count=()
-for ((i = 0 ; i < ${#flow_lines[@]}; i++)); do
-  line_length=${#flow_lines[$i]}
-  read lstrip_line <<< "${flow_lines[$i]}"
-  function_name="${lstrip_line%% *}"
-  lstrip_line_length=${#lstrip_line}
-  line_indentation=$(( line_length - lstrip_line_length ))
-  printf "function: %s, indentation: %d\n" "$function_name" $line_indentation
-done
-
-# printf "${flow_lines[1]}\n"
-
-
-# IMPORTANT(Ryan): This does not show debug information
-# Also assuming .bss negligable due to zero intialisation paradigm
-#size build/linux-main | awk 'FNR == 2 { printf "text + data = %dkb\n", $4/1024 }'
-
-build_end_time=$(date +%s.%N)
-build_time=$( echo "($build_end_time - $build_start_time)" | bc -l )
-#printf "Build time: %.4fs\n" "$build_time"
+fi
