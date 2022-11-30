@@ -1,0 +1,23 @@
+# NOTE(Ryan): Verify locally:
+# $(circleci config validate)
+# $(circleci local execute)
+
+version: 2.1
+
+jobs:
+  build_and_test:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Build and Test
+          command: |
+            sudo apt update
+            sudo apt install -y gcovr cmake
+            bash misc/build "test"
+
+workflows:
+  templates:
+    jobs:
+      - build_and_test
