@@ -483,16 +483,16 @@ INTERNAL void __bp(void) {}
 #define TB(x) (((u64)x) << 40)
 
 #define THOUSAND(x) ((x)*1000LL)
-#define MILLI_TO_SEC(x) ((x)*1000UL)
+#define MILLI_TO_SEC(x) ((x)*1000ULL)
 
 #define MILLION(x)  ((x)*1000000LL)
-#define MICRO_TO_SEC(x)  ((x)*1000000UL)
+#define MICRO_TO_SEC(x)  ((x)*1000000ULL)
 
 #define BILLION(x)  ((x)*1000000000LL)
-#define NANO_TO_SEC(x)  ((x)*1000000000UL)
+#define NANO_TO_SEC(x)  ((x)*1000000000ULL)
 
 #define TRILLION(x) ((x)*1000000000000LL)
-#define PICO_TO_SEC(x) ((x)*1000000000000UL)
+#define PICO_TO_SEC(x) ((x)*1000000000000ULL)
 
 // IMPORTANT(Ryan): No tests, doesn't work!
 // However, important to recognise can just have through-away tests
