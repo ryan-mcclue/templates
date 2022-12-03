@@ -126,6 +126,7 @@ typedef double f64;
 IGNORE_WARNING_USELESS_CAST_PUSH()
 
 // TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety
+// we know that any compile time constants will save RAM. compiler optimisation should save codespace also
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
 GLOBAL i8 MIN_S8 = (i8)0x80; 
 GLOBAL i16 MIN_S16 = (i16)0x8000; 

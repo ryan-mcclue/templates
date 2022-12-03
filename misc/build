@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -oue pipefail
 
 if [[ "$1" != "app" && "$1" != "tests" ]]; then
   printf "Usage: ./build <app|tests>\n" >&2
@@ -94,14 +94,12 @@ else
   exit 1
 fi
 
-set -u
 # NOTE(Ryan): This file is ignored by source control to allow tweaking of build params without affecting history
 source "private/build-params"
-param_compiler=$compiler 
-param_mode=$mode 
-param_arch=$arch
-param_verbose=$verbose
-set +u
+param_compiler=${param_compiler:-"g++"}
+param_mode=${param_mode:-"debug"}
+param_arch=${param_arch:-"x86_64"}
+param_verbose=${param_verbose:-"0"}
 
 mkdir -p build run
 
