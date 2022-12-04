@@ -37,6 +37,7 @@
   #define NEVER_INLINE   __attribute__((noinline))
   #define USED_FUNC  __attribute__((used,noinline))
   #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
+  // delay_cycles() function with inline assembly
   
   #define UNREACHABLE() __builtin_unreachable()
 
