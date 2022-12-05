@@ -26,6 +26,10 @@
     #error GCC 10+ required for builtin static analysis
   #endif
 
+  // IMPORTANT(Ryan): ARM will crash resulting from unaligned access to multibyte values from program memory
+  // The const part helps compiler to place in .text section
+  #define PROGMEM const __attribute__ ((aligned(4)))
+
   #if __SANITIZE_ADDRESS__
     #define NO_ASAN __attribute__((__no_sanitize_address__))
   #endif
