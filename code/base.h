@@ -52,10 +52,11 @@
   #define POP_OPTIMISATION_MODE() \
     _Pragma("GCC pop_options")
 
+  // NOTE(Ryan): Ignored in situation wanting explicit cast for readibility
   #define IGNORE_WARNING_USELESS_CAST_PUSH() \
     _Pragma("GCC diagnostic push") \
     _Pragma("GCC diagnostic ignored \"-Wuseless-cast\"")
-  
+
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")
 
@@ -337,7 +338,7 @@ INTERNAL void __bp(void) {}
 
 #define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
 #define OFFSET_OF_MEMBER(s, member) INT_FROM_PTR(&ABSTRACT_MEMBER(s, member))
-#define CAST_FROM_MEMBER(S,m,p) (S*)(((U8*)p) - OFFSET_OF_MEMBER(S,m))
+#define CAST_FROM_MEMBER(S,m,p) (S*)(((u8*)p) - OFFSET_OF_MEMBER(S,m))
 
 #define SET_FLAG(field, flag) ((field) |= (flag))
 #define REMOVE_FLAG(field, flag) ((field) &= ~(flag))

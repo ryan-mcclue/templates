@@ -433,28 +433,39 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
-// TODO(Ryan): Change to Array
-typedef struct BufferHeader BufferHeader;
-struct BufferHeader
+typedef struct Array Array;
+struct Array
 {
 	u64 len;
 	u8 *buffer;
 };
 
 #if defined(MAIN_DEBUG)
-  #define BUFFER_CREATE(arena, type, len) \
-    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(BufferHeader) + sizeof(type) * (len), __LINE__, __func__) + \
-      OFFSET_OF_MEMBER(BufferHeader, buffer))
+  #define ARRAY_CREATE(arena, type, len) \
+    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(Array) + sizeof(type) * (len), SOURCE_LOCATION) + \
+      OFFSET_OF_MEMBER(Array, buffer))
 #else
-  #define BUFFER_CREATE(arena, type, len) \
-    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(BufferHeader) + sizeof(type) * (len)) + \
-      OFFSET_OF_MEMBER(BufferHeader, buffer))
+  #define ARRAY_CREATE(arena, type, len) \
+    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(Array) + sizeof(type) * (len)) + \
+      OFFSET_OF_MEMBER(Array, buffer))
 #endif
 
-#define BUFFER_PUSH(buf, elem) \
-  (buf)[CAST_FROM_MEMBER(BufferHeader, buffer, buf)->len++] = (elem);
+#define ARRAY_PUSH(buf, elem) \
+  (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem);
+#define ARRAY_LEN(buf) \
+  (CAST_FROM_MEMBER(Array, buffer, buf))->len
 
-// heap is complete binary tree
+// IMPORTANT(Ryan): For complete binary trees, better off storing it as an array
+// In other tree structures, better of storing in nodes to account for holes, e.g. say root node only has left children
+
+INTERNAL void
+min_heap_create(u32 *arr)
+{
+  for (u32 i = 0; i < ARRAY_LEN(arr); i += 1)
+  {
+      
+  }
+}
 
 typedef struct String8 String8;
 struct String8
@@ -1020,6 +1031,7 @@ main(int argc, char *argv[])
 
   // os init
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
+
   // record timer start here
   // command line arguments
   //for (int i = 0; i < argc; i += 1){
