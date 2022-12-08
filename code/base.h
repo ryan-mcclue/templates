@@ -30,7 +30,7 @@
   // The const part helps compiler to place in .text section
   #define PROGMEM const __attribute__ ((aligned(4)))
 
-  #if __SANITIZE_ADDRESS__
+  #if defined(__SANITIZE_ADDRESS__)
     #define NO_ASAN __attribute__((__no_sanitize_address__))
   #endif
 

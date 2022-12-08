@@ -101,6 +101,7 @@ mem_arena_allocate(u64 cap)
 #if defined(MAIN_DEBUG)
   GLOBAL u64 debug_mem_max = 0, debug_mem_current = 0;
   GLOBAL SourceLocation debug_mem_max_info = ZERO_STRUCT;
+  // TODO(Ryan): Store a linked list of allocations so we can print them out and see where memory is going?
   #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
   #define MEM_ARENA_PUSH_ARRAY_ZERO(a,T,c) (T*)mem_arena_push_zero((a), sizeof(T)*(c), LITERAL_SOURCE_LOCATION)
   #define MEM_ARENA_POP_ARRAY(a,T,c) mem_arena_pop((a), sizeof(T)*(c))
