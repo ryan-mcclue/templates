@@ -433,6 +433,66 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
+typedef struct sb_t
+{
+    arena_t *arena;
+    unsigned count;
+    unsigned capacity;
+} sb_t;
+
+#define stretchy_buffer(type) type *
+
+#define sb_init(arena, type) sb__alloc(arena, 8, sizeof(type))
+#define sb_add(sb) (sb__ensure_space((void **)&(sb), 1, sizeof(*sb)), &sb[sb__header(sb)->count++])
+#define sb_push(sb, item) (sb__ensure_space((void **)&(sb), 1, sizeof(*sb)), sb[sb__header(sb)->count++] = item)
+#define sb_arena(sb) (sb ? sb__header(sb)->arena : NULL)
+#define sb_count(sb) (sb ? sb__header(sb)->count : 0)
+#define sb_capacity(sb) (sb ? sb__header(sb)->capacity : 0)
+#define sb_copy(arena, sb) (m_copy(arena, sb, sb_count(sb)*sizeof(*sb)))
+#define sb_remove_unordered(sb, index) (sb ? (sb)[index] = (sb)[--sb__header(sb)->count] : 0)
+#define sb_remove_ordered(sb, index) do { for (size_t rem_i_ = index; rem_i_ < sb_count(sb) - 1; rem_i_++) { sb[rem_i_] = sb[rem_i_ + 1]; } } while(0)
+
+#define sb__data(header) (void *)(((sb_t *)(header)) + 1)
+#define sb__header(sb) (((sb_t *)(sb)) - 1)
+
+void *sb__alloc(arena_t *arena, unsigned capacity, size_t item_size);
+void sb__ensure_space(void **sb, unsigned count, size_t item_size);
+
+void *sb__alloc(arena_t *arena, unsigned capacity, size_t item_size)
+{
+    sb_t *sb = m_alloc(arena, sizeof(sb_t) + capacity*item_size, 16);
+    sb->arena    = arena;
+    sb->count    = 0;
+    sb->capacity = capacity;
+    return sb__data(sb);
+}
+
+void sb__ensure_space(void **sb_at, unsigned count, size_t item_size)
+{
+    if (*sb_at)
+    {
+        sb_t *sb = sb__header(*sb_at);
+
+        if (sb->count + count > sb->capacity)
+        {
+            unsigned new_capacity = MAX(sb->count + count, sb->capacity*2);
+            sb_t *new_sb = sb__header(sb__alloc(sb->arena, new_capacity, item_size));
+
+            new_sb->count = sb->count;
+
+            memcpy(sb__data(new_sb), sb__data(sb), sb->count*item_size);
+
+            *sb_at = sb__data(new_sb);
+        }
+    }
+    else
+    {
+        *sb_at = sb__alloc(temp, MAX(8, count), item_size);
+    }
+}
+
+
+// TODO(Ryan): If wanting dynamic array, may incur duplicated memory
 typedef struct Array Array;
 struct Array
 {
@@ -454,6 +514,12 @@ struct Array
   (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem);
 #define ARRAY_LEN(buf) \
   (CAST_FROM_MEMBER(Array, buffer, buf))->len
+#define ARRAY_REMOVE_ORDERED(buf, index) \
+  do { \
+    for (u32 UNIQUE_NAME(var) = index; UNIQUE_NAME(var) < ARRAY_LEN(buf)-- - 1; UNIQUE_NAME(var)++) { \
+      buf[UNIQUE_NAME(var)] = buf[UNIQUE_NAME(var) + 1]; \
+    } \
+  } while (0)
 
 // IMPORTANT(Ryan): For complete binary trees, better off storing it as an array
 // In other tree structures, better of storing in nodes to account for holes, e.g. say root node only has left children
