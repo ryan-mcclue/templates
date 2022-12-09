@@ -433,112 +433,112 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
-#define stretchy_buffer(type) type *
-
-#define sb_init(arena, type) sb__alloc(arena, 8, sizeof(type))
-#define sb_add(sb) (sb__ensure_space((void **)&(sb), 1, sizeof(*sb)), &sb[sb__header(sb)->count++])
-#define sb_push(sb, item) (sb__ensure_space((void **)&(sb), 1, sizeof(*sb)), sb[sb__header(sb)->count++] = item)
-#define sb_arena(sb) (sb ? sb__header(sb)->arena : NULL)
-#define sb_count(sb) (sb ? sb__header(sb)->count : 0)
-#define sb_capacity(sb) (sb ? sb__header(sb)->capacity : 0)
-#define sb_copy(arena, sb) (m_copy(arena, sb, sb_count(sb)*sizeof(*sb)))
-#define sb_remove_unordered(sb, index) (sb ? (sb)[index] = (sb)[--sb__header(sb)->count] : 0)
-#define sb_remove_ordered(sb, index) do { for (size_t rem_i_ = index; rem_i_ < sb_count(sb) - 1; rem_i_++) { sb[rem_i_] = sb[rem_i_ + 1]; } } while(0)
-
-#define sb__data(header) (void *)(((sb_t *)(header)) + 1)
-#define sb__header(sb) (((sb_t *)(sb)) - 1)
-
-void sb__ensure_space(void **sb, unsigned count, size_t item_size);
-
-// alloc
-INTERNAL void *
-array_create(MemArena *arena, u64 capacity, u64 elem_size)
-{
-  ArrayHeader *array_header = (ArrayHeader *)mem_arena_push_zero(arena, sizeof(ArrayHeader) + (capacity * elem_size));
-
-  array_header->buffer = (u8 *)array_header + OFFSET_OF_MEMBER(ArrayHeader, buffer);
-  array_header->arena = arena;
-  array_header->len = 0;
-  array_header->capacity = capacity;
-
-  return array_header->buffer;
-}
-
-// ensure_space
-INTERNAL void * 
-array_grow(void *buffer, u64 new_cap, u64 elem_size)
-{
-	size_t new_cap = MAX(1 + 2 * BUF_CAPACITY(buf), new_cap);
-	// length of header + length of payload
-	//size_t new_size = OFFSET_OF_MEMBER(BufferHeader, buffer) + new_cap * elem_size;
-	size_t new_size = sizeof(ArrayHeader) + new_cap * elem_size;
-
-	ArrayHeader *new_header = (ArrayHeader *)mem_arena_push_zero(arena, new_size, LITERAL_SOURCE_LOCATION); 
-	
-  memcpy((u8 *)buffer, new_header->buffer, BUF_CAPACITY(buffer) * elem_size);
-
-	new_header->capacity = new_cap;
-
-	return new_header->buffer; 
-}
-
-#define ARRAY_CREATE(arena, type) \
-  (type *)array_create(arena, 8, sizeof(type));
-
-#define BUFFER_HEADER(buf)	\
-	((BufferHeader *)((u8 *)(buf) - offsetof(BufferHeader, buffer)))
-
-#define BUFFER_LEN(buf)	\
-	(((buf) != NULL) ? __BUFFER_HEADER(buf)->len: 0)
-
-#define BUFFER_CAP(buf)	\
-	(((buf) != NULL) ? __BUFFER_HEADER(buf)->cap: 0)
-
-#define __BUFFER_FITS(buf, amount) \
-	(BUFFER_LEN(buf) + (amount) <= BUFFER_CAP(buf))
-
-#define __BUFFER_FIT(buf, amount)	\
-	(BUF__FITS(b, 1) ? 0 : ((b) = buf__grow((b), BUF_LENGTH(b) + (amount), sizeof(*(b)))))
-
-#define BUF_PUSH(b, element)	\
-	(BUF__FIT(b, 1), b[BUF_LENGTH(b)] = (element), BUF__HEADER(b)->length++) 
-
-#define BUF_FREE(b)	\
-	(((b) != NULL) ? free(BUF__HEADER(b)) : 0, (b) = NULL)
-
-
-
-// TODO(Ryan): If wanting dynamic array, may incur duplicated memory
 typedef struct Array Array;
 struct Array
 {
-  MemoryArena *arena;
 	u64 capacity;
 	u64 len;
 	u8 *buffer;
 };
 
-
 #if defined(MAIN_DEBUG)
   #define ARRAY_CREATE(arena, type, len) \
-    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(Array) + sizeof(type) * (len), SOURCE_LOCATION) + \
-      OFFSET_OF_MEMBER(Array, buffer))
+    (type *)array_create(arena, sizeof(type), len, SOURCE_LOCATION)
 #else
   #define ARRAY_CREATE(arena, type, len) \
-    (type *)((u8 *)mem_arena_push_zero((arena), sizeof(Array) + sizeof(type) * (len)) + \
-      OFFSET_OF_MEMBER(Array, buffer))
+    (type *)array_create(arena, sizeof(type), len)
 #endif
 
-#define ARRAY_PUSH(buf, elem) \
-  (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem);
+INTERNAL void *
+#if defined(MAIN_DEBUG)
+array_create(MemArena *arena, u64 elem_size, u64 elem_count, SourceLocation source_location)
+#else
+array_create(MemArena *arena, u64 elem_size, u64 elem_count)
+#endif
+{
+#if defined(MAIN_DEBUG)
+  Array *array = (Array *)mem_arena_push_zero(arena, sizeof(Array) + (elem_count * elem_size), source_location);
+#else
+  Array *array = (Array *)mem_arena_push_zero(arena, sizeof(Array) + (elem_count * elem_size));
+#endif
+
+  array->buffer = (u8 *)array + OFFSET_OF_MEMBER(Array, buffer);
+  array->len = 0;
+  array->capacity = elem_count;
+
+  return array->buffer;
+}
+
 #define ARRAY_LEN(buf) \
-  (CAST_FROM_MEMBER(Array, buffer, buf))->len
+  (((buf) != NULL) ? (CAST_FROM_MEMBER(Array, buffer, buf))->len : 0)
+
+#define ARRAY_CAPACITY(buf) \
+  (((buf) != NULL) ? (CAST_FROM_MEMBER(Array, buffer, buf))->capacity : 0)
+
+#define ARRAY_PUSH(buf, elem) \
+	(ARRAY_LEN(buf) + 1 <= ARRAY_CAPACITY(buf)) ? \
+    (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem) : \
+    ASSERT(!"Pushing element onto array exceeds its capacity")
+
 #define ARRAY_REMOVE_ORDERED(buf, index) \
   do { \
-    for (u32 UNIQUE_NAME(var) = index; UNIQUE_NAME(var) < ARRAY_LEN(buf)-- - 1; UNIQUE_NAME(var)++) { \
-      buf[UNIQUE_NAME(var)] = buf[UNIQUE_NAME(var) + 1]; \
+    for (u32 UNIQUE_NAME(var) = index; UNIQUE_NAME(var) < ARRAY_LEN(buf) - 1; UNIQUE_NAME(var)++) { \
+      (buf)[UNIQUE_NAME(var)] = (buf)[UNIQUE_NAME(var) + 1]; \
     } \
+    ARRAY_LEN(buf)--; \
   } while (0)
+
+#define ARRAY_REMOVE_UNORDERED(buf, index) \
+  (((buf) != NULL) ? (buf)[index] = (buf)[--ARRAY_LEN(buf)] : 0)
+
+// IMPORTANT(Ryan): In general though, in most programming situations we know how much data is available in advance 
+// Yet, can still achieve growable memory with arenas.
+// Most efficient is with a pool allocator using linked-lists
+// With arrays, can be implemented with duplicated memory
+/*
+struct Entity
+{
+  Entity *next;
+  Vec2F32 position;
+  Vec2F32 velocity;
+  // some more stuff in here
+};
+
+struct GameState
+{
+  Arena *permanent_arena;
+  Entity *first_free_entity;
+};
+
+Entity *EntityAlloc(GameState *game_state)
+{
+  // first, try to grab the top of the free list...
+  Entity *result = game_state->first_free_entity;
+  if(result != 0)
+  {
+    game_state->first_free_entity = game_state->first_free_entity->next;
+    MemoryZeroStruct(result);
+  }
+
+  // if the free list was empty, push a new entity onto the arena
+  else
+  {
+    result = PushStructZero(game_state->permanent_arena, Entity);
+  }
+
+  return result;
+}
+
+void EntityRelease(GameState *game_state, Entity *entity)
+{
+  // releasing -> push onto free list. next allocation
+  // will take the top of the free list, not push onto
+  // the arena.
+  entity->next = game_state->first_free_entity;
+  game_state->first_free_entity = entity;
+}
+*/
+
 
 // IMPORTANT(Ryan): For complete binary trees, better off storing it as an array
 // In other tree structures, better of storing in nodes to account for holes, e.g. say root node only has left children
@@ -1116,6 +1116,9 @@ main(int argc, char *argv[])
 
   // os init
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
+
+  u32 *arr = ARRAY_CREATE(linux_mem_arena_perm, u32, 100);
+  ARRAY_PUSH(arr, 10);
 
   // record timer start here
   // command line arguments
