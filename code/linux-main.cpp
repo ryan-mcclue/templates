@@ -433,13 +433,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
-typedef struct sb_t
-{
-    arena_t *arena;
-    unsigned count;
-    unsigned capacity;
-} sb_t;
-
 #define stretchy_buffer(type) type *
 
 #define sb_init(arena, type) sb__alloc(arena, 8, sizeof(type))
@@ -455,50 +448,76 @@ typedef struct sb_t
 #define sb__data(header) (void *)(((sb_t *)(header)) + 1)
 #define sb__header(sb) (((sb_t *)(sb)) - 1)
 
-void *sb__alloc(arena_t *arena, unsigned capacity, size_t item_size);
 void sb__ensure_space(void **sb, unsigned count, size_t item_size);
 
-void *sb__alloc(arena_t *arena, unsigned capacity, size_t item_size)
+// alloc
+INTERNAL void *
+array_create(MemArena *arena, u64 capacity, u64 elem_size)
 {
-    sb_t *sb = m_alloc(arena, sizeof(sb_t) + capacity*item_size, 16);
-    sb->arena    = arena;
-    sb->count    = 0;
-    sb->capacity = capacity;
-    return sb__data(sb);
+  ArrayHeader *array_header = (ArrayHeader *)mem_arena_push_zero(arena, sizeof(ArrayHeader) + (capacity * elem_size));
+
+  array_header->buffer = (u8 *)array_header + OFFSET_OF_MEMBER(ArrayHeader, buffer);
+  array_header->arena = arena;
+  array_header->len = 0;
+  array_header->capacity = capacity;
+
+  return array_header->buffer;
 }
 
-void sb__ensure_space(void **sb_at, unsigned count, size_t item_size)
+// ensure_space
+INTERNAL void * 
+array_grow(void *buffer, u64 new_cap, u64 elem_size)
 {
-    if (*sb_at)
-    {
-        sb_t *sb = sb__header(*sb_at);
+	size_t new_cap = MAX(1 + 2 * BUF_CAPACITY(buf), new_cap);
+	// length of header + length of payload
+	//size_t new_size = OFFSET_OF_MEMBER(BufferHeader, buffer) + new_cap * elem_size;
+	size_t new_size = sizeof(ArrayHeader) + new_cap * elem_size;
 
-        if (sb->count + count > sb->capacity)
-        {
-            unsigned new_capacity = MAX(sb->count + count, sb->capacity*2);
-            sb_t *new_sb = sb__header(sb__alloc(sb->arena, new_capacity, item_size));
+	ArrayHeader *new_header = (ArrayHeader *)mem_arena_push_zero(arena, new_size, LITERAL_SOURCE_LOCATION); 
+	
+  memcpy((u8 *)buffer, new_header->buffer, BUF_CAPACITY(buffer) * elem_size);
 
-            new_sb->count = sb->count;
+	new_header->capacity = new_cap;
 
-            memcpy(sb__data(new_sb), sb__data(sb), sb->count*item_size);
-
-            *sb_at = sb__data(new_sb);
-        }
-    }
-    else
-    {
-        *sb_at = sb__alloc(temp, MAX(8, count), item_size);
-    }
+	return new_header->buffer; 
 }
+
+#define ARRAY_CREATE(arena, type) \
+  (type *)array_create(arena, 8, sizeof(type));
+
+#define BUFFER_HEADER(buf)	\
+	((BufferHeader *)((u8 *)(buf) - offsetof(BufferHeader, buffer)))
+
+#define BUFFER_LEN(buf)	\
+	(((buf) != NULL) ? __BUFFER_HEADER(buf)->len: 0)
+
+#define BUFFER_CAP(buf)	\
+	(((buf) != NULL) ? __BUFFER_HEADER(buf)->cap: 0)
+
+#define __BUFFER_FITS(buf, amount) \
+	(BUFFER_LEN(buf) + (amount) <= BUFFER_CAP(buf))
+
+#define __BUFFER_FIT(buf, amount)	\
+	(BUF__FITS(b, 1) ? 0 : ((b) = buf__grow((b), BUF_LENGTH(b) + (amount), sizeof(*(b)))))
+
+#define BUF_PUSH(b, element)	\
+	(BUF__FIT(b, 1), b[BUF_LENGTH(b)] = (element), BUF__HEADER(b)->length++) 
+
+#define BUF_FREE(b)	\
+	(((b) != NULL) ? free(BUF__HEADER(b)) : 0, (b) = NULL)
+
 
 
 // TODO(Ryan): If wanting dynamic array, may incur duplicated memory
 typedef struct Array Array;
 struct Array
 {
+  MemoryArena *arena;
+	u64 capacity;
 	u64 len;
 	u8 *buffer;
 };
+
 
 #if defined(MAIN_DEBUG)
   #define ARRAY_CREATE(arena, type, len) \
