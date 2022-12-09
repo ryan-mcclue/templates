@@ -543,14 +543,26 @@ void EntityRelease(GameState *game_state, Entity *entity)
 // IMPORTANT(Ryan): For complete binary trees, better off storing it as an array
 // In other tree structures, better of storing in nodes to account for holes, e.g. say root node only has left children
 
+#define HEAP_CHILD0_INDEX(i) (2 * (i) + 1)
+#define HEAP_CHILD1_INDEX(i) (2 * (i) + 2)
+#define HEAP_PARENT_INDEX(i) math_floor_f32_to_u32((f32)(i - 1) / 2.0f)
+#define HEAP_LAST_PARENT_INDEX(size) math_floor_f32_to_u32((f32)(size - 2) / 2.0f)
+
 INTERNAL void
-min_heap_create(u32 *arr)
+min_heap_create(u32 *array)
 {
-  for (u32 i = 0; i < ARRAY_LEN(arr); i += 1)
+  for (u32 i = 0; i < ARRAY_LEN(array); i += 1)
   {
-      
+     
   }
 }
+
+// remove root: swap with last, sift down (swap with minimum of child nodes)
+
+// insert: append, walk up/sift up swapping with parent
+
+// create: iteratively sift down on parent nodes starting from end
+
 
 typedef struct String8 String8;
 struct String8

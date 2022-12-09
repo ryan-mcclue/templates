@@ -521,6 +521,7 @@ typedef void VoidFunc(void);
 
 // type conversion using unions is undefined behaviour (however seems to work on all major arches; however custom compilers on embedded)
 
+#include <math.h>
 
 INTERNAL u64
 round_to_nearest(u64 val, u64 near)
@@ -530,6 +531,16 @@ round_to_nearest(u64 val, u64 near)
   result += near - 1;
   result -= result % near;
   
+  return result;
+}
+
+INTERNAL u32
+math_floor_f32_to_u32(f32 float32)
+{
+  u32 result = 0;
+
+  result = (u32)floorf(float32);
+
   return result;
 }
 
@@ -1203,15 +1214,6 @@ round_r32_to_s32(r32 real32)
   return result;
 }
 
-INTERNAL u32
-floor_r32_to_u32(r32 real32)
-{
-  u32 result = 0;
-
-  result = (u32)floorf(real32);
-
-  return result;
-}
 
 INTERNAL s32
 floor_r32_to_s32(r32 real32)
