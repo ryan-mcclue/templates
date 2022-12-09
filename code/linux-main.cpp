@@ -478,7 +478,7 @@ array_create(MemArena *arena, u64 elem_size, u64 elem_count)
 #define ARRAY_PUSH(buf, elem) \
 	(ARRAY_LEN(buf) + 1 <= ARRAY_CAPACITY(buf)) ? \
     (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem) : \
-    ASSERT(!"Pushing element onto array exceeds its capacity")
+    FATAL_ERROR("Pushing element onto array exceeds its capacity")
 
 #define ARRAY_REMOVE_ORDERED(buf, index) \
   do { \
@@ -1098,6 +1098,17 @@ linux_timer_end(Timer *timer)
 	timer->end = (u64)t_spec.tv_sec * timer->ticks_per_sec + (u64)t_spec.tv_nsec;
 }
 
+#define EVAL_PRINT_U32(var) printf("%s = %ld \n", STRINGIFY(var), var)
+
+// IMPORTANT(Ryan): If we put everything in the tree node at the start of the structure,
+// we can write a function that will have a void *, and then cast to this structure
+// although types different, they are addresses, so equivalent
+// struct Node {
+//  Node *parent;
+//  Node *first_child, *last_child;
+//  Node *next, *prev;
+// }
+
 int
 main(int argc, char *argv[])
 {
@@ -1116,9 +1127,6 @@ main(int argc, char *argv[])
 
   // os init
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
-
-  u32 *arr = ARRAY_CREATE(linux_mem_arena_perm, u32, 100);
-  ARRAY_PUSH(arr, 10);
 
   // record timer start here
   // command line arguments

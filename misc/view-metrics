@@ -1,6 +1,11 @@
 #!/bin/bash
 
-set -e
+set -eou pipefail
+
+abs_file=$(realpath "$0")
+abs_directory=$(dirname "$abs_file")
+
+pushd "$abs_directory" >/dev/null
 
 if [[ $# < 1 ]]; then
   gnuplot -c plot.gp *.metric
@@ -9,3 +14,5 @@ else
 fi
 
 xdg-open metrics.png
+
+popd >/dev/null

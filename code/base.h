@@ -247,7 +247,8 @@ typedef enum SIDE
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-INTERNAL void __fatal_error(const char *file_name, const char *func_name, int line_num, 
+// NOTE(Ryan): Returns a u32 to account for situations when used in a ternary that requires operands of the same type 
+INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int line_num, 
                             const char *message)
 { 
   fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
@@ -256,9 +257,11 @@ INTERNAL void __fatal_error(const char *file_name, const char *func_name, int li
     // IMPORTANT(Ryan): If using fork(), will not exit entire program
     exit(1); 
   #endif
+
+  return 0;
 }
 
-INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
+INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
                                   const char *message)
 { 
   const char *errno_msg = strerror(errno);
@@ -268,6 +271,8 @@ INTERNAL void __fatal_error_errno(const char *file_name, const char *func_name, 
     // IMPORTANT(Ryan): If using fork(), will not exit entire program
     exit(1);
   #endif
+
+  return 0;
 }
 
 INTERNAL void __bp(void) {}
@@ -276,8 +281,8 @@ INTERNAL void __bp(void) {}
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
-  #define ASSERT(c) do { (if !(c)) { FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
-  #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(PASTE(ASSERTION, c))); } } while (0)
+  #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c)); } } while (0)
+  #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(c)); } } while (0)
   #define BP() __bp()
   #define UNREACHABLE_CODE_PATH ASSERT(!"UNREACHABLE_CODE_PATH")
   #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE_CODE_PATH }
@@ -301,6 +306,7 @@ INTERNAL void __bp(void) {}
 #define STRINGIFY_(s) #s
 #define STRINGIFY(s) STRINGIFY_(s)
 
+// IMPORTANT(Ryan): cannot paste token delimiters like '.', '!' etc. so cannot do 'a. ## b'
 #define PASTE_(a, b) a##b
 #define PASTE(a, b) PASTE_(a, b)
 
