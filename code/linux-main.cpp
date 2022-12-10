@@ -549,13 +549,26 @@ void EntityRelease(GameState *game_state, Entity *entity)
 #define HEAP_LAST_PARENT_INDEX(size) math_floor_f32_to_u32((f32)(size - 2) / 2.0f)
 
 INTERNAL void
-min_heap_create(u32 *array)
+heap_min_create(u32 *array)
 {
   for (u32 i = 0; i < ARRAY_LEN(array); i += 1)
   {
      
   }
 }
+
+INTERNAL void
+heap_min_sift_up(u32 index, u32 *array)
+{
+
+}
+
+INTERNAL void
+heap_min_sift_down(u32 index, u32 *array)
+{
+
+}
+
 
 // remove root: swap with last, sift down (swap with minimum of child nodes)
 
