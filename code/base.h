@@ -128,6 +128,7 @@ typedef double f64;
 #define GLOBAL static
 #define LOCAL static
 #define INTERNAL static
+#define GLOBAL_CONST PROGMEM
 
 IGNORE_WARNING_USELESS_CAST_PUSH()
 
