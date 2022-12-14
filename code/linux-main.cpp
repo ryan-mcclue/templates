@@ -3,6 +3,9 @@
 #define STB_SPRINTF_IMPLEMENTATION 1
 #include "stb/stb_sprintf.h"
 
+// TODO: rdtsc frequency wraparound?
+// https://gist.github.com/pmttavara/6f06fc5c7679c07375483b06bb77430c
+
 // .h includes
 #include "base.h"
 
