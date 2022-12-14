@@ -587,6 +587,15 @@ struct String8
   u64 size;
 };
 
+typedef struct String8List String8List;
+struct String8List
+{
+  String8 *first;
+  String8 *last;
+  u64 node_count;
+  u64 total_size;
+};
+
 INTERNAL String8
 s8(u8 *str, u64 size)
 {
@@ -598,10 +607,299 @@ s8(u8 *str, u64 size)
   return result;
 }
 
-#define s8_from_lit(s) s8((u8 *)(s), sizeof(s) - 1)
-#define s8_from_cstring(s) s8((u8 *)(s), strlen(s))
+#define s8_lit(s) s8((u8 *)(s), sizeof(s) - 1)
+#define s8_cstring(s) s8((u8 *)(s), strlen(s))
+// IMPORTANT(Ryan): When substringing will run into situations where not null terminated.
+// Use like: \"%.*s\"", s8_varg(string)
 #define s8_varg(s) (int)(s).size, (s).str
-// use like: \"%.*s\"", s8_varg(string)
+
+INTERNAL String8
+s8_up_to(u8 *start, u8 *up_to)
+{
+    String8 string = ZERO_STRUCT;
+
+    string.str = first;
+    string.size = (u64)(up_to - first);
+
+    return string;
+}
+
+INTERNAL String8
+s8_substring(String8 str, u64 start, u64 end)
+{
+    if(max > str.size)
+    {
+        max = str.size;
+    }
+    if(min > str.size)
+    {
+        min = str.size;
+    }
+    if(min > max)
+    {
+        MD_u64 swap = min;
+        min = max;
+        max = swap;
+    }
+    str.size = max - min;
+    str.str += min;
+    return str;
+}
+
+INTERNAL MD_String8
+MD_S8Skip(MD_String8 str, MD_u64 min)
+{
+    return MD_S8Substring(str, min, str.size);
+}
+
+INTERNAL MD_String8
+MD_S8Chop(MD_String8 str, MD_u64 nmax)
+{
+    return MD_S8Substring(str, 0, str.size - nmax);
+}
+
+INTERNAL MD_String8
+MD_S8Prefix(MD_String8 str, MD_u64 size)
+{
+    return MD_S8Substring(str, 0, size);
+}
+
+INTERNAL MD_String8
+MD_S8Suffix(MD_String8 str, MD_u64 size)
+{
+    return MD_S8Substring(str, str.size - size, str.size);
+}
+
+INTERNAL MD_b32
+MD_S8Match(MD_String8 a, MD_String8 b, MD_MatchFlags flags)
+{
+    int result = 0;
+    if(a.size == b.size || flags & MD_StringMatchFlag_RightSideSloppy)
+    {
+        result = 1;
+        for(MD_u64 i = 0; i < a.size && i < b.size; i += 1)
+        {
+            MD_b32 match = (a.str[i] == b.str[i]);
+            if(flags & MD_StringMatchFlag_CaseInsensitive)
+            {
+                match |= (MD_CharToLower(a.str[i]) == MD_CharToLower(b.str[i]));
+            }
+            if(flags & MD_StringMatchFlag_SlashInsensitive)
+            {
+                match |= (MD_CharToForwardSlash(a.str[i]) == MD_CharToForwardSlash(b.str[i]));
+            }
+            if(match == 0)
+            {
+                result = 0;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+INTERNAL MD_u64
+MD_S8FindSubstring(MD_String8 str, MD_String8 substring, MD_u64 start_pos, MD_MatchFlags flags)
+{
+    MD_b32 found = 0;
+    MD_u64 found_idx = str.size;
+    for(MD_u64 i = start_pos; i < str.size; i += 1)
+    {
+        if(i + substring.size <= str.size)
+        {
+            MD_String8 substr_from_str = MD_S8Substring(str, i, i+substring.size);
+            if(MD_S8Match(substr_from_str, substring, flags))
+            {
+                found_idx = i;
+                found = 1;
+                if(!(flags & MD_MatchFlag_FindLast))
+                {
+                    break;
+                }
+            }
+        }
+    }
+    return found_idx;
+}
+
+INTERNAL MD_String8
+MD_S8Copy(MD_Arena *arena, MD_String8 string)
+{
+    MD_String8 res;
+    res.size = string.size;
+    res.str = MD_PushArray(arena, MD_u8, string.size + 1);
+    MD_MemoryCopy(res.str, string.str, string.size);
+    res.str[string.size] = 0;
+    return(res);
+}
+
+INTERNAL MD_String8
+MD_S8FmtV(MD_Arena *arena, char *fmt, va_list args)
+{
+    MD_String8 result = MD_ZERO_STRUCT;
+    va_list args2;
+    va_copy(args2, args);
+    MD_u64 needed_bytes = MD_IMPL_Vsnprintf(0, 0, fmt, args)+1;
+    result.str = MD_PushArray(arena, MD_u8, needed_bytes);
+    result.size = needed_bytes - 1;
+    result.str[needed_bytes-1] = 0;
+    MD_IMPL_Vsnprintf((char*)result.str, (int)needed_bytes, fmt, args2);
+    return result;
+}
+
+INTERNAL MD_String8
+MD_S8Fmt(MD_Arena *arena, char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    MD_String8 result = MD_S8FmtV(arena, fmt, args);
+    va_end(args);
+    return result;
+}
+
+INTERNAL void
+MD_S8ListPush(MD_Arena *arena, MD_String8List *list, MD_String8 string)
+{
+    MD_String8Node *node = MD_PushArrayZero(arena, MD_String8Node, 1);
+    node->string = string;
+    
+    MD_QueuePush(list->first, list->last, node);
+    list->node_count += 1;
+    list->total_size += string.size;
+}
+
+INTERNAL void
+MD_S8ListPushFmt(MD_Arena *arena, MD_String8List *list, char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    MD_String8 string = MD_S8FmtV(arena, fmt, args);
+    va_end(args);
+    MD_S8ListPush(arena, list, string);
+}
+
+INTERNAL void
+MD_S8ListConcat(MD_String8List *list, MD_String8List *to_push)
+{
+    if(to_push->first)
+    {
+        list->node_count += to_push->node_count;
+        list->total_size += to_push->total_size;
+        
+        if(list->last == 0)
+        {
+            *list = *to_push;
+        }
+        else
+        {
+            list->last->next = to_push->first;
+            list->last = to_push->last;
+        }
+    }
+    MD_MemoryZeroStruct(to_push);
+}
+
+INTERNAL MD_String8List
+MD_S8Split(MD_Arena *arena, MD_String8 string, int splitter_count,
+           MD_String8 *splitters)
+{
+    MD_String8List list = MD_ZERO_STRUCT;
+    
+    MD_u64 split_start = 0;
+    for(MD_u64 i = 0; i < string.size; i += 1)
+    {
+        MD_b32 was_split = 0;
+        for(int split_idx = 0; split_idx < splitter_count; split_idx += 1)
+        {
+            MD_b32 match = 0;
+            if(i + splitters[split_idx].size <= string.size)
+            {
+                match = 1;
+                for(MD_u64 split_i = 0; split_i < splitters[split_idx].size && i + split_i < string.size; split_i += 1)
+                {
+                    if(splitters[split_idx].str[split_i] != string.str[i + split_i])
+                    {
+                        match = 0;
+                        break;
+                    }
+                }
+            }
+            if(match)
+            {
+                MD_String8 split_string = MD_S8(string.str + split_start, i - split_start);
+                MD_S8ListPush(arena, &list, split_string);
+                split_start = i + splitters[split_idx].size;
+                i += splitters[split_idx].size - 1;
+                was_split = 1;
+                break;
+            }
+        }
+        
+        if(was_split == 0 && i == string.size - 1)
+        {
+            MD_String8 split_string = MD_S8(string.str + split_start, i+1 - split_start);
+            MD_S8ListPush(arena, &list, split_string);
+            break;
+        }
+    }
+    
+    return list;
+}
+
+INTERNAL MD_String8
+MD_S8ListJoin(MD_Arena *arena, MD_String8List list, MD_StringJoin *join_ptr)
+{
+    // setup join parameters
+    MD_StringJoin join = MD_ZERO_STRUCT;
+    if (join_ptr != 0)
+    {
+        MD_MemoryCopy(&join, join_ptr, sizeof(join));
+    }
+    
+    // calculate size & allocate
+    MD_u64 sep_count = 0;
+    if (list.node_count > 1)
+    {
+        sep_count = list.node_count - 1;
+    }
+    MD_String8 result = MD_ZERO_STRUCT;
+    result.size = (list.total_size + join.pre.size +
+                   sep_count*join.mid.size + join.post.size);
+    result.str = MD_PushArrayZero(arena, MD_u8, result.size);
+    
+    // fill
+    MD_u8 *ptr = result.str;
+    MD_MemoryCopy(ptr, join.pre.str, join.pre.size);
+    ptr += join.pre.size;
+    for(MD_String8Node *node = list.first; node; node = node->next)
+    {
+        MD_MemoryCopy(ptr, node->string.str, node->string.size);
+        ptr += node->string.size;
+        if (node != list.last)
+        {
+            MD_MemoryCopy(ptr, join.mid.str, join.mid.size);
+            ptr += join.mid.size;
+        }
+    }
+    MD_MemoryCopy(ptr, join.post.str, join.post.size);
+    ptr += join.post.size;
+    
+    return(result);
+}
+
+INTERNAL MD_String8
+MD_S8ListJoinMid(MD_Arena *arena, MD_String8List list,
+                 MD_String8 mid_separator)
+{
+    MD_StringJoin join = MD_ZERO_STRUCT;
+    join.pre = MD_S8Lit("");
+    join.post = MD_S8Lit("");
+    join.mid = mid_separator;
+    MD_String8 result = MD_S8ListJoin(arena, list, &join);
+    return result;
+}
+
+
 
 INTERNAL String8
 s8_from_range(u8 *start, u8 *one_past_last)
@@ -640,7 +938,7 @@ s8_fmt(MemArena *arena, char *fmt, ...)
   u64 needed_bytes = (u64)stbsp_vsnprintf(NULL, 0, fmt, args) + 1;
   result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, needed_bytes);
   result.size = needed_bytes - 1;
-  result.str[needed_bytes - 1] = 0;
+  result.str[needed_bytes - 1] = '\0';
   stbsp_vsnprintf((char *)result.str, (int)needed_bytes, fmt, args);
 
   va_end(args);
@@ -886,7 +1184,6 @@ LinuxDoesDirectoryExist(char *path)
 
 #endif
 #endif
-
 
 typedef struct String8List String8List;
 struct String8List
@@ -1137,6 +1434,18 @@ linux_timer_end(Timer *timer)
 //  Node *next, *prev;
 // }
 
+typedef enum NODE_TYPE
+{
+  NODE_TYPE_LIST,
+  NODE_TYPE_COUNT,
+} NODE_TYPE;
+
+typedef struct Node Node;
+struct Node
+{
+  NODE_TYPE type;  
+};
+
 int
 main(int argc, char *argv[])
 {
@@ -1156,12 +1465,15 @@ main(int argc, char *argv[])
   // os init
   linux_mem_arena_perm = mem_arena_allocate(GB(1)); 
 
+  String8List linux_cmd_line = ZERO_STRUCT;
+
   // record timer start here
   // command line arguments
-  //for (int i = 0; i < argc; i += 1){
-  //    String8 arg = str8_cstring((U8*)argv[i]);
-  //    str8_list_push(linux_mem_arena_perm, &linux_cmd_line, arg);
-  //}
+  for (i32 i = 0; i < argc; i += 1)
+  {
+    String8 arg = str8_cstring((u8 *)argv[i]);
+    str8_list_push(linux_mem_arena_perm, &linux_cmd_line, arg);
+  }
   // binary dir: readlink("/proc/self/exe");
   // cwd: getcwd();
   
@@ -1182,6 +1494,11 @@ main(int argc, char *argv[])
   //}
   
   //AdjacencyList *adjacency_list = adjacency_list_create(linux_mem_arena_perm);
+  
+  // IMPORTANT(Ryan): Instead of choosing the right data structure
+  // design the right data structure for the job, i.e. data structure composition
+  // linked lists allow for seamless data structure composition?
+  
 
   linux_timer_end(&timer);
   fprintf(stdout, "%f\n", (f64)(timer.end - timer.start) / (f64)timer.ticks_per_sec);
