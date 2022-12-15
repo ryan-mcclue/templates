@@ -587,6 +587,13 @@ struct String8
   u64 size;
 };
 
+typedef struct String8Node String8Node;
+struct String8Node
+{
+    String8Node *next;
+    String8 string;
+};
+
 typedef struct String8List String8List;
 struct String8List
 {
@@ -627,51 +634,53 @@ s8_up_to(u8 *start, u8 *up_to)
 INTERNAL String8
 s8_substring(String8 str, u64 start, u64 end)
 {
-    if(max > str.size)
-    {
-        max = str.size;
-    }
-    if(min > str.size)
-    {
-        min = str.size;
-    }
-    if(min > max)
-    {
-        MD_u64 swap = min;
-        min = max;
-        max = swap;
-    }
-    str.size = max - min;
-    str.str += min;
-    return str;
+  if (end > str.size)
+  {
+    end = str.size;
+  }
+
+  if (start > str.size)
+  {
+    start = str.size;
+  }
+
+  if (start > end)
+  {
+    SWAP(u64, start, end);
+  }
+
+  str.size = end - start;
+  str.str += start;
+
+  return str;
 }
 
-INTERNAL MD_String8
-MD_S8Skip(MD_String8 str, MD_u64 min)
+INTERNAL String8
+s8_advance(String8 str, u64 advance)
 {
-    return MD_S8Substring(str, min, str.size);
+  return s8_substring(str, advance, str.size);
 }
 
-INTERNAL MD_String8
-MD_S8Chop(MD_String8 str, MD_u64 nmax)
+INTERNAL String8
+s8_chop(MD_String8 str, u64 chop)
 {
-    return MD_S8Substring(str, 0, str.size - nmax);
+  return s8_substring(str, 0, str.size - chop);
 }
 
-INTERNAL MD_String8
-MD_S8Prefix(MD_String8 str, MD_u64 size)
+INTERNAL String8
+s8_prefix(String8 str, u64 prefix)
 {
-    return MD_S8Substring(str, 0, size);
+  return s8_substring(str, 0, prefix);
 }
 
-INTERNAL MD_String8
-MD_S8Suffix(MD_String8 str, MD_u64 size)
+INTERNAL String8
+s8_suffix(String8 str, u64 suffix)
 {
-    return MD_S8Substring(str, str.size - size, str.size);
+  return s8_substring(str, str.size - suffix, str.size);
 }
 
-INTERNAL MD_b32
-MD_S8Match(MD_String8 a, MD_String8 b, MD_MatchFlags flags)
+INTERNAL b32
+s8_match(String8 a, String8 b, MD_MatchFlags flags)
 {
     int result = 0;
     if(a.size == b.size || flags & MD_StringMatchFlag_RightSideSloppy)
@@ -1433,6 +1442,12 @@ linux_timer_end(Timer *timer)
 //  Node *first_child, *last_child;
 //  Node *next, *prev;
 // }
+
+typedef u32 STRING8_MATCH_FLAGS;
+enum
+{
+
+};
 
 typedef enum NODE_TYPE
 {
