@@ -587,11 +587,23 @@ struct String8
   u64 size;
 };
 
+typedef u32 MATCH_FLAGS;
+typedef u32 S8_MATCH_FLAGS;
+enum
+{
+  MATCH_FLAG_FIND_LAST = (1 << 0),
+};
+enum
+{
+  S8_MATCH_FLAG_RIGHT_SIDE_LAZY = (1 << 4),
+  S8_MATCH_FLAG_CASE_INSENSITIVE = (1 << 5),
+};
+
 typedef struct String8Node String8Node;
 struct String8Node
 {
-    String8Node *next;
-    String8 string;
+  String8Node *next;
+  String8 string;
 };
 
 typedef struct String8List String8List;
@@ -680,66 +692,100 @@ s8_suffix(String8 str, u64 suffix)
 }
 
 INTERNAL b32
-s8_match(String8 a, String8 b, MD_MatchFlags flags)
+s8_match(String8 a, String8 b, S8_MATCH_FLAGS flags)
 {
-    int result = 0;
-    if(a.size == b.size || flags & MD_StringMatchFlag_RightSideSloppy)
+  b32 result = false;
+
+  if (a.size == b.size || flags & S8_MATCH_FLAG_RIGHT_SIDE_LAZY)
+  {
+    result = true;
+
+    for (u64 i = 0; i < a.size && i < b.size; i += 1)
     {
-        result = 1;
-        for(MD_u64 i = 0; i < a.size && i < b.size; i += 1)
-        {
-            MD_b32 match = (a.str[i] == b.str[i]);
-            if(flags & MD_StringMatchFlag_CaseInsensitive)
-            {
-                match |= (MD_CharToLower(a.str[i]) == MD_CharToLower(b.str[i]));
-            }
-            if(flags & MD_StringMatchFlag_SlashInsensitive)
-            {
-                match |= (MD_CharToForwardSlash(a.str[i]) == MD_CharToForwardSlash(b.str[i]));
-            }
-            if(match == 0)
-            {
-                result = 0;
-                break;
-            }
-        }
+      b32 match = (a.str[i] == b.str[i]);
+
+      if (flags & S8_MATCH_FLAG_CASE_INSENSITIVE)
+      {
+        match |= (tolower(a.str[i]) == tolower(b.str[i]));
+      }
+
+      if (!match)
+      {
+        result = false;
+        break;
+      }
     }
-    return result;
+  }
+
+  return result;
 }
 
-INTERNAL MD_u64
-MD_S8FindSubstring(MD_String8 str, MD_String8 substring, MD_u64 start_pos, MD_MatchFlags flags)
+INTERNAL u64
+s8_find_substring(String8 str, String8 substring, u64 start_pos, MATCH_FLAGS flags)
 {
-    MD_b32 found = 0;
-    MD_u64 found_idx = str.size;
-    for(MD_u64 i = start_pos; i < str.size; i += 1)
+  b32 found = false;
+  u64 found_idx = str.size;
+
+  for (u64 i = start_pos; i < str.size; i += 1)
+  {
+    if (i + substring.size <= str.size)
     {
-        if(i + substring.size <= str.size)
+      String8 substr_from_str = s8_substring(str, i, i + substring.size);
+
+      if (s8_match(substr_from_str, substring, flags))
+      {
+        found_idx = i;
+        found = true;
+
+        if (!(flags & MATCH_FLAG_FIND_LAST))
         {
-            MD_String8 substr_from_str = MD_S8Substring(str, i, i+substring.size);
-            if(MD_S8Match(substr_from_str, substring, flags))
-            {
-                found_idx = i;
-                found = 1;
-                if(!(flags & MD_MatchFlag_FindLast))
-                {
-                    break;
-                }
-            }
+          break;
         }
+      }
     }
-    return found_idx;
+  }
+
+  return found_idx;
+}
+
+INTERNAL String8
+s8_copy(MemArena *arena, String8 string)
+{
+  String8 result = ZERO_STRUCT;
+
+  result.size = string.size;
+  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, string.size + 1);
+  MEMORY_COPY(result.str, string.str, string.size);
+  result.str[string.size] = '\0';
+
+  return result;
+}
+
+INTERNAL String8
+s8_fmt(MemArena *arena, char *fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+
+  String8 result = ZERO_STRUCT;
+  u64 needed_bytes = (u64)stbsp_vsnprintf(NULL, 0, fmt, args) + 1;
+  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, needed_bytes);
+  result.size = needed_bytes - 1;
+  result.str[needed_bytes - 1] = '\0';
+  stbsp_vsnprintf((char *)result.str, (int)needed_bytes, fmt, args);
+
+  va_end(args);
+  return result;
 }
 
 INTERNAL MD_String8
-MD_S8Copy(MD_Arena *arena, MD_String8 string)
+MD_S8Fmt(MD_Arena *arena, char *fmt, ...)
 {
-    MD_String8 res;
-    res.size = string.size;
-    res.str = MD_PushArray(arena, MD_u8, string.size + 1);
-    MD_MemoryCopy(res.str, string.str, string.size);
-    res.str[string.size] = 0;
-    return(res);
+    va_list args;
+    va_start(args, fmt);
+    MD_String8 result = MD_S8FmtV(arena, fmt, args);
+    va_end(args);
+    return result;
 }
 
 INTERNAL MD_String8
@@ -756,15 +802,6 @@ MD_S8FmtV(MD_Arena *arena, char *fmt, va_list args)
     return result;
 }
 
-INTERNAL MD_String8
-MD_S8Fmt(MD_Arena *arena, char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    MD_String8 result = MD_S8FmtV(arena, fmt, args);
-    va_end(args);
-    return result;
-}
 
 INTERNAL void
 MD_S8ListPush(MD_Arena *arena, MD_String8List *list, MD_String8 string)
@@ -908,77 +945,6 @@ MD_S8ListJoinMid(MD_Arena *arena, MD_String8List list,
     return result;
 }
 
-
-
-INTERNAL String8
-s8_from_range(u8 *start, u8 *one_past_last)
-{
-  String8 result = ZERO_STRUCT;
-
-  return result;
-}
-
-INTERNAL b32
-s8_match(String8 s1, String8 s2)
-{
-  return strncmp((char *)s1.str, (char *)s2.str, s1.size);
-}
-
-INTERNAL String8
-s8_copy(MemArena *arena, String8 string)
-{
-  String8 result = ZERO_STRUCT;
-
-  result.size = string.size;
-  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, string.size + 1);
-  MEMORY_COPY(result.str, string.str, string.size);
-  result.str[string.size] = '\0';
-
-  return result;
-}
-
-INTERNAL String8
-s8_fmt(MemArena *arena, char *fmt, ...)
-{
-  va_list args;
-  va_start(args, fmt);
-
-  String8 result = ZERO_STRUCT;
-  u64 needed_bytes = (u64)stbsp_vsnprintf(NULL, 0, fmt, args) + 1;
-  result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, needed_bytes);
-  result.size = needed_bytes - 1;
-  result.str[needed_bytes - 1] = '\0';
-  stbsp_vsnprintf((char *)result.str, (int)needed_bytes, fmt, args);
-
-  va_end(args);
-  return result;
-}
-
-INTERNAL String8
-s8_substring(String8 str, u64 min, u64 max)
-{
-  if (max > str.size)
-  {
-    max = str.size;
-  }
-
-  if (min > str.size)
-  {
-    min = str.size;
-  }
-
-  if (min > max)
-  {
-    u64 swap = min;
-    min = max;
-    max = swap;
-  }
-
-  str.size = max - min;
-  str.str += min;
-
-  return str;
-}
 
 INTERNAL String8 
 s8_read_entire_file(MemArena *arena, String8 file_name)
