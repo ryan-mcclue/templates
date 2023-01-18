@@ -3,6 +3,9 @@
 
 // TODO(Ryan): sse_mathfun.h
 
+// TODO(Ryan): tail cail compiler macro?
+// https://blog.reverberate.org/2021/04/21/musttail-efficient-interpreters.html
+
 // better to use #pragma region, #pragma endregion?
 #pragma mark - M_CONTEXT_CRACKING
 
