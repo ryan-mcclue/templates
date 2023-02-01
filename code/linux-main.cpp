@@ -29,9 +29,7 @@ linux_get_page_size(void)
   return result;
 }
 
-#define MEM_DEFAULT_RESERVE_SIZE GB(1)
-#define MEM_COMMIT_BLOCK_SIZE KB(4)
-#define MEM_DECOMMIT_THRESHOLD KB(64)
+#define MEM_DEFAULT_ALLOCATE_QUANTA GB(1)
 
 // IMPORTANT(Ryan): The memory disconuitity of linked lists lends themselves well for arena allocators
 // Also, usually iterate sequentially
@@ -52,49 +50,31 @@ struct MemArena
   u64 pos;
   u64 align;
 };
-STATIC_ASSERT(sizeof(MemArena) <= MEM_COMMIT_BLOCK_SIZE, arena_size_check);
-
 
 INTERNAL void *
-linux_mem_reserve(u64 size)
+mem_allocate(u64 size)
 {
-  u64 gb_rounded_size = round_to_nearest(size, GB(1));
-  void *result = mmap(NULL, gb_rounded_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, (off_t)0);
-  return result;
-}
+  u64 rounded_size = round_to_nearest(size, MEM_DEFAULT_ALLOCATE_QUANTA);
+  void *result = malloc(rounded_size)
+  ERRNO_ASSERT(result != NULL);
 
-INTERNAL b32
-linux_mem_commit(void *ptr, u64 size)
-{
-  u64 page_rounded_size = round_to_nearest(size, linux_get_page_size());
-  b32 result = (mprotect(ptr, page_rounded_size, PROT_READ | PROT_WRITE) == 0);
   return result;
 }
 
 INTERNAL void
-linux_mem_decommit(void *ptr, u64 size)
+mem_dellocate(void *ptr, u64 size)
 {
-  mprotect(ptr, size, PROT_NONE);
-  madvise(ptr, size, MADV_DONTNEED);
-}
-
-INTERNAL void
-linux_mem_release(void *ptr, u64 size)
-{
-  munmap(ptr, size);
+  free(ptr, size);
 }
  
 INTERNAL MemArena *
 mem_arena_allocate(u64 cap)
 {
-  MemArena *result = (MemArena *)linux_mem_reserve(cap);
-  linux_mem_commit(result, MEM_COMMIT_BLOCK_SIZE);
+  MemArena *result = (MemArena *)mem_reserve(cap);
 
-  result->first = result->last = result->next = result->prev = result->parent = NULL;
   result->memory = result + sizeof(MemArena);
   result->max = cap;
   result->pos = sizeof(MemArena);
-  result->commit_pos = MEM_COMMIT_BLOCK_SIZE;
   result->align = 8;
 
   return result;
@@ -243,6 +223,57 @@ mem_arena_release(MemArena *arena)
   mem_arena_release(arena);
 }
 
+typedef struct MemArenaTemp MemArenaTemp;
+struct MemArenaTemp
+{
+  MemArena *arena;
+  u64 pos;
+};
+
+INTERNAL MemArenaTemp
+mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
+{
+  MemArenaTemp scratch = ZERO_STRUCT;
+  ThreadContext *tctx = thread_context_get();
+
+  for (u64 tctx_idx = 0; tctx_idx < ARRAY_COUNT(tctx->arenas); tctx_idx += 1)
+  {
+    b32 is_conflicting = 0;
+    for (MemArena **conflict = conflicts; conflict < conflicts+conflict_count; conflict += 1)
+    {
+      if (*conflict == tctx->arenas[tctx_idx])
+      {
+        is_conflicting = 1;
+        break;
+      }
+    }
+
+    if (is_conflicting == 0)
+    {
+      scratch.arena = tctx->arenas[tctx_idx];
+      scratch.pos = scratch.arena->pos;
+      break;
+    }
+  }
+
+  return scratch;
+}
+
+INTERNAL void
+mem_arena_scratch_release(MemArenaTemp *temp)
+{
+  mem_arena_set_pos_back(temp->arena, temp->arena->pos);
+}
+
+
+
+
+
+
+
+
+
+
 
 // get_nprocs() - 1
 typedef struct ThreadContext ThreadContext;
@@ -292,47 +323,6 @@ __thread_context_register_file_and_line(char *file, int line)
   tctx->line_number = (u64)line;
 }
 
-typedef struct MemArenaTemp MemArenaTemp;
-struct MemArenaTemp
-{
-  MemArena *arena;
-  u64 pos;
-};
-
-INTERNAL MemArenaTemp
-mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
-{
-  MemArenaTemp scratch = ZERO_STRUCT;
-  ThreadContext *tctx = thread_context_get();
-
-  for (u64 tctx_idx = 0; tctx_idx < ARRAY_COUNT(tctx->arenas); tctx_idx += 1)
-  {
-    b32 is_conflicting = 0;
-    for (MemArena **conflict = conflicts; conflict < conflicts+conflict_count; conflict += 1)
-    {
-      if (*conflict == tctx->arenas[tctx_idx])
-      {
-        is_conflicting = 1;
-        break;
-      }
-    }
-
-    if (is_conflicting == 0)
-    {
-      scratch.arena = tctx->arenas[tctx_idx];
-      scratch.pos = scratch.arena->pos;
-      break;
-    }
-  }
-
-  return scratch;
-}
-
-INTERNAL void
-mem_arena_scratch_release(MemArenaTemp *temp)
-{
-  mem_arena_set_pos_back(temp->arena, temp->arena->pos);
-}
 
 #define DLL_PUSH_FRONT(first, last, node) \
 (\
@@ -436,63 +426,6 @@ mem_arena_scratch_release(MemArenaTemp *temp)
     )\
 )
 
-typedef struct Array Array;
-struct Array
-{
-	u64 capacity;
-	u64 len;
-	u8 *buffer;
-};
-
-#if defined(MAIN_DEBUG)
-  #define ARRAY_CREATE(arena, type, len) \
-    (type *)array_create(arena, sizeof(type), len, SOURCE_LOCATION)
-#else
-  #define ARRAY_CREATE(arena, type, len) \
-    (type *)array_create(arena, sizeof(type), len)
-#endif
-
-INTERNAL void *
-#if defined(MAIN_DEBUG)
-array_create(MemArena *arena, u64 elem_size, u64 elem_count, SourceLocation source_location)
-#else
-array_create(MemArena *arena, u64 elem_size, u64 elem_count)
-#endif
-{
-#if defined(MAIN_DEBUG)
-  Array *array = (Array *)mem_arena_push_zero(arena, sizeof(Array) + (elem_count * elem_size), source_location);
-#else
-  Array *array = (Array *)mem_arena_push_zero(arena, sizeof(Array) + (elem_count * elem_size));
-#endif
-
-  array->buffer = (u8 *)array + OFFSET_OF_MEMBER(Array, buffer);
-  array->len = 0;
-  array->capacity = elem_count;
-
-  return array->buffer;
-}
-
-#define ARRAY_LEN(buf) \
-  (((buf) != NULL) ? (CAST_FROM_MEMBER(Array, buffer, buf))->len : 0)
-
-#define ARRAY_CAPACITY(buf) \
-  (((buf) != NULL) ? (CAST_FROM_MEMBER(Array, buffer, buf))->capacity : 0)
-
-#define ARRAY_PUSH(buf, elem) \
-	(ARRAY_LEN(buf) + 1 <= ARRAY_CAPACITY(buf)) ? \
-    (buf)[(CAST_FROM_MEMBER(Array, buffer, buf))->len++] = (elem) : \
-    FATAL_ERROR("Pushing element onto array exceeds its capacity")
-
-#define ARRAY_REMOVE_ORDERED(buf, index) \
-  do { \
-    for (u32 UNIQUE_NAME(var) = index; UNIQUE_NAME(var) < ARRAY_LEN(buf) - 1; UNIQUE_NAME(var)++) { \
-      (buf)[UNIQUE_NAME(var)] = (buf)[UNIQUE_NAME(var) + 1]; \
-    } \
-    ARRAY_LEN(buf)--; \
-  } while (0)
-
-#define ARRAY_REMOVE_UNORDERED(buf, index) \
-  (((buf) != NULL) ? (buf)[index] = (buf)[--ARRAY_LEN(buf)] : 0)
 
 // IMPORTANT(Ryan): In general though, in most programming situations we know how much data is available in advance 
 // Yet, can still achieve growable memory with arenas.
@@ -571,6 +504,10 @@ heap_min_sift_down(u32 index, u32 *array)
 {
 
 }
+
+
+
+
 
 
 // remove root: swap with last, sift down (swap with minimum of child nodes)

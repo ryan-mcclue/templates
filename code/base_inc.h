@@ -31,7 +31,7 @@
 
   // IMPORTANT(Ryan): ARM will crash resulting from unaligned access to multibyte values from program memory
   // The const part helps compiler to place in .text section
-  #define PROGMEM const __attribute__ ((aligned(4)))
+  // #define PROGMEM const __attribute__ ((aligned(4)))
 
   #if defined(__SANITIZE_ADDRESS__)
     #define NO_ASAN __attribute__((__no_sanitize_address__))
@@ -42,7 +42,7 @@
   #define THREAD_LOCAL __thread
 
   #define NEVER_INLINE   __attribute__((noinline))
-  #define USED_FUNC  __attribute__((used,noinline))
+  #define USED __attribute__((used,noinline))
   #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
   // delay_cycles() function with inline assembly
   
@@ -135,7 +135,7 @@ typedef double f64;
 
 IGNORE_WARNING_USELESS_CAST_PUSH()
 
-// TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety
+// TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety and can get pointer to them
 // we know that any compile time constants will save RAM. compiler optimisation should save codespace also
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
 GLOBAL i8 MIN_S8 = (i8)0x80; 
@@ -153,6 +153,7 @@ GLOBAL u16 MAX_U16 = (u16)0xffff;
 GLOBAL u32 MAX_U32 = (u32)0xffffffff; 
 GLOBAL u64 MAX_U64 = (u64)0xffffffffffffffffllu; 
 
+// IMPORTANT(Ryan): GCC will have the enum size accomodate the largest member
 #define ENUM_U32_SIZE 0xffffffff
 
 IGNORE_WARNING_POP()
@@ -227,24 +228,6 @@ struct SourceLocation
 #define SOURCE_LOCATION { __FILE__, __func__, __LINE__ }
 #define LITERAL_SOURCE_LOCATION LITERAL(SourceLocation) SOURCE_LOCATION 
 
-typedef enum AXIS
-{
-  // getting info out of vectors
-  AXIS_X,
-  AXIS_Y,
-  AXIS_Z,
-  AXIS_W,
-  AXIS_COUNT,
-  AXIS_MAKE_ENUM_32BIT = ENUM_U32_SIZE,
-} AXIS;
-
-typedef enum SIDE
-{
-  // left-right, top-bottom
-  SIDE_MIN,
-  SIDE_MAX,
-} SIDE;
-
 #pragma mark - M_BREAKPOINTS_AND_ASSERTS
 
 #include <stdio.h>
@@ -310,7 +293,7 @@ INTERNAL void __bp(void) {}
 #define STRINGIFY_(s) #s
 #define STRINGIFY(s) STRINGIFY_(s)
 
-// IMPORTANT(Ryan): cannot paste token delimiters like '.', '!' etc. so cannot do 'a. ## b'
+// IMPORTANT(Ryan): Cannot paste token delimiters like '.', '!' etc. so cannot do 'a. ## b'
 #define PASTE_(a, b) a##b
 #define PASTE(a, b) PASTE_(a, b)
 
@@ -480,24 +463,6 @@ INTERNAL void __bp(void) {}
 #pragma mark - M_MEMORY
 
 // TODO(Ryan): Seems that xxhash is best?
-
-#include <string.h>
-
-// TODO(Ryan): For large copies, perhaps builtin rep instruction better performance?
-#define MEMORY_ZERO(p, n) memset((p), 0, (n))
-#define MEMORY_ZERO_STRUCT(p) MEMORY_ZERO((p), sizeof(*(p)))
-#define MEMORY_ZERO_ARRAY(a) MEMORY_ZERO((a), sizeof(a[0]))
-
-#define MEMORY_COPY(d, s, n) memmove((d), (s), (n))
-#define MEMORY_COPY_STRUCT(d, s, n) MEMORY_COPY((d), (s), sizeof(*(s)))
-#define MEMORY_COPY_ARRAY(d, s, n) MEMORY_COPY((d), (s), sizeof((s)))
-
-#define MEMORY_MATCH(a, b, n) (memcmp((a), (b), (n)) == 0)
-
-#define KB(x) ((x) << 10)
-#define MB(x) ((x) << 20)
-#define GB(x) (((u64)x) << 30)
-#define TB(x) (((u64)x) << 40)
 
 #define THOUSAND(x) ((x)*1000LL)
 #define MILLI_TO_SEC(x) ((x)*1000ULL)
