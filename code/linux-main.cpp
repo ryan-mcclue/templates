@@ -7,8 +7,7 @@
 // use i+=1 in for loop syntax?
 // use separate line for each for loop
 
-#define STB_SPRINTF_IMPLEMENTATION 1
-#include "stb/stb_sprintf.h"
+// TODO(Ryan): Investigate obtaining POSIX information with sysconf() and related functions
 
 // .h includes
 #include "base-inc.h"

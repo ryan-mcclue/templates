@@ -2,6 +2,9 @@
 #if !defined(BASE_STRING_H)
 #define BASE_STRING_H
 
+#define STB_SPRINTF_IMPLEMENTATION 1
+#include "stb/stb_sprintf.h"
+
 typedef struct String8 String8;
 struct String8
 {
@@ -51,18 +54,18 @@ s8(u8 *str, u64 size)
 #define s8_lit(s) s8((u8 *)(s), sizeof(s) - 1)
 #define s8_cstring(s) s8((u8 *)(s), strlen(s))
 // IMPORTANT(Ryan): When substringing will run into situations where not null terminated.
-// Use like: \"%.*s\"", s8_varg(string)
+// So, use like: "%.*s", s8_varg(string)
 #define s8_varg(s) (int)(s).size, (s).str
 
 INTERNAL String8
 s8_up_to(u8 *start, u8 *up_to)
 {
-    String8 string = ZERO_STRUCT;
+  String8 string = ZERO_STRUCT;
 
-    string.str = first;
-    string.size = (u64)(up_to - first);
+  string.str = first;
+  string.size = (u64)(up_to - first);
 
-    return string;
+  return string;
 }
 
 INTERNAL String8
@@ -197,57 +200,33 @@ s8_fmt(MemArena *arena, char *fmt, ...)
   stbsp_vsnprintf((char *)result.str, (int)needed_bytes, fmt, args);
 
   va_end(args);
+
   return result;
 }
 
-INTERNAL MD_String8
-MD_S8Fmt(MD_Arena *arena, char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    MD_String8 result = MD_S8FmtV(arena, fmt, args);
-    va_end(args);
-    return result;
-}
-
-INTERNAL MD_String8
-MD_S8FmtV(MD_Arena *arena, char *fmt, va_list args)
-{
-    MD_String8 result = MD_ZERO_STRUCT;
-    va_list args2;
-    va_copy(args2, args);
-    MD_u64 needed_bytes = MD_IMPL_Vsnprintf(0, 0, fmt, args)+1;
-    result.str = MD_PushArray(arena, MD_u8, needed_bytes);
-    result.size = needed_bytes - 1;
-    result.str[needed_bytes-1] = 0;
-    MD_IMPL_Vsnprintf((char*)result.str, (int)needed_bytes, fmt, args2);
-    return result;
-}
-
-
 INTERNAL void
-MD_S8ListPush(MD_Arena *arena, MD_String8List *list, MD_String8 string)
+s8_list_push(MemArena *arena, String8List *list, String8 string)
 {
-    MD_String8Node *node = MD_PushArrayZero(arena, MD_String8Node, 1);
-    node->string = string;
-    
-    MD_QueuePush(list->first, list->last, node);
-    list->node_count += 1;
-    list->total_size += string.size;
+  String8Node *node = MD_PushArrayZero(arena, String8Node, 1);
+  node->string = string;
+
+  MD_QueuePush(list->first, list->last, node);
+  list->node_count += 1;
+  list->total_size += string.size;
 }
 
 INTERNAL void
-MD_S8ListPushFmt(MD_Arena *arena, MD_String8List *list, char *fmt, ...)
+MD_S8ListPushFmt(MemArena *arena, String8List *list, char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    MD_String8 string = MD_S8FmtV(arena, fmt, args);
+    String8 string = MD_S8FmtV(arena, fmt, args);
     va_end(args);
     MD_S8ListPush(arena, list, string);
 }
 
 INTERNAL void
-MD_S8ListConcat(MD_String8List *list, MD_String8List *to_push)
+MD_S8ListConcat(String8List *list, String8List *to_push)
 {
     if(to_push->first)
     {
@@ -267,11 +246,11 @@ MD_S8ListConcat(MD_String8List *list, MD_String8List *to_push)
     MD_MemoryZeroStruct(to_push);
 }
 
-INTERNAL MD_String8List
-MD_S8Split(MD_Arena *arena, MD_String8 string, int splitter_count,
-           MD_String8 *splitters)
+INTERNAL String8List
+MD_S8Split(MemArena *arena, String8 string, int splitter_count,
+           String8 *splitters)
 {
-    MD_String8List list = MD_ZERO_STRUCT;
+    String8List list = MD_ZERO_STRUCT;
     
     MD_u64 split_start = 0;
     for(MD_u64 i = 0; i < string.size; i += 1)
@@ -294,7 +273,7 @@ MD_S8Split(MD_Arena *arena, MD_String8 string, int splitter_count,
             }
             if(match)
             {
-                MD_String8 split_string = MD_S8(string.str + split_start, i - split_start);
+                String8 split_string = MD_S8(string.str + split_start, i - split_start);
                 MD_S8ListPush(arena, &list, split_string);
                 split_start = i + splitters[split_idx].size;
                 i += splitters[split_idx].size - 1;
@@ -305,7 +284,7 @@ MD_S8Split(MD_Arena *arena, MD_String8 string, int splitter_count,
         
         if(was_split == 0 && i == string.size - 1)
         {
-            MD_String8 split_string = MD_S8(string.str + split_start, i+1 - split_start);
+            String8 split_string = MD_S8(string.str + split_start, i+1 - split_start);
             MD_S8ListPush(arena, &list, split_string);
             break;
         }
@@ -314,8 +293,8 @@ MD_S8Split(MD_Arena *arena, MD_String8 string, int splitter_count,
     return list;
 }
 
-INTERNAL MD_String8
-MD_S8ListJoin(MD_Arena *arena, MD_String8List list, MD_StringJoin *join_ptr)
+INTERNAL String8
+MD_S8ListJoin(MemArena *arena, String8List list, MD_StringJoin *join_ptr)
 {
     // setup join parameters
     MD_StringJoin join = MD_ZERO_STRUCT;
@@ -330,7 +309,7 @@ MD_S8ListJoin(MD_Arena *arena, MD_String8List list, MD_StringJoin *join_ptr)
     {
         sep_count = list.node_count - 1;
     }
-    MD_String8 result = MD_ZERO_STRUCT;
+    String8 result = MD_ZERO_STRUCT;
     result.size = (list.total_size + join.pre.size +
                    sep_count*join.mid.size + join.post.size);
     result.str = MD_PushArrayZero(arena, MD_u8, result.size);
@@ -339,7 +318,7 @@ MD_S8ListJoin(MD_Arena *arena, MD_String8List list, MD_StringJoin *join_ptr)
     MD_u8 *ptr = result.str;
     MD_MemoryCopy(ptr, join.pre.str, join.pre.size);
     ptr += join.pre.size;
-    for(MD_String8Node *node = list.first; node; node = node->next)
+    for(String8Node *node = list.first; node; node = node->next)
     {
         MD_MemoryCopy(ptr, node->string.str, node->string.size);
         ptr += node->string.size;
@@ -355,240 +334,17 @@ MD_S8ListJoin(MD_Arena *arena, MD_String8List list, MD_StringJoin *join_ptr)
     return(result);
 }
 
-INTERNAL MD_String8
-MD_S8ListJoinMid(MD_Arena *arena, MD_String8List list,
-                 MD_String8 mid_separator)
+INTERNAL String8
+MD_S8ListJoinMid(MemArena *arena, String8List list,
+                 String8 mid_separator)
 {
     MD_StringJoin join = MD_ZERO_STRUCT;
     join.pre = MD_S8Lit("");
     join.post = MD_S8Lit("");
     join.mid = mid_separator;
-    MD_String8 result = MD_S8ListJoin(arena, list, &join);
+    String8 result = MD_S8ListJoin(arena, list, &join);
     return result;
 }
 
-
-INTERNAL String8 
-s8_read_entire_file(MemArena *arena, String8 file_name)
-{
-  String8 result = ZERO_STRUCT;
-
-  FILE *file = fopen((char *)file_name.str, "rb");
-
-  if (file != NULL)
-  {
-    fseek(file, 0, SEEK_END);
-    u64 file_size = (u64)ftell(file);
-    fseek(file, 0, SEEK_SET);
-    result.str = MEM_ARENA_PUSH_ARRAY(arena, u8, file_size + 1);
-    if (result.str != NULL)
-    {
-      result.size = file_size;
-      fread(result.str, 1, file_size, file);
-      result.str[result.size] = '\0';
-    }
-    fclose(file);
-  }
-
-  return result;
-}
-
-INTERNAL void
-s8_write_entire_file(String8 file_name, String8 data)
-{
-	FILE *file = fopen((char *)file_name.str, "w+");
-
-  if (file != NULL)
-  {
-	  fputs((char *)data.str, file);
-	  fclose(file);
-  }
-}
-
-INTERNAL void
-s8_append_to_file(String8 file_name, String8 data)
-{
-	FILE *file = fopen((char *)file_name.str, "a");
-
-  if (file != NULL)
-  {
-	  fputs((char *)data.str, file);
-	  fclose(file);
-  }
-}
-
-#if 0
-INTERNAL b32
-os_file_rename(String8 og_name, String8 new_name){
-    // convert name
-    M_ArenaTemp scratch = m_get_scratch(0, 0);
-    String16 og_name16 = str16_from_str8(scratch.arena, og_name);
-    String16 new_name16 = str16_from_str8(scratch.arena, new_name);
-    // rename file
-    B32 result = MoveFileW((WCHAR*)og_name16.str, (WCHAR*)new_name16.str);
-    m_release_scratch(scratch);
-    return(result);
-}
-
-typedef MD_u32 MD_FileFlags;
-enum
-{
-    MD_FileFlag_Directory = (1<<0),
-};
-
-typedef U32 DataAccessFlags;
-enum{
-  DataAccessFlag_Read    = (1 << 0),
-  DataAccessFlag_Write   = (1 << 1),
-  DataAccessFlag_Execute = (1 << 2),
-};
-
-typedef struct MD_FileInfo MD_FileInfo;
-struct MD_FileInfo
-{
-    MD_FileFlags flags;
-    MD_String8 filename;
-    MD_u64 file_size;
-  u64 create_time;
-  u64 modify_time;
-  DataAccessFlags access;
-};
-
-typedef struct MD_FileIter MD_FileIter;
-struct MD_FileIter
-{
-    // This is opaque state to store OS-specific file-system iteration data.
-    MD_u8 opaque[640];
-};
-
-// b32 file_start = file_iter_begin(&file_iter, path);
-// FileInfo file_info = file_iter_next(&file_iter);
-typedef struct MD_LINUX_FileIter MD_LINUX_FileIter;
-struct MD_LINUX_FileIter
-{
-    int dir_fd;
-    DIR *dir;
-};
-MD_StaticAssert(sizeof(MD_LINUX_FileIter) <= sizeof(MD_FileIter), file_iter_size_check);
-
-static MD_b32
-MD_LINUX_FileIterIncrement(MD_Arena *arena, MD_FileIter *opaque_it, MD_String8 path,
-                           MD_FileInfo *out_info)
-{
-    MD_b32 result = 0;
-    
-    MD_LINUX_FileIter *it = (MD_LINUX_FileIter *)opaque_it;
-    if(it->dir == 0)
-    {
-        it->dir = opendir((char*)path.str);
-        it->dir_fd = open((char *)path.str, O_PATH|O_CLOEXEC);
-    }
-    
-    if(it->dir != 0 && it->dir_fd != -1)
-    {
-        struct dirent *dir_entry = readdir(it->dir);
-        if(dir_entry)
-        {
-            out_info->filename = MD_S8Fmt(arena, "%s", dir_entry->d_name);
-            out_info->flags = 0;
-            
-            struct stat st; 
-            if(fstatat(it->dir_fd, dir_entry->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW) == 0)
-            {
-                if((st.st_mode & S_IFMT) == S_IFDIR)
-                {
-                    out_info->flags |= MD_FileFlag_Directory;
-                }
-                out_info->file_size = st.st_size;
-            }
-            result = 1;
-        }
-    }
-    
-    if(result == 0)
-    {
-        if(it->dir != 0)
-        {
-            closedir(it->dir);
-            it->dir = 0;
-        }
-        if(it->dir_fd != -1)
-        {
-            close(it->dir_fd);
-            it->dir_fd = -1;
-        }
-    }
-    
-    return result;
-}
-
-#if 0
-internal b32
-LinuxCopyFile(char *dest, char *source)
-{
-	FILE *source_fp;
-	fseek(source_fp, 0, SEEK_END);
-	u32 fsize = ftell(source_fp);
-	rewind(source_fp);
-
-	char *source_data = malloc(fsize + 1);
-	fread(source_data, 1, fsize, source_fp);
-	fclose(source_fp);
-
-	FILE *dest_fp;
-	dest_fp = fopen(dest, "w+");
-	fputs(dest_fp, source_data);
-	fclose(dest_fp);
-
-	// Return 0 on error
-	return 1;
-}
-
-function FileProperties
-os_file_properties(String8 file_name){
-
-linux_delete_file();
-
-INTERNAL b32
-linux_create_directory(String8 directory_name)
-{
-	if (mkdir(path) == 0)
-	{
-		return 1;
-	}
-	return 0;
-}
-
-INTERNAL b32
-LinuxDoesFileExist(char *path)
-{
-	// This probably isn't the best way
-	if (access(path, F_OK) != -1)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-internal b32
-LinuxDoesDirectoryExist(char *path)
-{
-	return LinuxDoesFileExist(path);
-}
-
-#endif
-#endif
-
-typedef struct String8List String8List;
-struct String8List
-{
-  String8 *first;
-  String8 *last;
-  u64 node_count;
-  u64 total_size;
-};
 
 #endif
