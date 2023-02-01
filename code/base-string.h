@@ -40,6 +40,14 @@ struct String8List
   u64 total_size;
 };
 
+typedef struct String8Join String8Join;
+struct String8Join
+{
+  String8 pre;
+  String8 mid;
+  String8 post;
+};
+
 INTERNAL String8
 s8(u8 *str, u64 size)
 {
@@ -207,144 +215,137 @@ s8_fmt(MemArena *arena, char *fmt, ...)
 INTERNAL void
 s8_list_push(MemArena *arena, String8List *list, String8 string)
 {
-  String8Node *node = MD_PushArrayZero(arena, String8Node, 1);
+  String8Node *node = MEM_ARENA_PUSH_ARRAY_ZERO(arena, String8Node, 1);
   node->string = string;
 
-  MD_QueuePush(list->first, list->last, node);
+  SLL_QUEUE_PUSH(list->first, list->last, node);
+
   list->node_count += 1;
   list->total_size += string.size;
 }
 
 INTERNAL void
-MD_S8ListPushFmt(MemArena *arena, String8List *list, char *fmt, ...)
+s8_list_push_fmt(MemArena *arena, String8List *list, char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    String8 string = MD_S8FmtV(arena, fmt, args);
-    va_end(args);
-    MD_S8ListPush(arena, list, string);
+  va_list args;
+  va_start(args, fmt);
+
+  String8 string = s8_fmt(arena, fmt, args);
+
+  va_end(args);
+
+  s8_list_push(arena, list, string);
 }
 
 INTERNAL void
-MD_S8ListConcat(String8List *list, String8List *to_push)
+s8_list_concat(String8List *list, String8List *to_push)
 {
-    if(to_push->first)
+  if (to_push->first)
+  {
+    list->node_count += to_push->node_count;
+    list->total_size += to_push->total_size;
+
+    if (list->last == 0)
     {
-        list->node_count += to_push->node_count;
-        list->total_size += to_push->total_size;
-        
-        if(list->last == 0)
-        {
-            *list = *to_push;
-        }
-        else
-        {
-            list->last->next = to_push->first;
-            list->last = to_push->last;
-        }
+      *list = *to_push;
     }
-    MD_MemoryZeroStruct(to_push);
+    else
+    {
+      list->last->next = to_push->first;
+      list->last = to_push->last;
+    }
+  }
+
+  MEMORY_ZERO_STRUCT(to_push);
 }
 
 INTERNAL String8List
-MD_S8Split(MemArena *arena, String8 string, int splitter_count,
-           String8 *splitters)
+s8_split(MemArena *arena, String8 string, int splitter_count, String8 *splitters)
 {
-    String8List list = MD_ZERO_STRUCT;
-    
-    MD_u64 split_start = 0;
-    for(MD_u64 i = 0; i < string.size; i += 1)
+  String8List list = MD_ZERO_STRUCT;
+
+  u64 split_start = 0;
+  for(u64 i = 0; i < string.size; i += 1)
+  {
+    b32 was_split = 0;
+    for (int split_idx = 0; split_idx < splitter_count; split_idx += 1)
     {
-        MD_b32 was_split = 0;
-        for(int split_idx = 0; split_idx < splitter_count; split_idx += 1)
+      b32 match = 0;
+      if (i + splitters[split_idx].size <= string.size)
+      {
+        match = 1;
+        for (u64 split_i = 0; split_i < splitters[split_idx].size && i + split_i < string.size; split_i += 1)
         {
-            MD_b32 match = 0;
-            if(i + splitters[split_idx].size <= string.size)
-            {
-                match = 1;
-                for(MD_u64 split_i = 0; split_i < splitters[split_idx].size && i + split_i < string.size; split_i += 1)
-                {
-                    if(splitters[split_idx].str[split_i] != string.str[i + split_i])
-                    {
-                        match = 0;
-                        break;
-                    }
-                }
-            }
-            if(match)
-            {
-                String8 split_string = MD_S8(string.str + split_start, i - split_start);
-                MD_S8ListPush(arena, &list, split_string);
-                split_start = i + splitters[split_idx].size;
-                i += splitters[split_idx].size - 1;
-                was_split = 1;
-                break;
-            }
-        }
-        
-        if(was_split == 0 && i == string.size - 1)
-        {
-            String8 split_string = MD_S8(string.str + split_start, i+1 - split_start);
-            MD_S8ListPush(arena, &list, split_string);
+          if (splitters[split_idx].str[split_i] != string.str[i + split_i])
+          {
+            match = 0;
             break;
+          }
         }
+      }
+      if (match)
+      {
+        String8 split_string = s8(string.str + split_start, i - split_start);
+        s8_list_push(arena, &list, split_string);
+        split_start = i + splitters[split_idx].size;
+        i += splitters[split_idx].size - 1;
+        was_split = 1;
+        break;
+      }
     }
-    
-    return list;
+
+    if (was_split == 0 && i == string.size - 1)
+    {
+      String8 split_string = s8(string.str + split_start, i+1 - split_start);
+      s8_list_push(arena, &list, split_string);
+      break;
+    }
+  }
+
+  return list;
 }
 
 INTERNAL String8
-MD_S8ListJoin(MemArena *arena, String8List list, MD_StringJoin *join_ptr)
+s8_list_join(MemArena *arena, String8List list, StringJoin *join_ptr)
 {
-    // setup join parameters
-    MD_StringJoin join = MD_ZERO_STRUCT;
-    if (join_ptr != 0)
-    {
-        MD_MemoryCopy(&join, join_ptr, sizeof(join));
-    }
-    
-    // calculate size & allocate
-    MD_u64 sep_count = 0;
-    if (list.node_count > 1)
-    {
-        sep_count = list.node_count - 1;
-    }
-    String8 result = MD_ZERO_STRUCT;
-    result.size = (list.total_size + join.pre.size +
-                   sep_count*join.mid.size + join.post.size);
-    result.str = MD_PushArrayZero(arena, MD_u8, result.size);
-    
-    // fill
-    MD_u8 *ptr = result.str;
-    MD_MemoryCopy(ptr, join.pre.str, join.pre.size);
-    ptr += join.pre.size;
-    for(String8Node *node = list.first; node; node = node->next)
-    {
-        MD_MemoryCopy(ptr, node->string.str, node->string.size);
-        ptr += node->string.size;
-        if (node != list.last)
-        {
-            MD_MemoryCopy(ptr, join.mid.str, join.mid.size);
-            ptr += join.mid.size;
-        }
-    }
-    MD_MemoryCopy(ptr, join.post.str, join.post.size);
-    ptr += join.post.size;
-    
-    return(result);
-}
+  // setup join parameters
+  StringJoin join = MD_ZERO_STRUCT;
+  if (join_ptr != 0)
+  {
+    MEMORY_COPY(&join, join_ptr, sizeof(join));
+  }
 
-INTERNAL String8
-MD_S8ListJoinMid(MemArena *arena, String8List list,
-                 String8 mid_separator)
-{
-    MD_StringJoin join = MD_ZERO_STRUCT;
-    join.pre = MD_S8Lit("");
-    join.post = MD_S8Lit("");
-    join.mid = mid_separator;
-    String8 result = MD_S8ListJoin(arena, list, &join);
-    return result;
-}
+  // calculate size & allocate
+  u64 sep_count = 0;
+  if (list.node_count > 1)
+  {
+    sep_count = list.node_count - 1;
+  }
 
+  String8 result = MD_ZERO_STRUCT;
+  result.size = (list.total_size + join.pre.size + sep_count*join.mid.size + join.post.size);
+  result.str = MEM_ARENA_PUSH_ARRAY_ZERO(arena, MD_u8, result.size);
+
+  // fill
+  u8 *ptr = result.str;
+  MEMORY_COPY(ptr, join.pre.str, join.pre.size);
+  ptr += join.pre.size;
+
+  for (String8Node *node = list.first; node; node = node->next)
+  {
+    MEMORY_COPY(ptr, node->string.str, node->string.size);
+    ptr += node->string.size;
+    if (node != list.last)
+    {
+      MEMORY_COPY(ptr, join.mid.str, join.mid.size);
+      ptr += join.mid.size;
+    }
+  }
+
+  MEMORY_COPY(ptr, join.post.str, join.post.size);
+  ptr += join.post.size;
+
+  return(result);
+}
 
 #endif
