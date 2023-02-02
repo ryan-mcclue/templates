@@ -198,6 +198,12 @@ INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, i
   return 0;
 }
 
+INTERNAL void errno_log(void)
+{
+  const char *errno_msg = strerror(errno);
+  return;
+}
+
 INTERNAL void __bp(void) {}
 
 #define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)

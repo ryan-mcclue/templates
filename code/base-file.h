@@ -34,7 +34,7 @@ s8_write_entire_file(String8 file_name, String8 data)
 
   if (file != NULL)
   {
-	  fputs((char *)data.str, file);
+	  fwrite(data.str, 1, data.size, file);
 	  fclose(file);
   }
 }
@@ -46,9 +46,16 @@ s8_append_to_file(String8 file_name, String8 data)
 
   if (file != NULL)
   {
-	  fputs((char *)data.str, file);
+	  fwrite(data.str, 1, data.size, file);
 	  fclose(file);
   }
+}
+
+INTERNAL void
+s8_copy_file(MemArena *arena, String8 source_file, String8 dest_file)
+{
+  String8 source_file_data = s8_read_entire_file(arena, source_file);
+  s8_write_entire_file(dest_file, source_file_data);
 }
 
 #if 0
@@ -157,26 +164,6 @@ MD_LINUX_FileIterIncrement(MD_Arena *arena, MD_FileIter *opaque_it, MD_String8 p
 }
 
 #if 0
-internal b32
-LinuxCopyFile(char *dest, char *source)
-{
-	FILE *source_fp;
-	fseek(source_fp, 0, SEEK_END);
-	u32 fsize = ftell(source_fp);
-	rewind(source_fp);
-
-	char *source_data = malloc(fsize + 1);
-	fread(source_data, 1, fsize, source_fp);
-	fclose(source_fp);
-
-	FILE *dest_fp;
-	dest_fp = fopen(dest, "w+");
-	fputs(dest_fp, source_data);
-	fclose(dest_fp);
-
-	// Return 0 on error
-	return 1;
-}
 
 function FileProperties
 os_file_properties(String8 file_name){
@@ -216,4 +203,5 @@ LinuxDoesDirectoryExist(char *path)
 #endif
 
 
+#endif
 #endif

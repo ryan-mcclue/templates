@@ -163,6 +163,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   compiler_flags+=( "-I code" "-isystem external" )
 
+  linker_flags+=( "-lm" "-lraylib" "-ldl" )
+
   # use for embedded, as will take into account region names specified in a linker script
   # compiler_flags+=( "-Wl,--print-memory-usage" )
   # -Wl,-Map=build/main.map 
@@ -214,6 +216,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
       print_metrics
     else
       g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
+
+      g++ ${compiler_flags[*]} code/app.cpp -shared -fPIC -o run/app.so ${linker_flags[*]}
 
       # print_metrics
 
