@@ -111,16 +111,10 @@ linker_flags=()
 # TODO(Ryan): EMBEDDED 
 #   -fstack-usage  generates .su files
 #   -Wstack-usage=255 (warn if usage over 255 bytes)
-#   Puncover will even analyze the stack space information emitted and generate maximal stack depth estimations based on call path.
-#   (better to use Ozone 'callgraph feature' to analyze stack
+#   better to use Ozone 'callgraph feature' to analyze stack
 #
 #   run arm-none-eabi-size to inspect output file
 #   -Os instead of -O3 optimisation 
-
-# TODO(Ryan): General build flow:
-# 1. datagen (codegen could be to parse file data into structs?)
-# 2. library
-# 3. main
 
 # If wanting to build assets, would say have the relevent 'project' files, e.g. .blend files
 # Then create output files, e.g. .obj files by running say blender $blendFile --background --python ExportBlenderAssets.py
@@ -129,8 +123,7 @@ linker_flags=()
 
 # TODO(Ryan): tracy runtime profiler: 
 # https://github.com/makuto/spargus-vehicle-prototype/tree/master/Profiling
-
-# TODO(Ryan): renderdoc gpu profiler: 
+# TODO(Ryan): renderdoc gpu profiler 
 
 # -finstrument-functions (we get pointer to function)
 # 
@@ -182,7 +175,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
     compiler_flags+=("-Wno-unused-function" "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
 
-    compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
+    # compiler_flags+=( "-fsanitize=address,undefined" "-fno-sanitize=float-divide-by-zero,float-cast-overflow" "-fno-sanitize-recover=all" )
 
     # IMPORTANT(Ryan): static analysis requires gcc-10
     # IMPORTANT(Ryan): significantly increases compilation time
@@ -222,7 +215,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     else
       g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
-      print_metrics
+      # print_metrics
 
       push_dir run
       ../build/linux-main
@@ -256,7 +249,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
     g++ ${compiler_flags[*]} code/linux-main.cpp -o build/linux-main ${linker_flags[*]}
 
-    print_metrics
+    # print_metrics
 
     push_dir run
     ../build/linux-main

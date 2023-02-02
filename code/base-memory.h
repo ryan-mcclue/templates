@@ -42,8 +42,8 @@ struct MemArena
 INTERNAL MemArena *
 mem_arena_allocate(u64 cap)
 {
-  u64 rounded_size = round_to_nearest(size, MEM_DEFAULT_ALLOCATE_QUANTA);
-  MemArena *result = malloc(rounded_size)
+  u64 rounded_size = round_to_nearest(cap, MEM_DEFAULT_ALLOCATE_QUANTA);
+  MemArena *result = (MemArena *)malloc(rounded_size);
   ERRNO_ASSERT(result != NULL);
 
   result->memory = result + sizeof(MemArena);
@@ -55,9 +55,9 @@ mem_arena_allocate(u64 cap)
 }
 
 INTERNAL void
-mem_dellocate(void *ptr, u64 size)
+mem_arena_deallocate(MemArena *arena)
 {
-  free(ptr, size);
+  free(arena);
 }
  
 #define MEM_ARENA_PUSH_ARRAY(a,T,c) (T*)mem_arena_push((a), sizeof(T)*(c))

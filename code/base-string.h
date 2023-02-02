@@ -5,6 +5,8 @@
 #define STB_SPRINTF_IMPLEMENTATION 1
 #include "stb/stb_sprintf.h"
 
+#include <ctype.h>
+
 typedef struct String8 String8;
 struct String8
 {
@@ -34,8 +36,8 @@ struct String8Node
 typedef struct String8List String8List;
 struct String8List
 {
-  String8 *first;
-  String8 *last;
+  String8Node *first;
+  String8Node *last;
   u64 node_count;
   u64 total_size;
 };
@@ -70,8 +72,8 @@ s8_up_to(u8 *start, u8 *up_to)
 {
   String8 string = ZERO_STRUCT;
 
-  string.str = first;
-  string.size = (u64)(up_to - first);
+  string.str = start;
+  string.size = (u64)(up_to - start);
 
   return string;
 }
@@ -107,7 +109,7 @@ s8_advance(String8 str, u64 advance)
 }
 
 INTERNAL String8
-s8_chop(MD_String8 str, u64 chop)
+s8_chop(String8 str, u64 chop)
 {
   return s8_substring(str, 0, str.size - chop);
 }
@@ -245,7 +247,7 @@ s8_list_concat(String8List *list, String8List *to_push)
     list->node_count += to_push->node_count;
     list->total_size += to_push->total_size;
 
-    if (list->last == 0)
+    if (list->last == NULL)
     {
       *list = *to_push;
     }
@@ -262,7 +264,7 @@ s8_list_concat(String8List *list, String8List *to_push)
 INTERNAL String8List
 s8_split(MemArena *arena, String8 string, int splitter_count, String8 *splitters)
 {
-  String8List list = MD_ZERO_STRUCT;
+  String8List list = ZERO_STRUCT;
 
   u64 split_start = 0;
   for(u64 i = 0; i < string.size; i += 1)
@@ -306,11 +308,11 @@ s8_split(MemArena *arena, String8 string, int splitter_count, String8 *splitters
 }
 
 INTERNAL String8
-s8_list_join(MemArena *arena, String8List list, StringJoin *join_ptr)
+s8_list_join(MemArena *arena, String8List list, String8Join *join_ptr)
 {
   // setup join parameters
-  StringJoin join = MD_ZERO_STRUCT;
-  if (join_ptr != 0)
+  String8Join join = ZERO_STRUCT;
+  if (join_ptr != NULL)
   {
     MEMORY_COPY(&join, join_ptr, sizeof(join));
   }
@@ -322,9 +324,9 @@ s8_list_join(MemArena *arena, String8List list, StringJoin *join_ptr)
     sep_count = list.node_count - 1;
   }
 
-  String8 result = MD_ZERO_STRUCT;
+  String8 result = ZERO_STRUCT;
   result.size = (list.total_size + join.pre.size + sep_count*join.mid.size + join.post.size);
-  result.str = MEM_ARENA_PUSH_ARRAY_ZERO(arena, MD_u8, result.size);
+  result.str = MEM_ARENA_PUSH_ARRAY_ZERO(arena, u8, result.size);
 
   // fill
   u8 *ptr = result.str;

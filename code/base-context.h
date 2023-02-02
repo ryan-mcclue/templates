@@ -29,8 +29,12 @@
   // NOTE(Ryan): GCC specifics
   #if defined(__SANITIZE_ADDRESS__)
     #define NO_ASAN __attribute__((__no_sanitize_address__))
+    #include <sanitizer/lsan_interface.h>
+    // IMPORTANT(Ryan): without this, the local scoped ThreadContext is considered unreachable as leak sanitizer run after main
+    #define LSAN_RUN() __lsan_do_leak_check(); __lsan_disable()
   #else
     #define NO_ASAN
+    #define LSAN_RUN()
   #endif
 
   #define CASE_FALLTHROUGH __attribute__((fallthrough))

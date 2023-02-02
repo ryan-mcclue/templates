@@ -191,7 +191,6 @@ unlerp(f32 a, f32 b, f32 t)
   }
   return result;
 }
-#endif
 
 // TODO(Ryan): Perhaps include round_to, ceil functions etc.
 
@@ -508,5 +507,5 @@ lerp(r32 start, r32 end, r32 p)
   r32 __builtin_powif(r32, u32)
 
 #endif
-
+#endif
 #endif

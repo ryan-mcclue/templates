@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
 #if !defined(BASE_MAP_H)
-#define(BASE_MAP_H)
+#define BASE_MAP_H
 
 typedef struct MapKey MapKey;
 struct MapKey
@@ -129,7 +129,7 @@ map_scan(MapSlot *first_slot, MapKey key)
         else
         {
           String8 slot_string = s8((u8 *)slot->key.ptr, slot->key.size);
-          if (s8_match(slot_string, key_string))
+          if (s8_match(slot_string, key_string, 0))
           {
             result = slot;
             break;
