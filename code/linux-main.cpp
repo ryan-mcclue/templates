@@ -9,8 +9,12 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "app.h"
+
+// getentropy()
+// clock_gettime()
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -24,6 +28,21 @@ linux_get_file_mod_time(String8 file_name)
   {
     result = (u64)file_stat.st_mtime;
   }
+
+  return result;
+}
+
+INTERNAL u64
+linux_get_ms(void)
+{
+  u64 result = 0;
+
+  struct timespec time_spec = {0};
+  // not actually time since epoch, 1 jan 1970
+  // rather time since some unspecified period in past
+  clock_gettime(CLOCK_MONOTONIC_RAW, &time_spec);
+
+  result = ((u32)time_spec.tv_sec * 1000) + (u32)((f32)time_spec.tv_nsec / 1000000.0f);
 
   return result;
 }
@@ -131,15 +150,11 @@ main(int argc, char *argv[])
 
   CloseWindow();
 
-
-
   
   // IMPORTANT(Ryan): Instead of choosing the right data structure
   // design the right data structure for the job, i.e. data structure composition
   // linked lists allow for seamless data structure composition?
   
-  // linux_get_system_path(linux_perm_arena);
-
   LSAN_RUN();
   
   return 0;

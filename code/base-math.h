@@ -6,98 +6,6 @@
 
 #include <math.h>
 
-INTERNAL u64
-round_to_nearest(u64 val, u64 near)
-{
-  u64 result = val;
-
-  result += near - 1;
-  result -= result % near;
-  
-  return result;
-}
-
-INTERNAL u32
-math_floor_f32_to_u32(f32 float32)
-{
-  u32 result = 0;
-
-  result = (u32)floorf(float32);
-
-  return result;
-}
-
-#if 0
-// IMPORTANT(Ryan): Due to ASLR, could use pointer address where appropriate 
-INTERNAL void
-linux_get_entropy(void *buffer, size_t length)
-{
-  ERRNO_ASSERT(getentropy(buffer, length) != -1);
-}
-
-INTERNAL u32 
-rand_u32(random_series *r)
-{
-    uint32_t x = r->state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    r->state = x;
-    return r->state;
-}
-
-// returns random [0, 1) float
-static inline float random_unilateral (random_series_t *r)
-{
-    // NOTE: Stolen from rnd.h, courtesy of Jonatan Hedborg
-    uint32_t exponent = 127;
-    uint32_t mantissa = random_uint32(r) >> 9;
-    uint32_t bits = (exponent << 23) | mantissa;
-    float result = *(float *)&bits - 1.0f;
-    return result;
-}
-
-// returns random [-1, 1) float
-static inline float random_bilateral(random_series_t *r)
-{
-    return -1.0f + 2.0f*random_unilateral(r);
-}
-
-// returns random number in range [0, range)
-static inline uint32_t random_choice(random_series_t *r, uint32_t range)
-{
-    uint32_t result = random_uint32(r) % range;
-    return result;
-}
-
-// returns random number in range [1, sides]
-static inline uint32_t dice_roll(random_series_t *r, uint32_t sides)
-{
-    uint32_t result = 1 + random_choice(r, sides);
-    return result;
-}
-
-// returns random number in range [min, max]
-static inline int32_t random_range_i32(random_series_t *r, int32_t min, int32_t max)
-{
-    if (max < min)
-        max = min;
-
-    int32_t result = min + (int32_t)random_uint32(r) % (max - min + 1);
-    return result;
-}
-
-// returns random float in range [min, max)
-static inline float random_range_f32(random_series_t *r, float min, float max)
-{
-    float range = random_unilateral(r);
-    float result = min + range*(max - min);
-    return result;
-}
-
-
-// put in math.h trig, sqrt, log INTERNALs for now
-#include <math.h>
 INTERNAL f32
 sqrt_f32(f32 x)
 {
@@ -109,9 +17,6 @@ sin_f32(f32 x)
 {
   return sinf(x);
 }
-28:#define STBTT_pow(x, y)  __builtin_powf(x, y)
-29:#define STBTT_fmod(x, y) __builtin_fmodf(x, y)
-31:#define STBTT_acos(x)    __builtin_acosf(x)
 
 INTERNAL f32
 cos_f32(f32 x)
@@ -135,17 +40,6 @@ INTERNAL f64
 sqrt_f64(f64 x)
 {
   return sqrt(x);
-}
-
-TODO(Ryan): Investigate retro-fps math sse routines
-INTERNAL f32 sqrt_ss(f32 x)
-{
-  return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
-}
-
-static inline float rsqrt_ss(float x)
-{
-    return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set1_ps(x)));
 }
 
 INTERNAL f64
@@ -173,24 +67,171 @@ ln_f64(f64 x)
 }
 
 INTERNAL f32
-lerp(f32 a, f32 b, f32 t)
+lerp_f32(f32 a, f32 b, f32 t)
 {
-  f32 result = 0.f;
+  f32 result = 0.0f;
   result = ((b - a) * t) + a; 
+
   return result;
 }
 
-// unlerp(10.f, lerp(10.f, .5f, 100.f), 100.f);
-INTERNAL f32
-unlerp(f32 a, f32 b, f32 t)
+INTERNAL u32
+round_f32_to_u32(f32 real32)
 {
-  f32 result = 0.f;
-  if (a != b)
-  {
-    result = (t - a)/(b - a);
-  }
+  u32 result = 0;
+
+  result = (u32)roundf(real32);
+
   return result;
 }
+
+INTERNAL i32
+round_f32_to_i32(f32 real32)
+{
+  i32 result = 0;
+
+  result = (i32)roundf(real32);
+
+  return result;
+}
+
+INTERNAL i32
+floor_f32_to_i32(f32 real32)
+{
+  i32 result = 0;
+
+  result = (i32)floorf(real32);
+
+  return result;
+}
+
+INTERNAL u32
+ceil_f32_to_u32(f32 real32)
+{
+  u32 result = 0;
+
+  result = (u32)ceilf(real32);
+
+  return result;
+}
+
+INTERNAL i32
+ceil_f32_to_i32(f32 real32)
+{
+  i32 result = 0;
+
+  result = (i32)ceilf(real32);
+
+  return result;
+}
+
+INTERNAL f32
+square(f32 x)
+{
+  f32 result = 0.0f;
+
+  result = x * x;
+
+  return result;
+}
+
+INTERNAL u64
+round_to_nearest(u64 val, u64 near)
+{
+  u64 result = val;
+
+  result += near - 1;
+  result -= result % near;
+  
+  return result;
+}
+
+INTERNAL u32 
+rand_u32(u32 *seed)
+{
+  u32 x = *seed;
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  *seed = x;
+
+  return *seed;
+}
+
+INTERNAL f32 
+rand_unilateral_f32(u32 *seed)
+{
+  u32 exponent = 127;
+  u32 mantissa = rand_u32(seed) >> 9;
+  u32 bits = (exponent << 23) | mantissa;
+  f32 result = *(f32 *)&bits - 1.0f;
+
+  return result;
+}
+
+INTERNAL f32 
+rand_bilateral_f32(u32 *seed)
+{
+  return -1.0f + (2.0f * rand_unilateral_f32(seed));
+}
+
+INTERNAL u32 
+rand_range_u32(u32 *seed, u32 range)
+{
+  u32 result = rand_u32(seed) % range;
+
+  return result;
+}
+
+INTERNAL i32
+rand_range_i32(u32 *seed, i32 min, i32 max)
+{
+  if (max < min)
+  {
+    max = min;
+  }
+
+  i32 result = min + (i32)rand_u32(seed) % (max - min + 1);
+
+  return result;
+}
+
+INTERNAL f32 
+rand_range_f32(u32 *seed, f32 min, f32 max)
+{
+  f32 range = rand_unilateral_f32(seed);
+  f32 result = min + range * (max - min);
+
+  return result;
+}
+
+#if 0
+// IMPORTANT(Ryan): Due to ASLR, could use pointer address where appropriate 
+INTERNAL void
+linux_get_entropy(void *buffer, size_t length)
+{
+  ERRNO_ASSERT(getentropy(buffer, length) != -1);
+}
+
+random_series is u32_entropy
+
+28:#define STBTT_pow(x, y)  __builtin_powf(x, y)
+29:#define STBTT_fmod(x, y) __builtin_fmodf(x, y)
+31:#define STBTT_acos(x)    __builtin_acosf(x)
+
+// put in math.h trig, sqrt, log INTERNALs for now
+
+TODO(Ryan): Investigate retro-fps math sse routines
+INTERNAL f32 sqrt_ss(f32 x)
+{
+  return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
+}
+
+static inline float rsqrt_ss(float x)
+{
+    return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set1_ps(x)));
+}
+
 
 // TODO(Ryan): Perhaps include round_to, ceil functions etc.
 
@@ -371,87 +412,6 @@ interval_axis(I2F32 r, AXIS axis)
   I1F32 result = {};
   result.p[0] = r.p[0].v[axis];
   result.p[1] = r.p[1].v[axis];
-  return result;
-}
-
-INTERNAL u32
-round_r32_to_u32(r32 real32)
-{
-  u32 result = 0;
-
-  result = (u32)roundf(real32);
-
-  return result;
-}
-
-INTERNAL s32
-round_r32_to_s32(r32 real32)
-{
-  s32 result = 0;
-
-  result = (s32)roundf(real32);
-
-  return result;
-}
-
-
-INTERNAL s32
-floor_r32_to_s32(r32 real32)
-{
-  s32 result = 0;
-
-  result = (s32)floorf(real32);
-
-  return result;
-}
-
-INTERNAL u32
-ceil_r32_to_u32(r32 real32)
-{
-  u32 result = 0;
-
-  result = ceilf(real32);
-
-  return result;
-}
-
-INTERNAL s32
-ceil_r32_to_s32(r32 real32)
-{
-  s32 result = 0;
-
-  result = ceilf(real32);
-
-  return result;
-}
-
-INTERNAL r32
-square(r32 x)
-{
-  r32 result = 0.0f;
-
-  result = x * x;
-
-  return result;
-}
-
-INTERNAL r32
-square_root(r32 val)
-{
-    r32 result = 0.0f;
-
-    result = sqrt(val);
-
-    return result;
-}
-
-INTERNAL r32
-lerp(r32 start, r32 end, r32 p)
-{
-  r32 result = 0.0f;
-
-  result = ((end - start) * p) + start;
-
   return result;
 }
 
