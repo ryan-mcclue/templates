@@ -124,7 +124,7 @@ mem_arena_pop(MemArena *arena, u64 size)
 INTERNAL void
 mem_arena_clear(MemArena *arena)
 {
-  mem_arena_set_pos_back(arena, arena->pos);
+  mem_arena_pop(arena, arena->pos);
 }
 
 
@@ -212,9 +212,9 @@ mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
 }
 
 INTERNAL void
-mem_arena_scratch_release(MemArenaTemp *temp)
+mem_arena_scratch_release(MemArenaTemp temp)
 {
-  mem_arena_set_pos_back(temp->arena, temp->arena->pos);
+  mem_arena_set_pos_back(temp.arena, temp.pos);
 }
 
 #endif

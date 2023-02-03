@@ -62,7 +62,7 @@ s8(u8 *str, u64 size)
 }
 
 #define s8_lit(s) s8((u8 *)(s), sizeof(s) - 1)
-#define s8_cstring(s) s8((u8 *)(s), strlen(s))
+#define s8_cstring(s) s8((u8 *)(s), strlen((char *)s))
 // IMPORTANT(Ryan): When substringing will run into situations where not null terminated.
 // So, use like: "%.*s", s8_varg(string)
 #define s8_varg(s) (int)(s).size, (s).str

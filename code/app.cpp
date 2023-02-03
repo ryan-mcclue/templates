@@ -7,5 +7,5 @@
 EXPORT void
 app(void)
 {
-  DrawCircle(400, 400, 5.0f, RED);
+  DrawCircle(400, 400, 50.0f, GREEN);
 }

@@ -198,7 +198,7 @@ INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, i
   return 0;
 }
 
-INTERNAL void errno_log(void)
+INTERNAL void errno_inspect(void)
 {
   const char *errno_msg = strerror(errno);
   return;
@@ -381,8 +381,9 @@ INTERNAL void __bp(void) {}
    )\
   : \
   (\
-    ((node)->next = (first)), \
-    ((first) = (node)) \
+    ((last)->next = (node)), \
+    ((last) = (node)), \
+    ((node)->next = NULL) \
   )\
 )
 

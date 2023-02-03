@@ -8,6 +8,7 @@
 
 #include <sys/stat.h>
 #include <dlfcn.h>
+#include <unistd.h>
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -38,24 +39,40 @@ main(int argc, char *argv[])
   ThreadContext tctx = thread_context_create();
   thread_context_set(&tctx);
 
-  MemArenaTemp mem_temp_arena = mem_arena_scratch_get(NULL, 0);
-
   i32 window_width = 1280;
   i32 window_height = 720;
 
   InitWindow(window_width, window_height, "Test");        
   SetTargetFPS(60);
 
+  // how different to argv[0]?
+  // binary dir: readlink("/proc/self/exe");
+  // char buf[256] = {0};
+  // readlink("/proc/self/exe", buf, sizeof(buf));
+
+  u32 cwd_path_size = KB(32);
+  u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);
+  ERRNO_ASSERT(getcwd((char *)cwd_path_buffer, cwd_path_size) != NULL);
+
+  String8List app_temp_name_list = ZERO_STRUCT;
+  s8_list_push(linux_mem_arena_perm, &app_temp_name_list, s8_cstring(cwd_path_buffer));
+  s8_list_push(linux_mem_arena_perm, &app_temp_name_list, LITERAL(s8_lit("/app-temp.so")));
+
+  // IMPORTANT(Ryan): Absolute path name required for dlopen() as doesn't honour relative $CWD
+  String8 app_temp_abs_path = s8_list_join(linux_mem_arena_perm, app_temp_name_list, NULL);
+
   u64 last_app_reload_time = 0;
   String8 app_name = s8_lit("app.so");
-  String8 app_temp_name = s8_lit("app-temp.so");
   void *app_lib = NULL;
+  void *app_lib_prev = NULL;
   void (*app)(void) = NULL;
 
   while (!WindowShouldClose())
   {
     BeginDrawing();
     ClearBackground(LITERAL(Color){0, 0, 0, 255}); 
+
+    MemArenaTemp mem_temp_arena = mem_arena_scratch_get(NULL, 0);
 
     u64 app_mod_time = linux_get_file_mod_time(app_name);
     if (app_mod_time > last_app_reload_time)
@@ -65,17 +82,13 @@ main(int argc, char *argv[])
         dlclose(app_lib);
       }
 
-      s8_copy_file(mem_temp_arena.arena, app_name, app_temp_name);
+      s8_copy_file(mem_temp_arena.arena, app_name, app_temp_abs_path);
       struct stat app_stat = ZERO_STRUCT;
       stat((char *)app_name.str, &app_stat);
-      chmod((char *)app_temp_name.str, app_stat.st_mode);
+      chmod((char *)app_temp_abs_path.str, app_stat.st_mode);
 
-      do {
-        app_lib = dlopen((char *)app_temp_name.str, RTLD_NOW);
-        u32 x = 10;
-      } while (errno == 11);
-
-      // 11 resource temporarily unavailable
+      app_lib = dlopen((char *)app_temp_abs_path.str, RTLD_NOW);
+      
       if (app_lib != NULL) 
       {
         app = (void (*)(void))dlsym(app_lib, "app");
@@ -85,12 +98,14 @@ main(int argc, char *argv[])
         }
         else
         {
-          errno_log();
+          errno_inspect();
+          app = NULL;
         }
       }
       else
       {
-        errno_log();
+        errno_inspect();
+        app = NULL;
       }
     }
 
@@ -103,7 +118,7 @@ main(int argc, char *argv[])
       DrawText("Failed to load app.", 200, 200, 20, RED);
     }
 
-    // mem_arena_pop
+    mem_arena_scratch_release(mem_temp_arena);
 
     EndDrawing();
   }
@@ -111,23 +126,14 @@ main(int argc, char *argv[])
   CloseWindow();
 
 
-  //String8List linux_cmd_line = ZERO_STRUCT;
 
-  // record timer start here
-  // command line arguments
-  //for (i32 i = 0; i < argc; i += 1)
-  //{
-  //  String8 arg = s8_cstring(argv[i]);
-  //  s8_list_push(linux_mem_arena_perm, &linux_cmd_line, arg);
-  //}
-
-  // binary dir: readlink("/proc/self/exe");
-  // cwd: getcwd();
   
   // IMPORTANT(Ryan): Instead of choosing the right data structure
   // design the right data structure for the job, i.e. data structure composition
   // linked lists allow for seamless data structure composition?
   
+  // linux_get_system_path(linux_perm_arena);
+
   LSAN_RUN();
   
   return 0;

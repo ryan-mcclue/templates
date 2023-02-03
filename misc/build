@@ -221,9 +221,9 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
       # print_metrics
 
-      push_dir run
-      ../build/linux-main
-      pop_dir
+      # push_dir run
+      # ../build/linux-main
+      # pop_dir
     fi
     # find . -name '*.gcov' -and -not -name 'linux-main.cpp.gcov' -exec rm {} +
     
