@@ -25,8 +25,6 @@ typedef double f64;
 #define INTERNAL static
 #define GLOBAL_CONST PROGMEM
 
-IGNORE_WARNING_USELESS_CAST_PUSH()
-
 // TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety and can get pointer to them
 // we know that any compile time constants will save RAM. compiler optimisation should save codespace also
 // IMPORTANT(Ryan): C99 diverged from C++ C, so as these defined in C99, perhaps not in C++
@@ -47,8 +45,6 @@ GLOBAL u64 MAX_U64 = (u64)0xffffffffffffffffllu;
 
 // IMPORTANT(Ryan): GCC will have the enum size accomodate the largest member
 #define ENUM_U32_SIZE 0xffffffff
-
-IGNORE_WARNING_POP()
 
 // NOTE(Ryan): IEEE float 7 decimal places, double 15 decimal places
 GLOBAL f32 MACHINE_EPSILON_F32 = 1.1920929e-7f;

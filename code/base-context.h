@@ -55,10 +55,9 @@
   #define POP_OPTIMISATION_MODE() \
     _Pragma("GCC pop_options")
 
-  // NOTE(Ryan): Ignored in situation wanting explicit cast for readibility
-  #define IGNORE_WARNING_USELESS_CAST_PUSH() \
+  #define IGNORE_WARNING_PADDED() \
     _Pragma("GCC diagnostic push") \
-    _Pragma("GCC diagnostic ignored \"-Wuseless-cast\"")
+    _Pragma("GCC diagnostic ignored \"-Wpadded\"")
 
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")

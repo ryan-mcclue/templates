@@ -10,6 +10,8 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
+#include "app.h"
+
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 INTERNAL u64 
@@ -64,8 +66,9 @@ main(int argc, char *argv[])
   u64 last_app_reload_time = 0;
   String8 app_name = s8_lit("app.so");
   void *app_lib = NULL;
-  void *app_lib_prev = NULL;
-  void (*app)(void) = NULL;
+  void (*app)(AppState *) = NULL;
+
+  AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
 
   while (!WindowShouldClose())
   {
@@ -87,11 +90,14 @@ main(int argc, char *argv[])
       stat((char *)app_name.str, &app_stat);
       chmod((char *)app_temp_abs_path.str, app_stat.st_mode);
 
+      // TODO(Ryan): This will fail as it seems detects file change before can actually load.
+      // So, will successfully load on subsequent calls
+      // However, get brief flicker
       app_lib = dlopen((char *)app_temp_abs_path.str, RTLD_NOW);
-      
+
       if (app_lib != NULL) 
       {
-        app = (void (*)(void))dlsym(app_lib, "app");
+        app = (void (*)(AppState *))dlsym(app_lib, "app");
         if (app != NULL)
         {
           last_app_reload_time = app_mod_time;
@@ -111,11 +117,11 @@ main(int argc, char *argv[])
 
     if (app != NULL)
     {
-      app();
+      app(app_state);
     }
     else
     {
-      DrawText("Failed to load app.", 200, 200, 20, RED);
+      //DrawText("Failed to load app.", 200, 200, 20, RED);
     }
 
     mem_arena_scratch_release(mem_temp_arena);
