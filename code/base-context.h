@@ -61,6 +61,10 @@
     _Pragma("GCC diagnostic push") \
     _Pragma("GCC diagnostic ignored \"-Wpadded\"")
 
+  #define IGNORE_WARNING_PEDANTIC() \
+    _Pragma("GCC diagnostic push") \
+    _Pragma("GCC diagnostic ignored \"-Wpedantic\"")
+
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")
 

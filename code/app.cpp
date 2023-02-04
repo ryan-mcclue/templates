@@ -26,13 +26,11 @@ app(AppState *state)
   Vector2 box_coord = ZERO_STRUCT;
   Vector2 box_dim = ZERO_STRUCT;
 
-  u32 num_boxes_x = state->width / box_dim.x;
-  u32 num_boxes_y = state->height / box_dim.y;
-
   // TODO(Ryan): Perhaps use i32 whenever used in calculation for drawing
   i32 snow_num_x = 10, snow_width = 10, snow_gutter_x = 30;
   i32 snow_num_y = 20, snow_height = 10, snow_gutter_y = 50;
 
+#if 0
   for (u32 y = 0; y < state->height; ++y)
   {
     for (u32 x = 0; x < state->width; ++x)
@@ -45,5 +43,6 @@ app(AppState *state)
       // DrawRectangleV();
     }
   }
+#endif
 
 }

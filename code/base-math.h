@@ -6,330 +6,6 @@
 
 #include <math.h>
 
-typedef union Vec2F32 Vec2F32;
-union Vec2F32
-{
-  struct
-  {
-    f32 x, y;
-  };
-
-  f32 elements[2];
-  f32 v[2];
-};
-
-typedef union Vec2I32 Vec2I32;
-union Vec2I32
-{
-  struct
-  {
-    i32 x, y;
-  };
-
-  i32 elements[2];
-  i32 v[2];
-};
-
-typedef union Vec2I64 Vec2I64;
-union Vec2I64
-{
-  struct
-  {
-    i64 x, y;
-  };
-
-  i64 elements[2];
-  i64 v[2];
-};
-
-typedef union Vec3F32 Vec3F32;
-union Vec3F32
-{
-  struct
-  {
-    f32 x, y, z;
-  };
-
-  struct
-  {
-    f32 r, g, b;
-  };
-
-  struct
-  {
-    Vec2F32 xy;
-    f32 z1;
-  };
-
-  struct
-  {
-    f32 x1;
-    Vec2F32 yz;
-  };
-
-  f32 elements[3];
-  f32 v[3];
-};
-
-typedef union Vec3I32 Vec3I32;
-union Vec3I32
-{
-  struct
-  {
-    i32 x, y, z;
-  };
-
-  struct
-  {
-    i32 r, g, b;
-  };
-
-  i32 elements[3];
-  i32 v[3];
-};
-
-typedef union Vec3I64 Vec3I64;
-union Vec3I64
-{
-  struct
-  {
-    i64 x, y, z;
-  };
-
-  struct
-  {
-    i64 r, g; b;
-  };
-
-  i64 elements[3];
-  i64 v[3];
-};
-
-
-typedef union Vec4F32 Vec4F32;
-union Vec4F32
-{
-  struct
-  {
-    f32 x, y, z, w;
-  };
-
-  struct
-  {
-    Vec2F32 xy, zw;
-  };
-
-  struct
-  {
-    Vec3F32 xyz;
-    f32 w1;
-  };
-
-  struct
-  {
-    f32 x1;
-    Vec3F32 yzw;
-  };
-
-  struct
-  {
-    F32 r, g, b, a;
-  };
-
-  struct
-  {
-    Vec3F32 rgb;
-    f32 a1;
-  };
-
-  struct
-  {
-    f32 r1;
-    Vec3F32 gba;
-  };
-
-  F32 elements[4];
-  F32 v[4];
-};
-
-typedef union Vec4I32 Vec4I32;
-union Vec4I32
-{
-  struct
-  {
-    i32 x, y, z, w;
-  };
-
-  struct
-  {
-    Vec2IS32 xy, zw;
-  };
-
-  struct
-  {
-    Vec3I32 xyz;
-    i32 w1;
-  };
-
-  struct
-  {
-    i32 x1;
-    Vec3I32 yzw;
-  };
-
-  struct
-  {
-    i32 r, g, b, a;
-  };
-
-  struct
-  {
-    Vec3I32 rgb;
-    s32 a1;
-  };
-
-  struct
-  {
-    s32 r1;
-    Vec3I32 gba;
-  };
-
-  i32 elements[4];
-  i32 v[4];
-};
-
-typedef union Vec4I64 Vec4I64;
-union Vec4I64
-{
-  struct
-  {
-    i64 x, y, z, w;
-  };
-
-  struct
-  {
-    Vec2I64 xy, zw;
-  };
-
-  struct
-  {
-    Vec3I64 xyz;
-    i64 w1;
-  };
-
-  struct
-  {
-    i64 x1;
-    Vec3I64 yzw;
-  };
-
-  struct
-  {
-    i64 r, g, b, a;
-  };
-
-  struct
-  {
-    i64 r1;
-    Vec3S64 gba;
-  };
-
-  struct
-  {
-    Vec3I64 rgb;
-    i64 a1;
-  };
-
-  i64 elements[4];
-  i64 v[4];
-};
-
-// IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
-
-INTERNAL Vec2F32
-v2_f32(f32 x, f32 y)
-{
-  Vec2F32 result = {x, y};
-  return result;
-}
-
-INTERNAL Vec2F32 
-v2_f32_add(Vec2F32 a, Vec2F32 b) 
-{ 
-  return v2_f32(a.x + b.x, a.y + b.y);
-}
-
-INTERNAL Vec2F32 v2_f32_sub(Vec2F32 a, Vec2F32 b) { return V2F32(a.x-b.x, a.y-b.y); }
-INTERNAL Vec2F32 v2_f32_hadamard(Vec2F32 a, Vec2F32 b) { return V2F32(a.x*b.x, a.y*b.y); }
-INTERNAL Vec2F32 v2_f32_mul(Vec2F32 a, f32 b) { return V2F32(a.x*b, a.y*b); }
-INTERNAL Vec2F32 v2_f32_div(Vec2F32 a, Vec2F32 b) { return V2F32(a.x/b.x, a.y/b.y); }
-INTERNAL f32 v2_f32_dot(Vec2F32 a, Vec2F32 b) { return (a.x*b.x + a.y*b.y); }
-INTERNAL f32 v2_f32_lengthsq(Vec2F32 v) { return Dot2F32(v, v); }
-INTERNAL f32 v2_f32_length(Vec2F32 v) { return SquareRoot(v2_f32_lengthsq(v)); }
-INTERNAL Vec2F32 v2_f32_normalize(Vec2F32 v) { return v2_f32_mul(v, 1.f/Length2F32(v)); }
-INTERNAL Vec2F32 v2_f32_lerp(Vec2F32 a, Vec2F32 b, F32 t) { return V2F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t); }
-
-
-INTERNAL Vec2S32
-V2S32(S32 x, S32 y)
-{
-    Vec2S32 result = { x, y };
-    return result;
-}
-
-INTERNAL Vec3F32
-V3F32(F32 x, F32 y, F32 z)
-{
-    Vec3F32 result = { x, y, z };
-    return result;
-}
-INTERNAL Vec3F32 Add3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x+b.x, a.y+b.y, a.z+b.z); }
-INTERNAL Vec3F32 Sub3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x-b.x, a.y-b.y, a.z-b.z); }
-INTERNAL Vec3F32 Mul3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x*b.x, a.y*b.y, a.z*b.z); }
-INTERNAL Vec3F32 Div3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x/b.x, a.y/b.y, a.z/b.z); }
-INTERNAL Vec3F32 Scale3F32(Vec3F32 a, F32 scale) { return V3F32(a.x*scale, a.y*scale, a.z*scale); }
-INTERNAL F32 Dot3F32(Vec3F32 a, Vec3F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z); }
-INTERNAL F32 LengthSquared3F32(Vec3F32 v) { return Dot3F32(v, v); }
-INTERNAL F32 Length3F32(Vec3F32 v) { return SquareRoot(LengthSquared3F32(v)); }
-INTERNAL Vec3F32 Normalize3F32(Vec3F32 v) { return Scale3F32(v, 1.f/Length3F32(v)); }
-INTERNAL Vec3F32 Mix3F32(Vec3F32 a, Vec3F32 b, F32 t) { return V3F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t); }
-INTERNAL Vec3F32 Cross3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); }
-
-INTERNAL Vec4F32
-V4F32(F32 x, F32 y, F32 z, F32 w)
-{
-    Vec4F32 result = { x, y, z, w };
-    return result;
-}
-INTERNAL Vec4F32 Add4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
-INTERNAL Vec4F32 Sub4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w); }
-INTERNAL Vec4F32 Mul4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x*b.x, a.y*b.y, a.z*b.z, a.z*b.z); }
-INTERNAL Vec4F32 Div4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w); }
-INTERNAL Vec4F32 Scale4F32(Vec4F32 a, F32 scale) { return V4F32(a.x*scale, a.y*scale, a.z*scale, a.w*scale); }
-INTERNAL F32 Dot4F32(Vec4F32 a, Vec4F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w); }
-INTERNAL F32 LengthSquared4F32(Vec4F32 v) { return Dot4F32(v, v); }
-INTERNAL F32 Length4F32(Vec4F32 v) { return SquareRoot(LengthSquared4F32(v)); }
-INTERNAL Vec4F32 Normalize4F32(Vec4F32 v) { return Scale4F32(v, 1.f/Length4F32(v)); }
-INTERNAL Vec4F32 Mix4F32(Vec4F32 a, Vec4F32 b, F32 t) { return V4F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t, a.w*(1-t) + b.w*t); }
-
-INTERNAL Vec2S64
-V2S64(S64 x, S64 y)
-{
-    Vec2S64 v;
-    v.x = x;
-    v.y = y;
-    return v;
-}
-
-INTERNAL Vec2S64 Add2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x+b.x, a.y+b.y); }
-INTERNAL Vec2S64 Sub2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x-b.x, a.y-b.y); }
-
-
-
-
-// TODO(Ryan): Investigate using SIMD, e.g: 
-//   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
-
 #define square(x) ((x) * (x))
 
 INTERNAL f32
@@ -451,16 +127,6 @@ ceil_f32_to_i32(f32 real32)
   return result;
 }
 
-INTERNAL f32
-square(f32 x)
-{
-  f32 result = 0.0f;
-
-  result = x * x;
-
-  return result;
-}
-
 INTERNAL u64
 round_to_nearest(u64 val, u64 near)
 {
@@ -535,73 +201,449 @@ rand_range_f32(u32 *seed, f32 min, f32 max)
 #if defined(COMPILER_GCC) && defined(ARCH_X86_64)
   #include <x86intrin.h>
 
-  INTERNAL ALWAYS_INLINE f32 
+  INTERNAL f32 
   pow_f32(f32 x, f32 y)
   {
     return __builtin_powf(x, y); 
   }
 
-  INTERNAL ALWAYS_INLINE f32 
+  INTERNAL f32 
   fmodf_f32(f32 x, f32 y)
   {
     return __builtin_fmodf(x, y); 
   }
 
-  INTERNAL ALWAYS_INLINE f32 
+  INTERNAL f32 
   acos_f32(f32 x)
   {
     return __builtin_acosf(x); 
   }
 
-  INTERNAL ALWAYS_INLINE f32 
+  INTERNAL f32 
   powi_f32(f32 x, i32 y)
   {
     return __builtin_powif(x, y); 
   }
 
-  INTERNAL ALWAYS_INLINE u32 
+  INTERNAL u32 
   count_bits_set_u32(u32 val)
   {
-    return __builtin_popcount(val);
+    return (u32)__builtin_popcount(val);
   }
 
   // NOTE(Ryan): This is from most significant bits
-  INTERNAL ALWAYS_INLINE u32 
+  INTERNAL u32 
   count_leading_zeroes_u32(u32 val)
   {
-    return __builtin_clz(val);
+    return (u32)__builtin_clz(val);
   }
 
-  INTERNAL ALWAYS_INLINE u32 
+  INTERNAL u32 
   count_trailing_zeroes_u32(u32 val)
   {
-    return __builtin_ctz(val);
+    return (u32)__builtin_ctz(val);
   }
 
-  INTERNAL ALWAYS_INLINE u32 
+  INTERNAL u32 
   get_parity_u32(u32 val)
   {
-    return __builtin_parity(val);
+    return (u32)__builtin_parity(val);
   }
 
-  INTERNAL ALWAYS_INLINE u16 
+  INTERNAL u16 
   endianness_swap_u16(u16 val)
   {
     return __builtin_bswap16(val);
   }
 
-  INTERNAL ALWAYS_INLINE u32 
+  INTERNAL u32 
   endianness_swap_u32(u32 val)
   {
     return __builtin_bswap32(val);
   }
 
-  INTERNAL ALWAYS_INLINE u64 
+  INTERNAL u64 
   endianness_swap_u64(u64 val)
   {
     return __builtin_bswap64(val);
   }
 #endif
+
+
+
+// NOTE(Ryan): To allow for anonymous structs
+IGNORE_WARNING_PEDANTIC()
+typedef union Vec2F32 Vec2F32;
+union Vec2F32
+{
+  struct
+  {
+    f32 x, y;
+  };
+
+  f32 elements[2];
+  f32 v[2];
+};
+
+typedef union Vec2I32 Vec2I32;
+union Vec2I32
+{
+  struct
+  {
+    i32 x, y;
+  };
+
+  i32 elements[2];
+  i32 v[2];
+};
+
+typedef union Vec2I64 Vec2I64;
+union Vec2I64
+{
+  struct
+  {
+    i64 x, y;
+  };
+
+  i64 elements[2];
+  i64 v[2];
+};
+
+typedef union Vec3F32 Vec3F32;
+union Vec3F32
+{
+  struct
+  {
+    f32 x, y, z;
+  };
+
+  struct
+  {
+    f32 r, g, b;
+  };
+
+  struct
+  {
+    Vec2F32 xy;
+    f32 z1;
+  };
+
+  struct
+  {
+    f32 x1;
+    Vec2F32 yz;
+  };
+
+  f32 elements[3];
+  f32 v[3];
+};
+
+typedef union Vec3I32 Vec3I32;
+union Vec3I32
+{
+  struct
+  {
+    i32 x, y, z;
+  };
+
+  struct
+  {
+    i32 r, g, b;
+  };
+
+  i32 elements[3];
+  i32 v[3];
+};
+
+typedef union Vec3I64 Vec3I64;
+union Vec3I64
+{
+  struct
+  {
+    i64 x, y, z;
+  };
+
+  struct
+  {
+    i64 r, g, b;
+  };
+
+  i64 elements[3];
+  i64 v[3];
+};
+
+
+typedef union Vec4F32 Vec4F32;
+union Vec4F32
+{
+  struct
+  {
+    f32 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2F32 xy, zw;
+  };
+
+  struct
+  {
+    Vec3F32 xyz;
+    f32 w1;
+  };
+
+  struct
+  {
+    f32 x1;
+    Vec3F32 yzw;
+  };
+
+  struct
+  {
+    f32 r, g, b, a;
+  };
+
+  struct
+  {
+    Vec3F32 rgb;
+    f32 a1;
+  };
+
+  struct
+  {
+    f32 r1;
+    Vec3F32 gba;
+  };
+
+  f32 elements[4];
+  f32 v[4];
+};
+
+typedef union Vec4I32 Vec4I32;
+union Vec4I32
+{
+  struct
+  {
+    i32 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2I32 xy, zw;
+  };
+
+  struct
+  {
+    Vec3I32 xyz;
+    i32 w1;
+  };
+
+  struct
+  {
+    i32 x1;
+    Vec3I32 yzw;
+  };
+
+  struct
+  {
+    i32 r, g, b, a;
+  };
+
+  struct
+  {
+    Vec3I32 rgb;
+    i32 a1;
+  };
+
+  struct
+  {
+    i32 r1;
+    Vec3I32 gba;
+  };
+
+  i32 elements[4];
+  i32 v[4];
+};
+
+typedef union Vec4I64 Vec4I64;
+union Vec4I64
+{
+  struct
+  {
+    i64 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2I64 xy, zw;
+  };
+
+  struct
+  {
+    Vec3I64 xyz;
+    i64 w1;
+  };
+
+  struct
+  {
+    i64 x1;
+    Vec3I64 yzw;
+  };
+
+  struct
+  {
+    i64 r, g, b, a;
+  };
+
+  struct
+  {
+    i64 r1;
+    Vec3I64 gba;
+  };
+
+  struct
+  {
+    Vec3I64 rgb;
+    i64 a1;
+  };
+
+  i64 elements[4];
+  i64 v[4];
+};
+IGNORE_WARNING_POP()
+
+// IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
+
+INTERNAL Vec2F32
+v2_f32(f32 x, f32 y)
+{
+  Vec2F32 result = {x, y};
+  return result;
+}
+
+INTERNAL Vec2F32 
+v2_f32_add(Vec2F32 a, Vec2F32 b) 
+{ 
+  return v2_f32(a.x + b.x, a.y + b.y);
+}
+
+INTERNAL Vec2F32 
+v2_f32_sub(Vec2F32 a, Vec2F32 b) 
+{ 
+  return v2_f32(a.x - b.x, a.y - b.y); 
+}
+
+INTERNAL Vec2F32 
+v2_f32_hadamard(Vec2F32 a, Vec2F32 b) 
+{ 
+  return v2_f32(a.x * b.x, a.y * b.y); 
+}
+
+INTERNAL Vec2F32 
+v2_f32_mul(Vec2F32 a, f32 b) 
+{ 
+  return v2_f32(a.x * b, a.y * b); 
+}
+
+INTERNAL Vec2F32 
+v2_f32_div(Vec2F32 a, Vec2F32 b) 
+{ 
+  return v2_f32(a.x / b.x, a.y / b.y); 
+}
+
+INTERNAL f32 
+v2_f32_dot(Vec2F32 a, Vec2F32 b) 
+{ 
+  return (a.x * b.x + a.y * b.y); 
+}
+
+INTERNAL f32 
+v2_f32_lengthsq(Vec2F32 v) 
+{ 
+  return v2_f32_dot(v, v); 
+}
+
+INTERNAL f32 
+v2_f32_length(Vec2F32 v) 
+{ 
+  return sqrt_f32(v2_f32_lengthsq(v)); 
+}
+
+INTERNAL Vec2F32 
+v2_f32_normalise(Vec2F32 v) 
+{ 
+  return v2_f32_mul(v, 1.0f / v2_f32_length(v)); 
+}
+
+INTERNAL Vec2F32 
+v2_f32_lerp(Vec2F32 a, Vec2F32 b, f32 t) 
+{ 
+  return v2_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t)); 
+}
+
+#if 0
+INTERNAL Vec3F32
+V3F32(F32 x, F32 y, F32 z)
+{
+    Vec3F32 result = { x, y, z };
+    return result;
+}
+INTERNAL Vec3F32 Add3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x+b.x, a.y+b.y, a.z+b.z); }
+INTERNAL Vec3F32 Sub3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x-b.x, a.y-b.y, a.z-b.z); }
+INTERNAL Vec3F32 Mul3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x*b.x, a.y*b.y, a.z*b.z); }
+INTERNAL Vec3F32 Div3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x/b.x, a.y/b.y, a.z/b.z); }
+INTERNAL Vec3F32 Scale3F32(Vec3F32 a, F32 scale) { return V3F32(a.x*scale, a.y*scale, a.z*scale); }
+INTERNAL F32 Dot3F32(Vec3F32 a, Vec3F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z); }
+INTERNAL F32 LengthSquared3F32(Vec3F32 v) { return Dot3F32(v, v); }
+INTERNAL F32 Length3F32(Vec3F32 v) { return SquareRoot(LengthSquared3F32(v)); }
+INTERNAL Vec3F32 Normalize3F32(Vec3F32 v) { return Scale3F32(v, 1.f/Length3F32(v)); }
+INTERNAL Vec3F32 Mix3F32(Vec3F32 a, Vec3F32 b, F32 t) { return V3F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t); }
+INTERNAL Vec3F32 Cross3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); }
+
+INTERNAL Vec4F32
+V4F32(F32 x, F32 y, F32 z, F32 w)
+{
+    Vec4F32 result = { x, y, z, w };
+    return result;
+}
+INTERNAL Vec4F32 Add4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
+INTERNAL Vec4F32 Sub4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w); }
+INTERNAL Vec4F32 Mul4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x*b.x, a.y*b.y, a.z*b.z, a.z*b.z); }
+INTERNAL Vec4F32 Div4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w); }
+INTERNAL Vec4F32 Scale4F32(Vec4F32 a, F32 scale) { return V4F32(a.x*scale, a.y*scale, a.z*scale, a.w*scale); }
+INTERNAL F32 Dot4F32(Vec4F32 a, Vec4F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w); }
+INTERNAL F32 LengthSquared4F32(Vec4F32 v) { return Dot4F32(v, v); }
+INTERNAL F32 Length4F32(Vec4F32 v) { return SquareRoot(LengthSquared4F32(v)); }
+INTERNAL Vec4F32 Normalize4F32(Vec4F32 v) { return Scale4F32(v, 1.f/Length4F32(v)); }
+INTERNAL Vec4F32 Mix4F32(Vec4F32 a, Vec4F32 b, F32 t) { return V4F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t, a.w*(1-t) + b.w*t); }
+
+
+INTERNAL Vec2S32
+V2S32(S32 x, S32 y)
+{
+    Vec2S32 result = { x, y };
+    return result;
+}
+
+INTERNAL Vec2S64
+V2S64(S64 x, S64 y)
+{
+    Vec2S64 v;
+    v.x = x;
+    v.y = y;
+    return v;
+}
+
+INTERNAL Vec2S64 Add2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x+b.x, a.y+b.y); }
+INTERNAL Vec2S64 Sub2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x-b.x, a.y-b.y); }
+#endif
+
+
+
+
+// TODO(Ryan): Investigate using SIMD, e.g: 
+//   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
+
 
 
 #endif
