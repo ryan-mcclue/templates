@@ -13,8 +13,6 @@
 
 #include "app.h"
 
-// getentropy()
-// clock_gettime()
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -43,6 +41,16 @@ linux_get_ms(void)
   clock_gettime(CLOCK_MONOTONIC_RAW, &time_spec);
 
   result = ((u32)time_spec.tv_sec * 1000) + (u32)((f32)time_spec.tv_nsec / 1000000.0f);
+
+  return result;
+}
+
+INTERNAL u32
+linux_get_seed_u32(void)
+{
+  u32 result = 0;
+
+  ERRNO_ASSERT(getentropy(&result, sizeof(result)) != -1);
 
   return result;
 }
@@ -88,6 +96,8 @@ main(int argc, char *argv[])
   void (*app)(AppState *) = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
+  app_state->width = window_width;
+  app_state->height = window_height;
 
   while (!WindowShouldClose())
   {
@@ -136,6 +146,7 @@ main(int argc, char *argv[])
 
     if (app != NULL)
     {
+      app_state->ms = linux_get_ms();
       app(app_state);
     }
     else

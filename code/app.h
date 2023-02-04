@@ -6,9 +6,14 @@ IGNORE_WARNING_PADDED()
 typedef struct AppState AppState;
 struct AppState
 {
-  u64 t;
   b32 is_initialised;
+
+  i32 width, height;
+
+  u64 t;
   u32 x, y;
+
+  u64 ms;
 };
 IGNORE_WARNING_POP()
 

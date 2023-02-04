@@ -6,6 +6,332 @@
 
 #include <math.h>
 
+typedef union Vec2F32 Vec2F32;
+union Vec2F32
+{
+  struct
+  {
+    f32 x, y;
+  };
+
+  f32 elements[2];
+  f32 v[2];
+};
+
+typedef union Vec2I32 Vec2I32;
+union Vec2I32
+{
+  struct
+  {
+    i32 x, y;
+  };
+
+  i32 elements[2];
+  i32 v[2];
+};
+
+typedef union Vec2I64 Vec2I64;
+union Vec2I64
+{
+  struct
+  {
+    i64 x, y;
+  };
+
+  i64 elements[2];
+  i64 v[2];
+};
+
+typedef union Vec3F32 Vec3F32;
+union Vec3F32
+{
+  struct
+  {
+    f32 x, y, z;
+  };
+
+  struct
+  {
+    f32 r, g, b;
+  };
+
+  struct
+  {
+    Vec2F32 xy;
+    f32 z1;
+  };
+
+  struct
+  {
+    f32 x1;
+    Vec2F32 yz;
+  };
+
+  f32 elements[3];
+  f32 v[3];
+};
+
+typedef union Vec3I32 Vec3I32;
+union Vec3I32
+{
+  struct
+  {
+    i32 x, y, z;
+  };
+
+  struct
+  {
+    i32 r, g, b;
+  };
+
+  i32 elements[3];
+  i32 v[3];
+};
+
+typedef union Vec3I64 Vec3I64;
+union Vec3I64
+{
+  struct
+  {
+    i64 x, y, z;
+  };
+
+  struct
+  {
+    i64 r, g; b;
+  };
+
+  i64 elements[3];
+  i64 v[3];
+};
+
+
+typedef union Vec4F32 Vec4F32;
+union Vec4F32
+{
+  struct
+  {
+    f32 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2F32 xy, zw;
+  };
+
+  struct
+  {
+    Vec3F32 xyz;
+    f32 w1;
+  };
+
+  struct
+  {
+    f32 x1;
+    Vec3F32 yzw;
+  };
+
+  struct
+  {
+    F32 r, g, b, a;
+  };
+
+  struct
+  {
+    Vec3F32 rgb;
+    f32 a1;
+  };
+
+  struct
+  {
+    f32 r1;
+    Vec3F32 gba;
+  };
+
+  F32 elements[4];
+  F32 v[4];
+};
+
+typedef union Vec4I32 Vec4I32;
+union Vec4I32
+{
+  struct
+  {
+    i32 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2IS32 xy, zw;
+  };
+
+  struct
+  {
+    Vec3I32 xyz;
+    i32 w1;
+  };
+
+  struct
+  {
+    i32 x1;
+    Vec3I32 yzw;
+  };
+
+  struct
+  {
+    i32 r, g, b, a;
+  };
+
+  struct
+  {
+    Vec3I32 rgb;
+    s32 a1;
+  };
+
+  struct
+  {
+    s32 r1;
+    Vec3I32 gba;
+  };
+
+  i32 elements[4];
+  i32 v[4];
+};
+
+typedef union Vec4I64 Vec4I64;
+union Vec4I64
+{
+  struct
+  {
+    i64 x, y, z, w;
+  };
+
+  struct
+  {
+    Vec2I64 xy, zw;
+  };
+
+  struct
+  {
+    Vec3I64 xyz;
+    i64 w1;
+  };
+
+  struct
+  {
+    i64 x1;
+    Vec3I64 yzw;
+  };
+
+  struct
+  {
+    i64 r, g, b, a;
+  };
+
+  struct
+  {
+    i64 r1;
+    Vec3S64 gba;
+  };
+
+  struct
+  {
+    Vec3I64 rgb;
+    i64 a1;
+  };
+
+  i64 elements[4];
+  i64 v[4];
+};
+
+// IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
+
+INTERNAL Vec2F32
+v2_f32(f32 x, f32 y)
+{
+  Vec2F32 result = {x, y};
+  return result;
+}
+
+INTERNAL Vec2F32 
+v2_f32_add(Vec2F32 a, Vec2F32 b) 
+{ 
+  return v2_f32(a.x + b.x, a.y + b.y);
+}
+
+INTERNAL Vec2F32 v2_f32_sub(Vec2F32 a, Vec2F32 b) { return V2F32(a.x-b.x, a.y-b.y); }
+INTERNAL Vec2F32 v2_f32_hadamard(Vec2F32 a, Vec2F32 b) { return V2F32(a.x*b.x, a.y*b.y); }
+INTERNAL Vec2F32 v2_f32_mul(Vec2F32 a, f32 b) { return V2F32(a.x*b, a.y*b); }
+INTERNAL Vec2F32 v2_f32_div(Vec2F32 a, Vec2F32 b) { return V2F32(a.x/b.x, a.y/b.y); }
+INTERNAL f32 v2_f32_dot(Vec2F32 a, Vec2F32 b) { return (a.x*b.x + a.y*b.y); }
+INTERNAL f32 v2_f32_lengthsq(Vec2F32 v) { return Dot2F32(v, v); }
+INTERNAL f32 v2_f32_length(Vec2F32 v) { return SquareRoot(v2_f32_lengthsq(v)); }
+INTERNAL Vec2F32 v2_f32_normalize(Vec2F32 v) { return v2_f32_mul(v, 1.f/Length2F32(v)); }
+INTERNAL Vec2F32 v2_f32_lerp(Vec2F32 a, Vec2F32 b, F32 t) { return V2F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t); }
+
+
+INTERNAL Vec2S32
+V2S32(S32 x, S32 y)
+{
+    Vec2S32 result = { x, y };
+    return result;
+}
+
+INTERNAL Vec3F32
+V3F32(F32 x, F32 y, F32 z)
+{
+    Vec3F32 result = { x, y, z };
+    return result;
+}
+INTERNAL Vec3F32 Add3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x+b.x, a.y+b.y, a.z+b.z); }
+INTERNAL Vec3F32 Sub3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x-b.x, a.y-b.y, a.z-b.z); }
+INTERNAL Vec3F32 Mul3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x*b.x, a.y*b.y, a.z*b.z); }
+INTERNAL Vec3F32 Div3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x/b.x, a.y/b.y, a.z/b.z); }
+INTERNAL Vec3F32 Scale3F32(Vec3F32 a, F32 scale) { return V3F32(a.x*scale, a.y*scale, a.z*scale); }
+INTERNAL F32 Dot3F32(Vec3F32 a, Vec3F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z); }
+INTERNAL F32 LengthSquared3F32(Vec3F32 v) { return Dot3F32(v, v); }
+INTERNAL F32 Length3F32(Vec3F32 v) { return SquareRoot(LengthSquared3F32(v)); }
+INTERNAL Vec3F32 Normalize3F32(Vec3F32 v) { return Scale3F32(v, 1.f/Length3F32(v)); }
+INTERNAL Vec3F32 Mix3F32(Vec3F32 a, Vec3F32 b, F32 t) { return V3F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t); }
+INTERNAL Vec3F32 Cross3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); }
+
+INTERNAL Vec4F32
+V4F32(F32 x, F32 y, F32 z, F32 w)
+{
+    Vec4F32 result = { x, y, z, w };
+    return result;
+}
+INTERNAL Vec4F32 Add4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
+INTERNAL Vec4F32 Sub4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w); }
+INTERNAL Vec4F32 Mul4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x*b.x, a.y*b.y, a.z*b.z, a.z*b.z); }
+INTERNAL Vec4F32 Div4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w); }
+INTERNAL Vec4F32 Scale4F32(Vec4F32 a, F32 scale) { return V4F32(a.x*scale, a.y*scale, a.z*scale, a.w*scale); }
+INTERNAL F32 Dot4F32(Vec4F32 a, Vec4F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w); }
+INTERNAL F32 LengthSquared4F32(Vec4F32 v) { return Dot4F32(v, v); }
+INTERNAL F32 Length4F32(Vec4F32 v) { return SquareRoot(LengthSquared4F32(v)); }
+INTERNAL Vec4F32 Normalize4F32(Vec4F32 v) { return Scale4F32(v, 1.f/Length4F32(v)); }
+INTERNAL Vec4F32 Mix4F32(Vec4F32 a, Vec4F32 b, F32 t) { return V4F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t, a.w*(1-t) + b.w*t); }
+
+INTERNAL Vec2S64
+V2S64(S64 x, S64 y)
+{
+    Vec2S64 v;
+    v.x = x;
+    v.y = y;
+    return v;
+}
+
+INTERNAL Vec2S64 Add2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x+b.x, a.y+b.y); }
+INTERNAL Vec2S64 Sub2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x-b.x, a.y-b.y); }
+
+
+
+
+// TODO(Ryan): Investigate using SIMD, e.g: 
+//   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
+
+#define square(x) ((x) * (x))
+
 INTERNAL f32
 sqrt_f32(f32 x)
 {
@@ -205,218 +531,33 @@ rand_range_f32(u32 *seed, f32 min, f32 max)
   return result;
 }
 
-#if 0
-// IMPORTANT(Ryan): Due to ASLR, could use pointer address where appropriate 
-INTERNAL void
-linux_get_entropy(void *buffer, size_t length)
-{
-  ERRNO_ASSERT(getentropy(buffer, length) != -1);
-}
-
-random_series is u32_entropy
-
-28:#define STBTT_pow(x, y)  __builtin_powf(x, y)
-29:#define STBTT_fmod(x, y) __builtin_fmodf(x, y)
-31:#define STBTT_acos(x)    __builtin_acosf(x)
-
-// put in math.h trig, sqrt, log INTERNALs for now
-
-TODO(Ryan): Investigate retro-fps math sse routines
-INTERNAL f32 sqrt_ss(f32 x)
-{
-  return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
-}
-
-static inline float rsqrt_ss(float x)
-{
-    return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set1_ps(x)));
-}
-
-
-// TODO(Ryan): Perhaps include round_to, ceil functions etc.
-
-#define M(mat, row, col) (mat)->e[(mat)->n*(col) + (row)]
-
-// IMPORTANT(Ryan): although typing out tedious, better than codegen complexity
-// i.e. prefer tedious over complexity
-union V2S32
-{
-  struct
-  {
-    s32 x, y;
-  };
-  s32 v[2];
-};
-
-union V2F32
-{
-  struct
-  {
-    f32 x, y;
-  };
-  f32 v[2];
-};
-
-union V3F32
-{
-  struct
-  {
-    f32 x, y, z;
-  };
-  f32 v[3];
-};
-
-union V4F32
-{
-  struct
-  {
-    f32 x, y, z, w;
-  };
-  f32 v[4];
-};
-
-// IMPORTANT: an axis-aligned rect
-union I1F32
-{
-  struct
-  {
-    f32 min, max;
-  };
-  f32 v[2];
-};
-
-// TODO(Ryan): useful for memory ranges?
-union I1U64
-{
-  struct
-  {
-    u64 min, max;
-  };
-  struct
-  {
-    u64 first, op1;
-  };
-  u64 v[2];
-};
-
-union I1U64
-{
-  struct
-  {
-    u64 min, max;
-  };
-  u64 v[2];
-};
-
-union I2F32
-{
-  struct
-  {
-    V2F32 min, max;
-  };
-  struct
-  {
-    V2F32 p0, p1;
-  };
-  struct
-  {
-    f32 x0, y0, x1, y1;
-  };
-  V2F32 p[2];
-  F32 v[4];
-};
-
-INTERNAL V2S32
-v2s32(s32 x, s32 y)
-{
-  V2S32 result = {x, y};
-  return result;
-}
-
-INTERNAL V2S32
-v2s32_vec(V2F32 x, V2F32 y);
-
-INTERNAL V2S32
-v2s32_range(I1F32 x, I1F32 y);
-
-INTERNAL I2S32
-i2s32(s32 x0, s32 y0, s32 x1, s32 y1)
-{
-  I2S32 result = {};
-  if (x1 < x0)
-  {
-    result.x0 = x1;
-    result.x1 = x0;
-  }
-}
-
-
-// IMPORTANT(Ryan): Only works on multiples of 2
-#define VECTOR_SIZE(amount, type) \
-  vector_size(amount * sizeof(type))
-
-typedef r32 v2 __attribute__((VECTOR_SIZE(2, r32)));
-typedef union V2
-{
-  v2 vec;
-  struct
-  {
-    r32 x, y;
-  };
-  r32 e[2];
-} V2;
-
-V2S32 operator+(const V2S32 &a, const V2S32 &b);
-V2S32 operator-(const V2S32 &a, const V2S32 &b);
-V2S32 operator*(const V2S32 &a, s32 b);
-
-INTERNAL f32
-vec_hadamard(V2F32 a, V2F32 b);
-INTERNAL f32
-vec_dot(V2F32 a, V2F32 b);
-INTERNAL b32
-interval_overlaps(I1F32 a, I1F32 b)
-{
-  b32 result = false;
-
-  result = (b.min < b.max && a.min < b.max);
-
-  return result;
-}
-INTERNAL b32
-interval_contains(I1F32 r, F32 x)
-{
-  b32 result = false;
-
-  result = (r.min <= x && x < r.max);
-
-  return result;
-}
-INTERNAL f32
-interval_dim(I1F32 r)
-{
-  f32 result = 0.f;
-
-  result = (r.max - r.min);
-
-  return result;
-}
-INTERNAL f32
-interval_centre(I1F32 r)
-{
-  (r.min + r.max)*0.5f;
-}
-INTERNAL I1F32
-interval_axis(I2F32 r, AXIS axis)
-{
-  I1F32 result = {};
-  result.p[0] = r.p[0].v[axis];
-  result.p[1] = r.p[1].v[axis];
-  return result;
-}
 
 #if defined(COMPILER_GCC) && defined(ARCH_X86_64)
   #include <x86intrin.h>
+
+  INTERNAL ALWAYS_INLINE f32 
+  pow_f32(f32 x, f32 y)
+  {
+    return __builtin_powf(x, y); 
+  }
+
+  INTERNAL ALWAYS_INLINE f32 
+  fmodf_f32(f32 x, f32 y)
+  {
+    return __builtin_fmodf(x, y); 
+  }
+
+  INTERNAL ALWAYS_INLINE f32 
+  acos_f32(f32 x)
+  {
+    return __builtin_acosf(x); 
+  }
+
+  INTERNAL ALWAYS_INLINE f32 
+  powi_f32(f32 x, i32 y)
+  {
+    return __builtin_powif(x, y); 
+  }
 
   INTERNAL ALWAYS_INLINE u32 
   count_bits_set_u32(u32 val)
@@ -460,12 +601,7 @@ interval_axis(I2F32 r, AXIS axis)
   {
     return __builtin_bswap64(val);
   }
-
-  // TODO(Ryan): Enable optimisation flags for particular math routines we have no need to step through
-  // math.h functions
-  r64 __builtin_powi(r64, u32)
-  r32 __builtin_powif(r32, u32)
-
 #endif
-#endif
+
+
 #endif
