@@ -8,7 +8,7 @@ struct AppState
 {
   b32 is_initialised;
 
-  i32 width, height;
+  f32 width, height;
 
   u64 t;
   u32 x, y;

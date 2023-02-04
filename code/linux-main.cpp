@@ -96,8 +96,8 @@ main(int argc, char *argv[])
   void (*app)(AppState *) = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-  app_state->width = window_width;
-  app_state->height = window_height;
+  app_state->width = (f32)window_width;
+  app_state->height = (f32)window_height;
 
   while (!WindowShouldClose())
   {
