@@ -6,6 +6,16 @@
 
 #include "app.h"
 
+void
+draw_rect(Vec2F32 min, Vec2F32 max, Vec4F32 colour)
+{
+  Vector2 position = {min.x, min.y};
+  Vector2 size = {max.x - min.x, max.y - min.y};
+  Vec4F32 scaled = vec4_mul_f32(colour, 255.0f);
+  Color color = {(u8)color.r, (u8)color.g, (u8)color.b, (u8)color.a};
+  DrawRectangleV(position, size, color);
+}
+
 EXPORT void
 app(AppState *state)
 {
@@ -20,11 +30,6 @@ app(AppState *state)
 
   DrawRectangle(0, 0, state->width, state->height, DARKBLUE);
   DrawRectangle(0, state->height - 150, state->width, state->height, GREEN);
-
-  DrawTriangle(LITERAL(Vector2){200.0f, 200.0f}, LITERAL(Vector2){150.0f, 100.0f}, LITERAL(Vector2){100.0f, 200.0f}, RED);
-
-  Vector2 box_coord = ZERO_STRUCT;
-  Vector2 box_dim = ZERO_STRUCT;
 
   // TODO(Ryan): Perhaps use i32 whenever used in calculation for drawing
   i32 snow_num_x = 10, snow_width = 10, snow_gutter_x = 30;

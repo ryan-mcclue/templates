@@ -515,90 +515,146 @@ IGNORE_WARNING_POP()
 // IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
 
 INTERNAL Vec2F32
-v2_f32(f32 x, f32 y)
+vec2_f32(f32 x, f32 y)
 {
   Vec2F32 result = {x, y};
   return result;
 }
 
 INTERNAL Vec2F32 
-v2_f32_add(Vec2F32 a, Vec2F32 b) 
+vec2_f32_add(Vec2F32 a, Vec2F32 b) 
 { 
-  return v2_f32(a.x + b.x, a.y + b.y);
+  return vec2_f32(a.x + b.x, a.y + b.y);
 }
 
 INTERNAL Vec2F32 
-v2_f32_sub(Vec2F32 a, Vec2F32 b) 
+vec2_f32_sub(Vec2F32 a, Vec2F32 b) 
 { 
-  return v2_f32(a.x - b.x, a.y - b.y); 
+  return vec2_f32(a.x - b.x, a.y - b.y); 
 }
 
 INTERNAL Vec2F32 
-v2_f32_hadamard(Vec2F32 a, Vec2F32 b) 
+vec2_f32_hadamard(Vec2F32 a, Vec2F32 b) 
 { 
-  return v2_f32(a.x * b.x, a.y * b.y); 
+  return vec2_f32(a.x * b.x, a.y * b.y); 
 }
 
 INTERNAL Vec2F32 
-v2_f32_mul(Vec2F32 a, f32 b) 
+vec2_f32_mul(Vec2F32 a, f32 b) 
 { 
-  return v2_f32(a.x * b, a.y * b); 
+  return vec2_f32(a.x * b, a.y * b); 
 }
 
 INTERNAL Vec2F32 
-v2_f32_div(Vec2F32 a, Vec2F32 b) 
+vec2_f32_div(Vec2F32 a, Vec2F32 b) 
 { 
-  return v2_f32(a.x / b.x, a.y / b.y); 
+  return vec2_f32(a.x / b.x, a.y / b.y); 
 }
 
 INTERNAL f32 
-v2_f32_dot(Vec2F32 a, Vec2F32 b) 
+vec2_f32_dot(Vec2F32 a, Vec2F32 b) 
 { 
   return (a.x * b.x + a.y * b.y); 
 }
 
 INTERNAL f32 
-v2_f32_lengthsq(Vec2F32 v) 
+vec2_f32_lengthsq(Vec2F32 v) 
 { 
-  return v2_f32_dot(v, v); 
+  return vec2_f32_dot(v, v); 
 }
 
 INTERNAL f32 
-v2_f32_length(Vec2F32 v) 
+vec2_f32_length(Vec2F32 v) 
 { 
-  return sqrt_f32(v2_f32_lengthsq(v)); 
+  return sqrt_f32(vec2_f32_lengthsq(v)); 
 }
 
 INTERNAL Vec2F32 
-v2_f32_normalise(Vec2F32 v) 
+vec2_f32_normalise(Vec2F32 v) 
 { 
-  return v2_f32_mul(v, 1.0f / v2_f32_length(v)); 
+  return vec2_f32_mul(v, 1.0f / vec2_f32_length(v)); 
 }
 
 INTERNAL Vec2F32 
-v2_f32_lerp(Vec2F32 a, Vec2F32 b, f32 t) 
+vec2_f32_lerp(Vec2F32 a, Vec2F32 b, f32 t) 
 { 
-  return v2_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t)); 
+  return vec2_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t)); 
 }
 
-#if 0
+
 INTERNAL Vec3F32
-V3F32(F32 x, F32 y, F32 z)
+vec3_f32(f32 x, f32 y, f32 z)
 {
-    Vec3F32 result = { x, y, z };
-    return result;
+  Vec3F32 result = {x, y, z};
+  return result;
 }
-INTERNAL Vec3F32 Add3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x+b.x, a.y+b.y, a.z+b.z); }
-INTERNAL Vec3F32 Sub3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x-b.x, a.y-b.y, a.z-b.z); }
-INTERNAL Vec3F32 Mul3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x*b.x, a.y*b.y, a.z*b.z); }
-INTERNAL Vec3F32 Div3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.x/b.x, a.y/b.y, a.z/b.z); }
-INTERNAL Vec3F32 Scale3F32(Vec3F32 a, F32 scale) { return V3F32(a.x*scale, a.y*scale, a.z*scale); }
-INTERNAL F32 Dot3F32(Vec3F32 a, Vec3F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z); }
-INTERNAL F32 LengthSquared3F32(Vec3F32 v) { return Dot3F32(v, v); }
-INTERNAL F32 Length3F32(Vec3F32 v) { return SquareRoot(LengthSquared3F32(v)); }
-INTERNAL Vec3F32 Normalize3F32(Vec3F32 v) { return Scale3F32(v, 1.f/Length3F32(v)); }
-INTERNAL Vec3F32 Mix3F32(Vec3F32 a, Vec3F32 b, F32 t) { return V3F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t); }
-INTERNAL Vec3F32 Cross3F32(Vec3F32 a, Vec3F32 b) { return V3F32(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x); }
+
+INTERNAL Vec3F32 
+vec3_f32_add(Vec3F32 a, Vec3F32 b) 
+{ 
+  return vec3_f32(a.x + b.x, a.y + b.y, a.z + b.z); 
+}
+
+INTERNAL Vec3F32 
+vec3_f32_sub(Vec3F32 a, Vec3F32 b) 
+{ 
+  return vec3_f32(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+INTERNAL Vec3F32 
+vec3_f32_hadamard(Vec3F32 a, Vec3F32 b) 
+{ 
+  return vec3_f32(a.x * b.x, a.y * b.y, a.z * b.z); 
+}
+
+INTERNAL Vec3F32 
+vec3_f32_div(Vec3F32 a, Vec3F32 b) 
+{ 
+  return vec3_f32(a.x / b.x, a.y / b.y, a.z / b.z); 
+}
+
+INTERNAL Vec3F32 
+vec3_f32_mul(Vec3F32 a, F32 scale) 
+{ 
+  return vec3_f32(a.x * scale, a.y * scale, a.z * scale);
+}
+
+INTERNAL F32 
+vec3_f32_dot(Vec3F32 a, Vec3F32 b) 
+{ 
+  return (a.x * b.x + a.y * b.y + a.z * b.z); 
+}
+
+INTERNAL F32 
+vec3_f32_lengthsq(Vec3F32 v) 
+{ 
+  return vec3_f32_dot(v, v); 
+}
+
+INTERNAL F32 
+vec3_f32_length(Vec3F32 v) 
+{ 
+  return sqrt_f32(vec3_lengthsq(v));
+}
+
+INTERNAL Vec3F32 
+vec3_f32_normalise(Vec3F32 v) 
+{ 
+  return vec3_f32_mul(v, 1.0f / vec3_f32_length(v));
+}
+
+INTERNAL Vec3F32 
+vec3_f32_lerp(Vec3F32 a, Vec3F32 b, f32 t) 
+{ 
+  return vec3_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t), a.z * (1 - t) + (b.z * t)); 
+}
+
+INTERNAL Vec3F32 
+vec3_f32_cross(Vec3F32 a, Vec3F32 b) 
+{ 
+  return vec3_f32(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x); 
+}
+
 
 INTERNAL Vec4F32
 V4F32(F32 x, F32 y, F32 z, F32 w)
@@ -617,7 +673,7 @@ INTERNAL F32 Length4F32(Vec4F32 v) { return SquareRoot(LengthSquared4F32(v)); }
 INTERNAL Vec4F32 Normalize4F32(Vec4F32 v) { return Scale4F32(v, 1.f/Length4F32(v)); }
 INTERNAL Vec4F32 Mix4F32(Vec4F32 a, Vec4F32 b, F32 t) { return V4F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t, a.w*(1-t) + b.w*t); }
 
-
+#if 0
 INTERNAL Vec2S32
 V2S32(S32 x, S32 y)
 {
@@ -637,7 +693,6 @@ V2S64(S64 x, S64 y)
 INTERNAL Vec2S64 Add2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x+b.x, a.y+b.y); }
 INTERNAL Vec2S64 Sub2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x-b.x, a.y-b.y); }
 #endif
-
 
 
 
