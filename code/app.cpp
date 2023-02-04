@@ -11,7 +11,7 @@ draw_rect(Vec2F32 min, Vec2F32 max, Vec4F32 colour)
 {
   Vector2 position = {min.x, min.y};
   Vector2 size = {max.x - min.x, max.y - min.y};
-  Vec4F32 scaled = vec4_mul_f32(colour, 255.0f);
+  Vec4F32 scaled = vec4_f32_mul(colour, 255.0f);
   Color color = {(u8)color.r, (u8)color.g, (u8)color.b, (u8)color.a};
   DrawRectangleV(position, size, color);
 }

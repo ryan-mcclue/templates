@@ -8,6 +8,8 @@
 
 #define square(x) ((x) * (x))
 
+// TODO(Ryan): Investigate using SIMD, e.g: 
+//   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
 INTERNAL f32
 sqrt_f32(f32 x)
 {
@@ -614,27 +616,27 @@ vec3_f32_div(Vec3F32 a, Vec3F32 b)
 }
 
 INTERNAL Vec3F32 
-vec3_f32_mul(Vec3F32 a, F32 scale) 
+vec3_f32_mul(Vec3F32 a, f32 scale) 
 { 
   return vec3_f32(a.x * scale, a.y * scale, a.z * scale);
 }
 
-INTERNAL F32 
+INTERNAL f32 
 vec3_f32_dot(Vec3F32 a, Vec3F32 b) 
 { 
   return (a.x * b.x + a.y * b.y + a.z * b.z); 
 }
 
-INTERNAL F32 
+INTERNAL f32 
 vec3_f32_lengthsq(Vec3F32 v) 
 { 
   return vec3_f32_dot(v, v); 
 }
 
-INTERNAL F32 
+INTERNAL f32 
 vec3_f32_length(Vec3F32 v) 
 { 
-  return sqrt_f32(vec3_lengthsq(v));
+  return sqrt_f32(vec3_f32_lengthsq(v));
 }
 
 INTERNAL Vec3F32 
@@ -657,48 +659,85 @@ vec3_f32_cross(Vec3F32 a, Vec3F32 b)
 
 
 INTERNAL Vec4F32
-V4F32(F32 x, F32 y, F32 z, F32 w)
+vec4_f32(f32 x, f32 y, f32 z, f32 w)
 {
-    Vec4F32 result = { x, y, z, w };
-    return result;
-}
-INTERNAL Vec4F32 Add4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
-INTERNAL Vec4F32 Sub4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w); }
-INTERNAL Vec4F32 Mul4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x*b.x, a.y*b.y, a.z*b.z, a.z*b.z); }
-INTERNAL Vec4F32 Div4F32(Vec4F32 a, Vec4F32 b) { return V4F32(a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w); }
-INTERNAL Vec4F32 Scale4F32(Vec4F32 a, F32 scale) { return V4F32(a.x*scale, a.y*scale, a.z*scale, a.w*scale); }
-INTERNAL F32 Dot4F32(Vec4F32 a, Vec4F32 b) { return (a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w); }
-INTERNAL F32 LengthSquared4F32(Vec4F32 v) { return Dot4F32(v, v); }
-INTERNAL F32 Length4F32(Vec4F32 v) { return SquareRoot(LengthSquared4F32(v)); }
-INTERNAL Vec4F32 Normalize4F32(Vec4F32 v) { return Scale4F32(v, 1.f/Length4F32(v)); }
-INTERNAL Vec4F32 Mix4F32(Vec4F32 a, Vec4F32 b, F32 t) { return V4F32(a.x*(1-t) + b.x*t, a.y*(1-t) + b.y*t, a.z*(1-t) + b.z*t, a.w*(1-t) + b.w*t); }
-
-#if 0
-INTERNAL Vec2S32
-V2S32(S32 x, S32 y)
-{
-    Vec2S32 result = { x, y };
-    return result;
+  Vec4F32 result = {x, y, z, w};
+  return result;
 }
 
-INTERNAL Vec2S64
-V2S64(S64 x, S64 y)
-{
-    Vec2S64 v;
-    v.x = x;
-    v.y = y;
-    return v;
+INTERNAL Vec4F32 
+vec4_f32_add(Vec4F32 a, Vec4F32 b) 
+{ 
+  return vec4_f32(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
-INTERNAL Vec2S64 Add2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x+b.x, a.y+b.y); }
-INTERNAL Vec2S64 Sub2S64(Vec2S64 a, Vec2S64 b) { return V2S64(a.x-b.x, a.y-b.y); }
-#endif
+INTERNAL Vec4F32 
+vec4_f32_sub(Vec4F32 a, Vec4F32 b) 
+{ 
+  return vec4_f32(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_hadmard(Vec4F32 a, Vec4F32 b) 
+{ 
+  return vec4_f32(a.x * b.x, a.y * b.y, a.z * b.z, a.z * b.z); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_div(Vec4F32 a, Vec4F32 b) 
+{ 
+  return vec4_f32(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_mul(Vec4F32 a, f32 scale) 
+{ 
+  return vec4_f32(a.x * scale, a.y * scale, a.z * scale, a.w * scale); 
+}
+
+INTERNAL f32 
+vec4_f32_dot(Vec4F32 a, Vec4F32 b) 
+{ 
+  return (a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w); 
+}
+
+INTERNAL f32 
+vec4_f32_lengthsq(Vec4F32 v) 
+{ 
+  return vec4_f32_dot(v, v); 
+}
+
+INTERNAL f32
+vec4_f32_length(Vec4F32 v) 
+{ 
+  return sqrt_f32(vec4_f32_lengthsq(v)); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_normalise(Vec4F32 v) 
+{ 
+  return vec4_f32_mul(v, 1.0f / vec4_f32_length(v)); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_lerp(Vec4F32 a, Vec4F32 b, f32 t)
+{ 
+  return vec4_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t), a.z * (1 - t) + (b.z * t), a.w * (1 - t) + (b.w * t)); 
+}
 
 
+INTERNAL Vec2I32
+vec2_i32(i32 x, i32 y)
+{
+  Vec2I32 result = {x, y};
+  return result;
+}
 
-// TODO(Ryan): Investigate using SIMD, e.g: 
-//   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));
-
-
+INTERNAL Vec2I64
+vec2_i64(i64 x, i64 y)
+{
+  Vec2I64 result = {x, y};
+  return result;
+}
 
 #endif
