@@ -32,7 +32,8 @@ app(AppState *state)
   {
     for (i32 x = 0; x < (i32)state->width; ++x)
     {
-      Vec3F32 colour = vec3_f32_dup((x ^ y) / (state->width + state->height));
+      f32 coord = sin_f32(x) + sin_f32(y);
+      Vec3F32 colour = vec3_f32_dup(((coord * (state->ms)) % 256) / 256.0f);
       draw_rect(vec2_f32(x, y), vec2_f32(x + 5, y + 1), colour);
     }
   }
