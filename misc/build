@@ -157,6 +157,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" "-Wno-cast-align" "-Wno-useless-cast" "-Wno-comment" "-Wno-missing-declarations" )
+  # TODO(Ryan): Perhaps disable some cast types and keep some, e.g. -Wdouble-promotion
 
   # NOTE(Ryan): C++ specific
   compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy" )
@@ -164,16 +165,23 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-I code" "-isystem external" )
 
   linker_flags+=( "-lm" "-lraylib" "-ldl" )
+  # -lc -lm -lnosys
+
+  # post-build get firmware size
 
   # use for embedded, as will take into account region names specified in a linker script
   # compiler_flags+=( "-Wl,--print-memory-usage" )
   # -Wl,-Map=build/main.map 
+  # for embedded use -specs=nano.specs to get nano variant of newlib
+  # newlib only includes ISO C, not any POSIX etc.
+  # https://interrupt.memfault.com/blog/get-the-most-out-of-the-linker-map-file
+  # -Wl,-Map=${PROJECT_NAME}.map,--cref 
 
   if [[ "$param_mode" == "debug" ]]; then
     compiler_flags+=( "-DMAIN_DEBUG" )
 
     # NOTE(Ryan): -g3 gives macro definitions
-    compiler_flags+=( "-g3 -O0" )
+    compiler_flags+=( "-g3" "-gdwarf-2" "-O0" )
 
     compiler_flags+=("-Wno-unused-function" "-Wno-unused-variable"  "-Wno-unused-but-set-variable" "-Wno-unused-parameter" "-Wno-unused-result" ) 
 
