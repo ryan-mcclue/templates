@@ -116,6 +116,8 @@ linker_flags=()
 #   run arm-none-eabi-size to inspect output file
 #   -Os instead of -O3 optimisation 
 
+# -finstrument-functions
+
 # If wanting to build assets, would say have the relevent 'project' files, e.g. .blend files
 # Then create output files, e.g. .obj files by running say blender $blendFile --background --python ExportBlenderAssets.py
 # Then appropriate directory copy: rsync -a --stats *.obj ../Collision
@@ -150,7 +152,6 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
   compiler_flags+=( "-Winline" "-Wmissing-declarations" "-Wdouble-promotion" "-Wshadow" "-Wtrampolines" )
   compiler_flags+=( "-Wvector-operation-performance" "-Wnull-dereference" "-Winvalid-pch" )
   compiler_flags+=( "-Wduplicated-cond" "-Wshift-overflow=2" "-Wcast-align=strict" )
-  compiler_flags+=( "-Wstrict-null-sentinel" "-Wuseless-cast" "-Wzero-as-null-pointer-constant" )
 
   # NOTE(Ryan): Display the specific warning flag so we can ignore it if needed
   compiler_flags+=( "-fdiagnostics-show-option")
@@ -161,6 +162,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # NOTE(Ryan): C++ specific
   compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy" )
+  compiler_flags+=( "-Wstrict-null-sentinel" "-Wzero-as-null-pointer-constant" "-Wuseless-cast" )
 
   compiler_flags+=( "-I code" "-isystem external" )
 

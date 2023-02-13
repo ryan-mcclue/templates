@@ -742,4 +742,18 @@ vec2_i64(i64 x, i64 y)
   return result;
 }
 
+
+INTERNAL u32
+pack_u32_4x8(Vec4F32 val)
+{
+  u32 result = 0;
+
+  result = (round_f32_to_u32(val.x) << 24 |
+            round_f32_to_u32(val.y) << 16 & 0xFF0000 |
+            round_f32_to_u32(val.z) << 8 & 0xFF00 |
+            round_f32_to_u32(val.w) & 0xFF);
+
+  return result;
+}
+
 #endif

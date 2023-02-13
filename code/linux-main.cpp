@@ -16,6 +16,37 @@
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
+// TODO(Ryan): linux_run_command_block/fork()
+/*
+INTERNAL void
+run_command_in_background(const char *cmd)
+{
+  pid_t pid = vfork();
+  if (pid != -1)
+  {
+    if (pid == 0)
+    {
+      if (prctl(PR_SET_PDEATHSIG, SIGTERM) != -1)
+      {
+        execl("/bin/bash", "bash", "-c", cmd, NULL);
+
+        EBP("Failed to execute background command in fork");
+      }
+      else
+      {
+        EBP("Failed to set death of background command when parent process terminates");
+      }
+  
+      exit(127);
+    }
+  }
+  else
+  {
+    EBP("Failed to fork to run background command");
+  }
+}
+ */
+
 INTERNAL u64 
 linux_get_file_mod_time(String8 file_name)
 {
@@ -30,6 +61,7 @@ linux_get_file_mod_time(String8 file_name)
   return result;
 }
 
+// perhaps change to get_walltime_ms()
 INTERNAL u64
 linux_get_ms(void)
 {

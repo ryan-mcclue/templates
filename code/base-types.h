@@ -2,6 +2,9 @@
 #if !defined(BASE_TYPES_H)
 #define BASE_TYPES_H
 
+// TODO(Ryan): Investigate using gcc extensions for safer macros.
+// Do they add any overhead?
+
 #include <stdint.h>
 typedef int8_t i8;
 typedef int16_t  i16;
