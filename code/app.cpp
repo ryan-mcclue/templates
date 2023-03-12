@@ -6,6 +6,67 @@
 
 #include "app.h"
 
+enum UI_SizeKind
+{
+  UI_SizeKind_Null,
+  UI_SizeKind_Pixels,
+  UI_SizeKind_TextContent,
+  UI_SizeKind_PercentOfParent,
+  UI_SizeKind_ChildrenSum,
+};
+
+struct UI_Size
+{
+  UI_SizeKind kind;
+  F32 value; // 0 for ChildrenSum
+  F32 strictness; // 1 == no budge
+};
+
+enum Axis2
+{
+  Axis2_X,
+  Axis2_Y,
+  Axis2_COUNT
+};
+
+struct UI_Widget
+{
+  // ...
+  UI_Size semantic_size[Axis2_COUNT];
+
+  F32 computed_rel_position[Axis2_COUNT]; // size relative to parent
+  F32 computed_size[Axis2_COUNT]; // final pixel size
+  Rng2F32 rect; // final display coordinates.
+  // this will be used next frame for input event consumption
+  // this will be used this frame for rendering
+  
+  // hot_t and active_t (_t for transition)
+  // exponential animation curves for animating these two values 
+  
+  // simple n-ary tree
+  // no requirement for caching
+  // computed each frame
+  UI_Widget *first;
+  UI_Widget *last;
+  UI_Widget *next; // children
+  UI_Widget *prev; // children
+  UI_Widget *parent;
+
+  // for caching persistent data across frames
+  UI_Widget *hash_next;
+  UI_Widget *hash_prev;
+  // key+generation info
+  // IMPORTANT(Ryan): To generate keys, hash of string passed to widget builder
+  UI_Key key;
+  U64 last_frame_touched_index; // if < current_frame_index then 'pruned'
+
+};
+
+
+
+
+
+
 typedef struct q_app
 {
 
@@ -305,6 +366,50 @@ draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
 EXPORT void
 app(AppState *state)
 {
+  /*
+   * GUI all about communicating information to user
+   * Ideally, want to not waste users time:
+   *    - minimal bytes sent to max bytes recieved ratio
+   *    - user reuse existing knowledge (Buttons, Checkboxes, Radio Buttons, Sliders, Text Fields, Scroll Bars, etc.)
+   *    - give confirmation (hover state, clicking down state, etc.)  
+   *
+   * Core code (general styles, ability for custom styles)
+   * Builder code arranging widgets (majority is this)
+   * ================================================================================
+   *
+   * We use immediate mode to mean UI hierarchy built every frame (there can still be some retained state)
+   * So, appearance and interaction code in one place
+   * Everything is a widget, i.e. tree hierarchy of widgets
+    1. Begin a row that fills the available space (one descent in the hierarchy).
+    2. File button, sized just enough to fit the text, with some extra padding.
+    3. Window button, sized the same way.
+    4. Panel button, sized the same way.
+    5. View button, sized the same way.
+    6. Control button, sized the same way.
+    7. Enough space to fill the screen, leaving enough room for the following buttons.
+IMPORTANT:
+Need to account for parts of widget tree we don't have yet
+Rendering deferred
+Widgets rendered last, consume input events first
+build hierarchy -> autolayout -> render
+Input delay one frame, rendering immediately
+    8. “Play” button, only being big enough for the “Play” icon.
+    9. “Pause” button, the same size as the previous.
+    10. “X” button, the same size as the previous.
+    11. End the row (one ascent in the hierarchy).
+
+  DFS has pre-order (node before children) and post-order (node after children) traversals
+Autolayout for each exis:
+  1. Standalone sizes, e.g. UI_SizeKind_Pixels, UI_SizeKind_TextContent 
+  2. (pre-order) 'upwards-dependent' UI_SizeKind_PercentOfParent
+  3. (post-order) 'downwards-dependent' UI_SizeKind_ChildrenSum 
+  4. (pre-order) Solve violations using 'strictness'
+  5. (pre-order) Given the calculated sizes of each widget, compute the relative positions of each widget
+   */
+
+
+
+  
   /*    Gui init:
 	      * mp_aligned_rect windowRect = {.x = 100, .y = 100, .w = 0.5*Q_WINDOW_DEFAULT_WIDTH, .h = 0.5*Q_WINDOW_DEFAULT_HEIGHT};
 	      * app->window = mp_window_create(windowRect, "Quadrant", 0);
@@ -322,8 +427,6 @@ app(AppState *state)
     state->is_initialised = true;
   }
 
-  // We use immediate mode to mean UI logic run every frame
-  // there can still be some retained state
 
   // hierarchy of boxes. each box ability to turn off bg, text and border
   // overall layout computed at end of frame

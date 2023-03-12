@@ -137,10 +137,22 @@ main(int argc, char *argv[])
   app_state->font_size = 34.0f; 
   app_state->font_scale = 1.0f; 
 
-  // these are the 'per-box' styling properties
-  // 'size' is varied constraint, e.g. size of the box’s text, as a number of pixels, etc.
-  // 'layout' is varied, e.g. layout axis (vertical or horizontal), the spacing of boxes along the layout axis, etc.
-  // 'animation' controls transition to new styles, i.e. doesn't happen immediately
+  // boxes have hashes computed by builder code? (distinction between builder code and ...?)
+
+  // 'slack' is how much size willing to give to satisfy layout constraints (used in combination with excess size in parent)
+
+  // stack based styling doesn't easily allow for modifying subtree styles 
+  // For example, we want to style all buttons with the text “OK” that are children of boxes named “dialog”. 
+  
+  // optional arguments: one arg for struct, other arg for flags to obtain from this struct
+
+  // styling pass: 
+
+  // these are the 'per-box' styling properties that can be overridden
+  // 'size' is flexible constraint, e.g. size of the box’s text, as a number of pixels, etc.
+  // 'layout' is flexible, e.g. layout axis (vertical or horizontal), the spacing of boxes along the layout axis, etc.
+  // 'floating' indicates if not be included in layout ('floating_target' is location)
+  // 'animation' controls property transition to new styles, i.e. doesn't happen immediately ('animation_mask' is what properties)
   app_state->border_width = 2;
 		.borderWidth = 2,
 		.borderWidthHover = 2,
