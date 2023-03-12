@@ -125,16 +125,75 @@ main(int argc, char *argv[])
   u64 last_app_reload_time = 0;
   String8 app_name = s8_lit("app.so");
   void *app_lib = NULL;
-  void (*app)(AppState *) = NULL;
+  app_func app = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-  app_state->width = (f32)window_width;
-  app_state->height = (f32)window_height;
+  // TODO(Ryan): just call getWindowWidth() to handle resizing?
+  app_state->window_width = (f32)window_width;
+  app_state->window_height = (f32)window_height;
+
+  app_state->font = LoadFont("");
+  ASSERT(app_state->font.texture.id != 0);
+  app_state->font_size = 34.0f; 
+  app_state->font_scale = 1.0f; 
+
+  // these are the 'per-box' styling properties
+  // 'size' is varied constraint, e.g. size of the box’s text, as a number of pixels, etc.
+  // 'layout' is varied, e.g. layout axis (vertical or horizontal), the spacing of boxes along the layout axis, etc.
+  // 'animation' controls transition to new styles, i.e. doesn't happen immediately
+  app_state->border_width = 2;
+		.borderWidth = 2,
+		.borderWidthHover = 2,
+		.borderWidthActive = 4,
+		.viewBorderWidth = 2,
+		.frameRoundness = 0,
+		.elementRoundess = 0,
+		.scrollbarRoundness = 1,
+		.margin = 10,
+		.titleHeight = 80,
+
+		.colors = {
+			[MP_GUI_STYLE_COLOR_BG] = {0.2, 0.2, 0.2, 1},
+			[MP_GUI_STYLE_COLOR_BG_HOVER] = {0.2, 0.2, 0.2, 1},
+			[MP_GUI_STYLE_COLOR_BG_ACTIVE] = {0.2, 0.2, 0.2, 1},
+
+			[MP_GUI_STYLE_COLOR_BORDER] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_BORDER_HOVER] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_BORDER_ACTIVE] = {1, 1, 1, 1},
+
+			[MP_GUI_STYLE_COLOR_ELT] = {0.5, 0.5, 0.5, 1},
+			[MP_GUI_STYLE_COLOR_ELT_HOVER] = {0.5, 0.5, 0.5, 1},
+			[MP_GUI_STYLE_COLOR_ELT_ACTIVE] = {0.1, 0.1, 0.1, 1},
+
+			[MP_GUI_STYLE_COLOR_TEXT] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_TEXT_HOVER] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_TEXT_ACTIVE] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_TEXT_SELECTION_BG] = {0, 0, 1, 1},
+			[MP_GUI_STYLE_COLOR_TEXT_SELECTION_FG] = {1, 1, 1, 1},
+
+			[MP_GUI_STYLE_COLOR_VIEW_BG] = {0.3, 0.3, 0.3, 1},
+			[MP_GUI_STYLE_COLOR_VIEW_TITLE_BG] = {0.1, 0.1, 0.1, 1},
+			[MP_GUI_STYLE_COLOR_VIEW_TITLE_TEXT] = {1, 1, 1, 1},
+			[MP_GUI_STYLE_COLOR_VIEW_BORDER] = {1, 1, 1, 1},
+
+			[MP_GUI_STYLE_COLOR_SCROLLBAR] = {0.2, 0.2, 0.2, 1},
+			[MP_GUI_STYLE_COLOR_SCROLLBAR_ACTIVE] = {0.1, 0.1, 0.1, 1},
+		}
+	};
+
+
+  Color clear_colour = {0, 0, 0, 255};
+
+  // IsKeyDown(); IsMouseButtonPressed();
+  // GetMouseWheelMove() * scroll_speed;
+  // SetMouseCursor(MOUSE_CURSOR_IBEAM);
+  //      if (CheckCollisionPointRec(GetMousePosition(), textBox)) mouseOnText = true;
+  //      else mouseOnText = false;
 
   while (!WindowShouldClose())
   {
     BeginDrawing();
-    ClearBackground(LITERAL(Color){0, 0, 0, 255}); 
+    ClearBackground(clear_colour); 
 
     MemArenaTemp mem_temp_arena = mem_arena_scratch_get(NULL, 0);
 
@@ -158,7 +217,7 @@ main(int argc, char *argv[])
 
       if (app_lib != NULL) 
       {
-        app = (void (*)(AppState *))dlsym(app_lib, "app");
+        app = (app_func)dlsym(app_lib, "app");
         if (app != NULL)
         {
           last_app_reload_time = app_mod_time;
@@ -179,6 +238,8 @@ main(int argc, char *argv[])
     if (app != NULL)
     {
       app_state->ms = linux_get_ms();
+
+
       app(app_state);
     }
     else

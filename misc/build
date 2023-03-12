@@ -158,11 +158,12 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" "-Wno-cast-align" "-Wno-useless-cast" "-Wno-comment" "-Wno-missing-declarations" )
+  compiler_flags+=( "-Wno-parentheses" "-Wno-conversion" )
   # TODO(Ryan): Perhaps disable some cast types and keep some, e.g. -Wdouble-promotion
 
   # NOTE(Ryan): C++ specific
   compiler_flags+=( "-std=c++2a" "-fno-exceptions" "-fno-rtti" "-Wctor-dtor-privacy" )
-  compiler_flags+=( "-Wstrict-null-sentinel" "-Wzero-as-null-pointer-constant" "-Wuseless-cast" )
+  compiler_flags+=( "-Wstrict-null-sentinel" "-Wzero-as-null-pointer-constant" )
 
   compiler_flags+=( "-I code" "-isystem external" )
 
@@ -201,6 +202,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     # IMPORTANT(Ryan): Only run tests on debug builds
     if [[ "$BUILD_TYPE" == "tests" ]]; then
       mkdir -p lib
+      # for getting coverage information even if doing dlopen()
+      # -Wl --dynamic-list-data 
 
       # IMPORTANT(Ryan): Don't incur cost of cmake checking
       if [[ ! -f lib/libcmocka.so ]]; then

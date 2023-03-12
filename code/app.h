@@ -8,7 +8,12 @@ struct AppState
 {
   b32 is_initialised;
 
-  f32 width, height;
+  f32 window_width, window_height;
+
+  Font font;
+  f32 font_size, font_scale;
+
+
 
   u64 t;
   u32 x, y;
@@ -16,6 +21,8 @@ struct AppState
   u64 ms;
 };
 IGNORE_WARNING_POP()
+
+typedef void (*app_func)(AppState *state);
 
 EXPORT void
 app(AppState *state);
