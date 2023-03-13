@@ -6,74 +6,9 @@
 
 #include "app.h"
 
-enum UI_SizeKind
-{
-  UI_SizeKind_Null,
-  UI_SizeKind_Pixels,
-  UI_SizeKind_TextContent,
-  UI_SizeKind_PercentOfParent,
-  UI_SizeKind_ChildrenSum,
-};
-
-struct UI_Size
-{
-  UI_SizeKind kind;
-  F32 value; // 0 for ChildrenSum
-  F32 strictness; // 1 == no budge
-};
-
-enum Axis2
-{
-  Axis2_X,
-  Axis2_Y,
-  Axis2_COUNT
-};
-
-typedef U32 UI_WidgetFlags;
-enum
-{
-  UI_WidgetFlag_Clickable       = (1<<0),
-  UI_WidgetFlag_ViewScroll      = (1<<1),
-  UI_WidgetFlag_DrawText        = (1<<2),
-  UI_WidgetFlag_DrawBorder      = (1<<3),
-  UI_WidgetFlag_DrawBackground  = (1<<4),
-  UI_WidgetFlag_DrawDropShadow  = (1<<5),
-  UI_WidgetFlag_Clip            = (1<<6),
-  UI_WidgetFlag_HotAnimation    = (1<<7),
-  UI_WidgetFlag_ActiveAnimation = (1<<8),
-  // ...
-};
-
-// information representing how user interacted with widget
-struct UI_Comm
-{
-  UI_Widget *widget;
-  Vec2F32 mouse;
-  Vec2F32 drag_delta;
-  B8 clicked;
-  B8 double_clicked;
-  B8 right_clicked;
-  B8 pressed;
-  B8 released;
-  B8 dragging;
-  B8 hovering;
-};
-
-B32 UI_Button(String8 string)
-{
-  UI_Widget *widget = UI_WidgetMake(UI_WidgetFlag_Clickable|
-                                    UI_WidgetFlag_DrawBorder|
-                                    UI_WidgetFlag_DrawText|
-                                    UI_WidgetFlag_DrawBackground|
-                                    UI_WidgetFlag_HotAnimation|
-                                    UI_WidgetFlag_ActiveAnimation,
-                                    string);
-  UI_Comm comm = UI_CommFromWidget(widget);
-  return comm.clicked;
-}
-
+/*
 // IMPORTANT(Ryan): Rename Widget to Box, so as to extend UI decomposition, e.g:
-/* List Box Region (child layout on x)
+ List Box Region (child layout on x)
 | * Scrollable Region (fill space, clip rectangle, overflow y)
 | | * List Item 1 (clickable text)
 | | * List Item 2 (clickable text)
@@ -109,6 +44,13 @@ Single-line text field:
 | * Binding Button (clickable, with other special behavior)
 */
 
+enum AXIS2
+{
+  AXIS2_X,
+  AXIS2_Y,
+  AXIS2_COUNT
+};
+
 typedef struct UIKey UIKey;
 struct UIKey
 {
@@ -128,29 +70,23 @@ typedef struct UISize UISize;
 struct UISize
 {
 	UI_SIZE_KIND kind;
-	f32 value;
-	f32 strictness;
-};
-
-typedef struct UICache UICache;
-struct UICache
-{
-
+	f32 value; // 0 for ChildrenSum
+	f32 strictness; // 1 == no budge
 };
 
 typedef u32 UI_BOX_FLAG;
 enum
 {
-	UI_BOX_FLAG_CLICKABLE       = 0x1,    // @done
-	UI_BOX_FLAG_VIEW_SCROLL      = 0x2,    // TODO hard
-	UI_BOX_FLAG_DRAW_TEXT        = 0x4,    // @done
-	UI_BOX_FLAG_DRAW_BORDER      = 0x8,    // @done
-	UI_BOX_FLAG_DRAW_BACKGROUND  = 0x10,   // @done
-	UI_BOX_FLAG_DRAW_DROP_SHADOW  = 0x20,   // @done
-	UI_BOX_FLAG_CLIP            = 0x40,   // @done
-	UI_BOX_FLAG_HOT_ANIMATION    = 0x80,   // @done
-	UI_BOX_FLAG_ACTIVE_ANIMATION = 0x100,  // @done
-	UI_BOX_FLAG_CUSTOM_RENDERER  = 0x200,  // @done
+	UI_BOX_FLAG_CLICKABLE       =  (1 << 0),    // @done
+	UI_BOX_FLAG_VIEW_SCROLL      = (1 << 1),  // TODO hard
+	UI_BOX_FLAG_DRAW_TEXT        = (1 << 2),  // @done
+	UI_BOX_FLAG_DRAW_BORDER      = (1 << 3),  // @done
+	UI_BOX_FLAG_DRAW_BACKGROUND  = (1 << 4),  // @done
+	UI_BOX_FLAG_DRAW_DROP_SHADOW = (1 << 5),   // @done
+	UI_BOX_FLAG_CLIP            =  (1 << 6), // @done
+	UI_BOX_FLAG_HOT_ANIMATION    = (1 << 7),  // @done
+	UI_BOX_FLAG_ACTIVE_ANIMATION = (1 << 8),  // @done
+	UI_BOX_FLAG_CUSTOM_RENDERER  = (1 << 9),  // @done
 };
 
 typedef struct UIBox UIBox;
@@ -164,6 +100,7 @@ struct UIBox
   UIBox *parent;
 
   // NOTE(Ryan): Persistent
+  // TODO(Ryan): What exactly are these pointing to? used at begin and end frame
   UIBox *hash_next;
   UIBox *hash_prev;
   UIKey key;
@@ -177,10 +114,10 @@ struct UIBox
   b32 pressed_on_this; // ??
 
 	// layouting
-	UISize semantic_size[axis2_count];
-	f32 computed_size[axis2_count]; // final pixel size
+	UISize semantic_size[AXIS2_COUNT];
+	f32 computed_size[AXIS2_COUNT]; // final pixel size
 	axis2 layout_axis;
-	f32 computed_rel_position[axis2_count]; // size relative to parent
+	f32 computed_rel_position[AXIS2_COUNT]; // size relative to parent
 
   // final display coordinates.
   // this will be used next frame for input event consumption
@@ -211,6 +148,10 @@ struct UIBox
 typedef struct UISignal UISignal;
 struct UISignal
 {
+  //UIBox *box;
+  //Vec2F32 mouse;
+  //Vec2F32 drag_delta;
+
 	b32 clicked;        // @done
 	b32 double_clicked; // TODO
 	b32 right_clicked;  // @done
@@ -223,191 +164,39 @@ struct UISignal
 typedef struct UICache UICache;
 struct UICache
 {
-  UI_Key_UI_Box cache; // ??
+  MemArena arena;
 
-  // style stacks
-  struct parent_stack
-  { 
-    UI_Box* elems[UI_STACK_MAX]; UI_Box* *top; u64 len; b32 auto_pop; 
-  };
-  // ...
+  // map_create(closest prime to power of 2?);
+  // this is a hashmap (Map from base)
+  // UIKey -> UIBox
+  UIBox *cache_elems;
+  u32 cache_len; // this is num_slots
 
-	UI_FontInfo default_font;
+  // NOTE(Ryan): Style stacks
+  struct parent_stack { UIBox *first, *last; };
+  struct font_stack { Font *first, *last; };
+  struct bg_color_stack { Color *first, *last; };
+  struct hot_color_stack { Color *first, *last; };
+  struct active_color_stack { Color *first, *last; };
+  struct rounding_stack { f32 *first, *last; };
+  struct softness_stack { f32 *first, *last; };
+  struct edge_size_stack { f32 *first, *last; };
+  struct edge_color_stack { u32 *first, *last };
+  struct text_color_stack { u32 *first, *last };
+  struct pref_width_stack { UISize *first, *last; };
+  struct pref_height_stack { UISize *first, *last; };
+  struct layout_axis_stack { AXIS2 *first, *last; };
+  struct clipping_rect_stack { V2F32 *first, *last; };
+  struct render_function_stack { ui_render_function *first, *last };
+
+	Font default_font;
 	
-	UI_Box* root;
+	UIBox* root;
 	u64 current_frame_index;
 	
-	UI_Key hot_key;
-	UI_Key active_key;
+	UIKey hot_key;
+	UIKey active_key;
 };
-
-
-
-
-#if 0
-
-typedef struct q_app
-{
-
-	mp_gui_style style; // colours, button sizes, etc.
-
-	mp_gui_io input;
-
-	mp_gui_context* gui;
-} q_app;
-
-
-typedef struct mp_gui_context
-{
-	mp_graphics_context graphics;
-
-	mp_gui_io input;
-
-	u64 frameCounter;
-
-	mp_gui_id prevHovered;
-	mp_gui_id prevActive;
-	mp_gui_id prevFocus;
-	mp_gui_id hovered;
-	mp_gui_id active;
-	mp_gui_id focus;
-
-	mp_gui_view* hoveredRoot;
-	mp_gui_view* nextHoveredRoot;
-	mp_gui_view* hoveredView;
-	mp_gui_view* nextHoveredView;
-
-	mp_gui_view* frontView;
-
-	u32 nextZ;
-
-	bool nextViewFrameSet;
-	mp_aligned_rect nextViewFrame;
-
-	mp_mouse_cursor mouseCursor;
-
-	//NOTE(martin): text input
-	f64 editCursorBlinkStart;
-	u32 firstDisplayedChar;
-	u32 editCursor;
-	u32 editMark;
-	u32 editBufferSize; // _not_ including a null codepoint
-	u32 editBuffer[MP_GUI_EDIT_BUFFER_MAX_SIZE];
-
-	//NOTE(martin): stacks
-	mp_gui_id idStack[MP_GUI_ID_STACK_MAX_DEPTH];
-	u32 idStackSize;
-
-	mp_gui_view* viewStack[MP_GUI_VIEW_STACK_MAX_DEPTH];
-	u32 viewStackSize;
-
-	mp_aligned_rect clipStack[MP_GUI_CLIP_STACK_MAX_DEPTH];
-	u32 clipStackSize;
-
-	mp_gui_transform transformStack[MP_GUI_TRANSFORM_STACK_MAX_DEPTH];
-	u32 transformStackSize;
-
-	mp_gui_style styleStack[MP_GUI_STYLE_STACK_MAX_DEPTH];
-	u32 styleStackSize;
-	mp_gui_style defaultStyle;
-
-	//NOTE(martin): root views and view move-to-front list
-	mp_gui_view* rootViews[MP_GUI_VIEW_STACK_MAX_DEPTH];
-	u32 rootViewCount;
-
-	list_info views;
-	mp_gui_view viewPool[MP_GUI_VIEW_MAX_COUNT];
-
-} mp_gui_context;
-
-
-
-typedef struct demo_info
-{
-	mp_graphics_surface surface;
-	mp_graphics_context graphics;
-	mp_graphics_font font;
-	mp_gui_context* gui;
-
-	f32 windowWidth;
-	f32 windowHeight;
-
-} demo_info;
-
-void demo_gui(demo_info* demo)
-{
-	mp_gui_context* gui = demo->gui;
-
-	mp_gui_begin_frame(gui);
-	{
-		mp_gui_view_flags flags = MP_GUI_VIEW_FLAG_ROOT
-		                        | MP_GUI_VIEW_FLAG_TITLED
-		                        | MP_GUI_VIEW_FLAG_RESIZEABLE
-		                        | MP_GUI_VIEW_FLAG_SCROLL;
-
-		mp_gui_begin_view(gui, "Test view 3", (mp_aligned_rect){700, 200, 600, 800}, flags);
-		{
-			const int optionCount = 4;
-			mp_string options[4] = {mp_string_lit("option one"),
-			                        mp_string_lit("option two"),
-			                        mp_string_lit("option three"),
-			                        mp_string_lit("option four")};
-
-			static int optionIndex = 0;
-
-			if(mp_gui_popup_menu(gui, "popup", (mp_aligned_rect){300, 600, 300, 50}, optionCount, options, &optionIndex))
-			{
-				printf("selected option #%i (%.*s)\n", optionIndex, (int)options[optionIndex].len, options[optionIndex].ptr);
-			}
-
-		} mp_gui_end_view(gui);
-
-		mp_gui_begin_view(gui, "Test view 2", (mp_aligned_rect){500, 400, 600, 450}, flags);
-		{
-			static utf32 codePoints[256];
-			static u32 codePointsSize = 0;
-			if(mp_gui_text_field(gui, "text", (mp_aligned_rect){50, 50, 500, 80}, 256, &codePointsSize, codePoints, 0))
-			{
-				//...
-			}
-			//TODO: show modifiers keys and last key pressed...
-
-			static bool check = false;
-			mp_gui_checkbox(gui, "check", (mp_aligned_rect){50, 150, 50, 50}, &check);
-
-		} mp_gui_end_view(gui);
-
-		mp_gui_begin_view(gui, "Test view 1", (mp_aligned_rect){200, 100, 600, 450}, flags);
-		{
-			if(mp_gui_text_button(gui, "Button 1", (mp_aligned_rect){50, 40, 200, 80}))
-			{
-			}
-
-			if(mp_gui_text_button(gui, "Button 2", (mp_aligned_rect){50, 140, 200, 80}))
-			{
-			}
-
-			if(mp_gui_text_button(gui, "Button 3", (mp_aligned_rect){50, 240, 200, 80}))
-			{
-			}
-
-			static f32 slider1 = 0;
-			static f32 slider2 = 0;
-			static f32 slider3 = 0;
-
-			mp_gui_slider(gui, "slider_1", (mp_aligned_rect){300, 40, 200, 50}, 80, &slider1);
-			mp_gui_slider(gui, "slider_2", (mp_aligned_rect){300, 140, 200, 50}, 80, &slider2);
-			mp_gui_slider(gui, "slider_3", (mp_aligned_rect){300, 240, 200, 50}, 80, &slider3);
-
-		} mp_gui_end_view(gui);
-
-
-	} mp_gui_end_frame(gui);
-}
-#endif
-
-
-
 
 void
 draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
@@ -607,21 +396,49 @@ struct Panel
 
 A tab is a combination of a Window and Panel
 ================================================================================
-
-
-   */
-
-
+*/
 
   
-  /*    Gui init:
-	      * mp_aligned_rect windowRect = {.x = 100, .y = 100, .w = 0.5*Q_WINDOW_DEFAULT_WIDTH, .h = 0.5*Q_WINDOW_DEFAULT_HEIGHT};
-	      * app->window = mp_window_create(windowRect, "Quadrant", 0);
-        * font init (load and set size)
-        * graphics init (clear colour)
-        * set event process callback (on frame refresh event call app)
-        * enter event loop
-  */
+
+/*
+ * TODO: replace cache with UIContext?
+         1. font init (load and set size)
+         2. default style stacks (perhaps with stack add len field)
+            SLL_STACK_PUSH(ui_cache.clipping_rect.first, ui_cache.clipping_rect.last, rect(0, 0, window_width, window_height))
+            SLL_STACK_PUSH(ui_cache.fonts.first, ui_cache.fonts.last, default_font)
+	          UI_BoxColorPush(ui_cache, 0x111111FF);
+	          UI_HotColorPush(ui_cache, 0x131313FF);
+	          UI_ActiveColorPush(ui_cache, 0x131313FF);
+	          UI_EdgeColorPush(ui_cache, 0x9A5EBDFF);
+	          UI_TextColorPush(ui_cache, 0xFFAAFFFF);
+	          UI_RoundingPush(ui_cache, 5.f);
+	          UI_EdgeSoftnessPush(ui_cache, 2.f);
+	          UI_EdgeSizePush(ui_cache, 2.f);
+	          UI_PrefWidthPush(ui_cache, UI_Pixels(100));
+	          UI_PrefHeightPush(ui_cache, UI_Pixels(100));
+	          UI_LayoutAxisPush(ui_cache, axis2_y);
+	          UI_CustomRenderFunctionPush(ui_cache, nullptr);
+         3. UIBeginFrame:
+            - pruning using persistent hashing?
+            - reset style stacks to default
+            - create new parent/root box for entire screen
+              MakeBox():
+                1. handle spacers
+                2. check if box in cache (will be in cache if existed previous frame)
+                   and only create if it isn't
+                   (cache is just container for boxes?)
+         4. gui application specific
+         5. UIEndFrame:
+            - recursively autolayout position and bounds
+            - check hot/active and animate values
+            - recurse hierarchy and render based on box flags 
+             
+
+         graphics init (clear colour)
+         set event process callback (on frame refresh event call app)
+         enter event loop
+*/
+    
   if (!state->is_initialised)
   {
     state->x = 10;
@@ -630,13 +447,6 @@ A tab is a combination of a Window and Panel
 
     state->is_initialised = true;
   }
-
-
-  // hierarchy of boxes. each box ability to turn off bg, text and border
-  // overall layout computed at end of frame
-  app_state->begin_frame_time = get_time();
-  app_state->mouse_cursor = CURSOR_UP;
-  app_state->frame_counter++;
 
   // update
   
@@ -651,8 +461,6 @@ A tab is a combination of a Window and Panel
       //draw_rect(vec2_f32(x, y), vec2_f32(x + 5, y + 1), colour);
     }
   }
-
-  // https://www.forkingpaths.dev/posts/23-03-10/rule_based_styling_imgui.html
 
   //DrawRectangle(0, 0, state->width, state->height, DARKBLUE);
   //DrawRectangle(0, state->height - 150, state->width, state->height, GREEN);
