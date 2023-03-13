@@ -127,6 +127,26 @@ main(int argc, char *argv[])
   void *app_lib = NULL;
   app_func app = NULL;
 
+  UICache *cache = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, UICache);
+  // preserve previous elements for animation? 
+	// stable_table_init(UI_Key, UI_Box, &ui_cache->cache, 64);
+
+  // load font
+	// UI_ClippingRectPush(ui_cache, rect_init(0, 0, window->width, window->height));
+	// UI_FontPush(ui_cache, &ui_cache->default_font);
+	// UI_BoxColorPush(ui_cache, 0x111111FF);
+	// UI_HotColorPush(ui_cache, 0x131313FF);
+	// UI_ActiveColorPush(ui_cache, 0x131313FF);
+	// UI_EdgeColorPush(ui_cache, 0x9A5EBDFF);
+	// UI_TextColorPush(ui_cache, 0xFFAAFFFF);
+	// UI_RoundingPush(ui_cache, 5.f);
+	// UI_EdgeSoftnessPush(ui_cache, 2.f);
+	// UI_EdgeSizePush(ui_cache, 2.f);
+	// UI_PrefWidthPush(ui_cache, UI_Pixels(100));
+	// UI_PrefHeightPush(ui_cache, UI_Pixels(100));
+	// UI_LayoutAxisPush(ui_cache, axis2_y);
+
+
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
   // TODO(Ryan): just call getWindowWidth() to handle resizing?
   app_state->window_width = (f32)window_width;
@@ -195,6 +215,12 @@ main(int argc, char *argv[])
 
 
   Color clear_colour = {0, 0, 0, 255};
+
+// DrawRectangleGradientH(), DrawRectangleGradientEx()
+// MeasureTextEx()
+//    positions[i].x = screenWidth/2.0f - MeasureTextEx(fonts[i], messages[i], fonts[i].baseSize*2.0f, (float)spacings[i]).x/2.0f;
+//    positions[i].y = 60.0f + fonts[i].baseSize + 45.0f*i; 
+//    DrawTextEx()
 
   // IsKeyDown(); IsMouseButtonPressed();
   // GetMouseWheelMove() * scroll_speed;

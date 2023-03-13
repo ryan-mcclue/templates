@@ -109,47 +109,142 @@ Single-line text field:
 | * Binding Button (clickable, with other special behavior)
 */
 
-struct UI_Widget
+typedef struct UIKey UIKey;
+struct UIKey
 {
-  // simple n-ary tree
-  // no requirement for caching
-  // computed each frame
-  UI_Widget *first;
-  UI_Widget *last;
-  UI_Widget *next; // children
-  UI_Widget *prev; // children
-  UI_Widget *parent;
+  u64 key;
+};
 
-  // for caching persistent data across frames
-  UI_Widget *hash_next;
-  UI_Widget *hash_prev;
-  // key+generation info
-  // IMPORTANT(Ryan): To generate keys, hash of string passed to widget builder
-  UI_Key key;
-  U64 last_frame_touched_index; // if < current_frame_index then 'pruned'
+typedef u32 UI_SIZE_KIND;
+enum
+{
+  UI_SIZE_KIND_NULL,
+  UI_SIZE_KIND_PIXELS,
+  UI_SIZE_KIND_TEXT_CONTENT,
+  UI_SIZE_KIND_PERCENT_OF_PARENT,
+  UI_SIZE_KIND_CHILDREN_SUM,
+};
+typedef struct UISize UISize;
+struct UISize
+{
+	UI_SIZE_KIND kind;
+	f32 value;
+	f32 strictness;
+};
 
-  // per-frame info provided by builders
-  UI_WidgetFlags flags;
-  String8 string;
-  UI_Size semantic_size[Axis2_COUNT];
+typedef struct UICache UICache;
+struct UICache
+{
 
-  F32 computed_rel_position[Axis2_COUNT]; // size relative to parent
-  F32 computed_size[Axis2_COUNT]; // final pixel size
-  Rng2F32 rect; // final display coordinates.
+};
+
+typedef u32 UI_BOX_FLAG;
+enum
+{
+	UI_BOX_FLAG_CLICKABLE       = 0x1,    // @done
+	UI_BOX_FLAG_VIEW_SCROLL      = 0x2,    // TODO hard
+	UI_BOX_FLAG_DRAW_TEXT        = 0x4,    // @done
+	UI_BOX_FLAG_DRAW_BORDER      = 0x8,    // @done
+	UI_BOX_FLAG_DRAW_BACKGROUND  = 0x10,   // @done
+	UI_BOX_FLAG_DRAW_DROP_SHADOW  = 0x20,   // @done
+	UI_BOX_FLAG_CLIP            = 0x40,   // @done
+	UI_BOX_FLAG_HOT_ANIMATION    = 0x80,   // @done
+	UI_BOX_FLAG_ACTIVE_ANIMATION = 0x100,  // @done
+	UI_BOX_FLAG_CUSTOM_RENDERER  = 0x200,  // @done
+};
+
+typedef struct UIBox UIBox;
+struct UIBox
+{
+  // NOTE(Ryan): Per-frame
+  UIBox *first;
+  UIBox *last;
+  UIBox *next;
+  UIBox *prev;
+  UIBox *parent;
+
+  // NOTE(Ryan): Persistent
+  UIBox *hash_next;
+  UIBox *hash_prev;
+  UIKey key;
+  u64 last_frame_touched_index; // if < current_frame_index then 'pruned'
+  b32 direct_set; // ??
+
+  // NOTE(Ryan): From builders
+  UI_BOX_FLAG flags;
+  String8 identifier;
+
+  b32 pressed_on_this; // ??
+
+	// layouting
+	UISize semantic_size[axis2_count];
+	f32 computed_size[axis2_count]; // final pixel size
+	axis2 layout_axis;
+	f32 computed_rel_position[axis2_count]; // size relative to parent
+
+  // final display coordinates.
   // this will be used next frame for input event consumption
   // this will be used this frame for rendering
-
-  // persistent data
-  F32 hot_t;
-  F32 active_t;
+	rect target_bounds;
+	rect bounds;
+	rect clipped_bounds;
+	
+	f32 hot_t;
+	u32 hot_color;
   // exponential animation curves for animating these two values (_t for transition)
+	f32 active_t;
+	u32 active_color;
+	b8 is_on;
+	
+  // styling (would these be active styles, as oppose to what is in UICache?)
+	Font font;
+	u32 color;
+	u32 edge_color;
+	u32 text_color;
+	f32 rounding;
+	f32 softness;
+	f32 edge_size;
 
+	UI_RenderFunction* custom_render;
+};
+
+typedef struct UISignal UISignal;
+struct UISignal
+{
+	b32 clicked;        // @done
+	b32 double_clicked; // TODO
+	b32 right_clicked;  // @done
+	b32 pressed;        // @done
+	b32 released;       // @done
+	b32 dragging;       // TODO
+	b32 hovering;       // @done
+};
+
+typedef struct UICache UICache;
+struct UICache
+{
+  UI_Key_UI_Box cache; // ??
+
+  // style stacks
+  struct parent_stack
+  { 
+    UI_Box* elems[UI_STACK_MAX]; UI_Box* *top; u64 len; b32 auto_pop; 
+  };
+  // ...
+
+	UI_FontInfo default_font;
+	
+	UI_Box* root;
+	u64 current_frame_index;
+	
+	UI_Key hot_key;
+	UI_Key active_key;
 };
 
 
 
 
-
+#if 0
 
 typedef struct q_app
 {
@@ -239,130 +334,6 @@ typedef struct demo_info
 
 } demo_info;
 
-
-void demo_event_callback(mp_event* event, void* userData)
-{
-	demo_info* demo = (demo_info*)userData;
-
-	mp_gui_process_event(mp_gui_context_get_io(demo->gui), event);
-	switch(event->type)
-	{
-		case MP_EVENT_WINDOW_CLOSE:
-		{
-			mp_do_quit();
-		} break;
-
-		case MP_EVENT_WINDOW_RESIZE:
-		{
-			demo->windowWidth = event->frame.rect.w * 2;
-			demo->windowHeight = event->frame.rect.h * 2;
-		} break;
-
-		case MP_EVENT_FRAME:
-		{
-			mp_graphics_set_clear_color(demo->graphics, DEMO_COLOR_CLEAR);
-			mp_graphics_clear(demo->graphics);
-
-			demo_gui(demo);
-
-			mp_graphics_context_flush(demo->graphics, demo->surface);
-			mp_graphics_surface_present(demo->surface);
-		} break;
-
-		default:
-			break;
-	}
-}
-
-void mp_gui_process_event(mp_gui_io* input, mp_event* event)
-{
-	switch(event->type)
-	{
-		case MP_EVENT_WINDOW_RESIZE:
-		{
-			input->displayWidth = event->frame.rect.w * 2;
-			input->displayHeight = event->frame.rect.h * 2;
-		} break;
-
-		case MP_EVENT_MOUSE_MOVE:
-		{
-			input->mods = event->move.mods;
-
-			input->mouse.deltaX += event->move.x * 2 - input->mouse.x;
-			input->mouse.deltaY += (input->displayHeight - event->move.y * 2) - input->mouse.y;
-			input->mouse.x = event->move.x * 2;
-			input->mouse.y = input->displayHeight - event->move.y * 2;
-
-		} break;
-
-		case MP_EVENT_MOUSE_WHEEL:
-		{
-			input->mouse.wheelX += event->move.deltaX * MP_GUI_SCROLL_SCALE;
-			input->mouse.wheelY += event->move.deltaY * MP_GUI_SCROLL_SCALE;
-		} break;
-
-		case MP_EVENT_MOUSE_BUTTON:
-		{
-			input->mods = event->key.mods;
-
-			if(event->key.action == MP_KEY_PRESS)
-			{
-				input->mouse.buttons[event->key.code] |= MP_KEY_STATE_PRESSED;
-				input->mouse.buttons[event->key.code] |= MP_KEY_STATE_DOWN;
-
-				if(event->key.clickCount > 1)
-				{
-					input->mouse.buttons[event->key.code] |= MP_KEY_STATE_DOUBLE_CLICKED;
-				}
-				else
-				{
-					input->mouse.buttons[event->key.code] |= MP_KEY_STATE_SIMPLE_CLICKED;
-				}
-			}
-			else
-			{
-				input->mouse.buttons[event->key.code] &= ~MP_KEY_STATE_DOWN;
-				input->mouse.buttons[event->key.code] |= MP_KEY_STATE_RELEASED;
-			}
-
-		} break;
-
-		case MP_EVENT_KEYBOARD_CHAR:
-		{
-			//TODO(martin): shouldn't check seqLen while we only store 1 codepoint at a time ?
-			if(input->text.count + event->character.seqLen < MP_GUI_MAX_INPUT_CHAR_PER_FRAME)
-			{
-				input->text.codePoints[input->text.count] = event->character.codepoint;
-				input->text.count++;
-			}
-		} break;
-
-		case MP_EVENT_KEYBOARD_MODS:
-			input->mods = event->key.mods;
-			break;
-
-		case MP_EVENT_KEYBOARD_KEY:
-		{
-			input->mods = event->key.mods;
-
-			if(event->key.action == MP_KEY_RELEASE)
-			{
-				input->keys[event->key.code] &= ~MP_KEY_STATE_DOWN;
-				input->keys[event->key.code] |= MP_KEY_STATE_RELEASED;
-			}
-			else if(  event->key.action == MP_KEY_PRESS
-			       || event->key.action == MP_KEY_REPEAT)
-			{
-				//TODO: maybe distinguish pressed and repeat ?
-				input->keys[event->key.code] |= (MP_KEY_STATE_DOWN | MP_KEY_STATE_PRESSED);
-			}
-		} break;
-
-		default:
-			break;
-	}
-}
-
 void demo_gui(demo_info* demo)
 {
 	mp_gui_context* gui = demo->gui;
@@ -433,6 +404,7 @@ void demo_gui(demo_info* demo)
 
 	} mp_gui_end_frame(gui);
 }
+#endif
 
 
 
@@ -557,6 +529,7 @@ struct UI_Widget
 Spacing box has no layout parametisations. The hash should be some NULL-id
 UI_Box *spacer = UI_BoxMakeF(0, "");
 
+IMPORTANT: Defer loop useful for when stacks are scope based
 Using style stacks:
 #define UI_TextColor(v) UI_DeferLoop(UI_PushTextColor(v), UI_PopTextColor())
 UI_TextColor(V4(1, 0, 0, 1))
@@ -567,9 +540,74 @@ UI_TextColor(V4(1, 0, 0, 1))
 }
 
 ================================================================================
+
 Solid rectangles, text, icons, bitmaps, gradients (embossed, debossed), rounded corners (useful for drop shadows), hollow rectangles
 
 For icons, Fontello to produce unicode codepoints for icons inside of font
+================================================================================
+
+The builder code already manages state, i.e. whatever the application the UI is interfacing with
+
+struct Window
+{
+  Window *next;
+  Window *prev;
+  Rect rect;
+  String8 title;
+  // ... extra info for which interface is active?
+};
+
+struct AppState
+{
+  // doubly-linked list of opened windows
+  Window *first_window;
+  Window *last_window;
+  
+  // singly-linked free-list of closed windows
+  Window *free_window;
+};
+
+void WindowBuildUI(AppState *app_state, Window *window)
+{
+  UI_Window(window->rect, window->title)
+  {
+    // build title bar
+    UI_TitleBar
+    {
+      UI_Label(window->title);
+      UI_Spacer(UI_Pct(1, 0));
+      if(UI_CloseButton(...).clicked)
+      {
+        WindowClose(app_state, window);
+      }
+    }
+
+    // build contents
+    {
+      // build the instantiated interface
+    }
+  }
+}
+
+Use command buffer for storing important stateful mutations, e.g. allocation, deallocation
+
+struct Panel
+{
+  Panel *first;
+  Panel *last;
+  Panel *next;
+  Panel *prev;
+  Panel *parent;
+
+  Axis2 split_axis;
+  F32 pct_of_parent;
+
+  // (any other state to encode view info)
+};
+
+A tab is a combination of a Window and Panel
+================================================================================
+
 
    */
 
