@@ -29,20 +29,88 @@ enum Axis2
   Axis2_COUNT
 };
 
+typedef U32 UI_WidgetFlags;
+enum
+{
+  UI_WidgetFlag_Clickable       = (1<<0),
+  UI_WidgetFlag_ViewScroll      = (1<<1),
+  UI_WidgetFlag_DrawText        = (1<<2),
+  UI_WidgetFlag_DrawBorder      = (1<<3),
+  UI_WidgetFlag_DrawBackground  = (1<<4),
+  UI_WidgetFlag_DrawDropShadow  = (1<<5),
+  UI_WidgetFlag_Clip            = (1<<6),
+  UI_WidgetFlag_HotAnimation    = (1<<7),
+  UI_WidgetFlag_ActiveAnimation = (1<<8),
+  // ...
+};
+
+// information representing how user interacted with widget
+struct UI_Comm
+{
+  UI_Widget *widget;
+  Vec2F32 mouse;
+  Vec2F32 drag_delta;
+  B8 clicked;
+  B8 double_clicked;
+  B8 right_clicked;
+  B8 pressed;
+  B8 released;
+  B8 dragging;
+  B8 hovering;
+};
+
+B32 UI_Button(String8 string)
+{
+  UI_Widget *widget = UI_WidgetMake(UI_WidgetFlag_Clickable|
+                                    UI_WidgetFlag_DrawBorder|
+                                    UI_WidgetFlag_DrawText|
+                                    UI_WidgetFlag_DrawBackground|
+                                    UI_WidgetFlag_HotAnimation|
+                                    UI_WidgetFlag_ActiveAnimation,
+                                    string);
+  UI_Comm comm = UI_CommFromWidget(widget);
+  return comm.clicked;
+}
+
+// IMPORTANT(Ryan): Rename Widget to Box, so as to extend UI decomposition, e.g:
+/* List Box Region (child layout on x)
+| * Scrollable Region (fill space, clip rectangle, overflow y)
+| | * List Item 1 (clickable text)
+| | * List Item 2 (clickable text)
+| | * List Item 3 (clickable text)
+| | * List Item 4 (clickable text)
+| | * (etc.)
+|
+| * Scroll Bar Region (fixed size, child layout on y)
+| | * Scroll-Up Button (clickable button with up-arrow)
+| | * Space Before Scroller
+| | * Scroller (fixed size, proportional to view - draggable)
+| | * Space After Scroller
+| | * Scroll-Down Button (clickable button with down-arrow) 
+
+Single-line text field:
+* Container (allow overflow in x, clip rectangle, scrollable, clickable)
+| * Text Content (text + extra rendering for cursor/selection)
+
+* Menu Bar Container (layout children in x)
+| * File Menu Bar Button (clickable. if the menu bar is not 
+|                         activated, then activate the menu bar
+|                         and load this button's menu on *press*. |                         if it is activated, then activate on
+|                         *hover*.)
+| * Window Menu Bar Button
+| * Panel Menu Bar Button
+| * View Menu Bar Button
+| * Control Menu Bar Button
+
+* Button "Container" (clickable, but click happens after children)
+| * Icon Label
+| * Text Label
+| * Space, to align to right-hand-side
+| * Binding Button (clickable, with other special behavior)
+*/
+
 struct UI_Widget
 {
-  // ...
-  UI_Size semantic_size[Axis2_COUNT];
-
-  F32 computed_rel_position[Axis2_COUNT]; // size relative to parent
-  F32 computed_size[Axis2_COUNT]; // final pixel size
-  Rng2F32 rect; // final display coordinates.
-  // this will be used next frame for input event consumption
-  // this will be used this frame for rendering
-  
-  // hot_t and active_t (_t for transition)
-  // exponential animation curves for animating these two values 
-  
   // simple n-ary tree
   // no requirement for caching
   // computed each frame
@@ -59,6 +127,22 @@ struct UI_Widget
   // IMPORTANT(Ryan): To generate keys, hash of string passed to widget builder
   UI_Key key;
   U64 last_frame_touched_index; // if < current_frame_index then 'pruned'
+
+  // per-frame info provided by builders
+  UI_WidgetFlags flags;
+  String8 string;
+  UI_Size semantic_size[Axis2_COUNT];
+
+  F32 computed_rel_position[Axis2_COUNT]; // size relative to parent
+  F32 computed_size[Axis2_COUNT]; // final pixel size
+  Rng2F32 rect; // final display coordinates.
+  // this will be used next frame for input event consumption
+  // this will be used this frame for rendering
+
+  // persistent data
+  F32 hot_t;
+  F32 active_t;
+  // exponential animation curves for animating these two values (_t for transition)
 
 };
 
@@ -373,7 +457,7 @@ app(AppState *state)
    *    - user reuse existing knowledge (Buttons, Checkboxes, Radio Buttons, Sliders, Text Fields, Scroll Bars, etc.)
    *    - give confirmation (hover state, clicking down state, etc.)  
    *
-   * Core code (general styles, ability for custom styles)
+   * Core code (general styles, ability for custom styles) (development accelerates early on in project, then slows if done well)
    * Builder code arranging widgets (majority is this)
    * ================================================================================
    *
@@ -405,6 +489,88 @@ Autolayout for each exis:
   3. (post-order) 'downwards-dependent' UI_SizeKind_ChildrenSum 
   4. (pre-order) Solve violations using 'strictness'
   5. (pre-order) Given the calculated sizes of each widget, compute the relative positions of each widget
+   * ================================================================================
+   
+   Core implements certain effects, e.g:
+    Clickability—taking mouse events and hovering, responding to clicks and drags
+    Mouse wheel scrolling to shift the “view offset”
+    Keyboard focusing behavior—another path for producing “clicks” or “presses” in a keyboard-driven fashion
+    Being, and appearing, disabled and non-interactive to the user
+    “Floating” on the X axis—skipping layout on this axis, effectively
+    “Floating” on the Y axis
+    Allowing overflow on the X axis—skipping size-constraint-solving on this axis
+    Allowing overflow on the Y axis
+    Requiring a drop shadow to be rendered
+    Requiring a background to be rendered
+    Requiring a border to be rendered
+    Requiring text to be rendered
+    Hot animation visualization
+    Active animation visualization
+    Arbitrary “render command buffer” attachment
+    Center-aligned text
+    Clipping rectangle for children widgets
+    The X-axis position being smoothly animated across frames
+    The Y-axis position being smoothly animated across frames
+    Bypassing text-truncation with ellipses
+
+commonly useful to have a “make a widget that has text, border, background rendering, hot/active animations, is clickable, and has a specific hovering cursor icon” (effectively your standard, everyday button). But, we should also then immediately realize that an identical button but without the border is not an impossibility or even an improbability.
+
+IMPORTANT(Ryan): Design for combinatoric, i.e. many combinations
+BAD (WE WANT TO FOCUS ON HIGH LEVEL TRANSFORMATIONS NOT SAY WHAT A BUTTON IS):
+struct UI_Widget
+{
+  UI_WidgetKind kind;
+  // ...
+  union
+  {
+    struct { ... } button;
+    struct { ... } checkbox;
+    struct { ... } slider;
+    // ...
+  };
+};
+
+GOOD:
+typedef U32 UI_WidgetFlags;
+enum
+{
+  UI_WidgetFlag_Clickable       = (1<<0),
+  UI_WidgetFlag_ViewScroll      = (1<<1),
+  UI_WidgetFlag_DrawText        = (1<<2),
+  UI_WidgetFlag_DrawBorder      = (1<<3),
+  UI_WidgetFlag_DrawBackground  = (1<<4),
+  UI_WidgetFlag_DrawDropShadow  = (1<<5),
+  UI_WidgetFlag_Clip            = (1<<6),
+  UI_WidgetFlag_HotAnimation    = (1<<7),
+  UI_WidgetFlag_ActiveAnimation = (1<<8),
+  // ...
+};
+
+struct UI_Widget
+{
+  // ...
+  UI_WidgetFlags flags;
+  // ...
+};
+================================================================================
+
+Spacing box has no layout parametisations. The hash should be some NULL-id
+UI_Box *spacer = UI_BoxMakeF(0, "");
+
+Using style stacks:
+#define UI_TextColor(v) UI_DeferLoop(UI_PushTextColor(v), UI_PopTextColor())
+UI_TextColor(V4(1, 0, 0, 1))
+{
+  UI_ButtonF("Red Button A");
+  UI_ButtonF("Red Button B");
+  UI_ButtonF("Red Button C");
+}
+
+================================================================================
+Solid rectangles, text, icons, bitmaps, gradients (embossed, debossed), rounded corners (useful for drop shadows), hollow rectangles
+
+For icons, Fontello to produce unicode codepoints for icons inside of font
+
    */
 
 
