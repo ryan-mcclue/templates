@@ -136,19 +136,16 @@ typedef void (*ui_render_function)(UICache *cache, UIBox *box);
 struct UIBox
 {
   // NOTE(Ryan): Per-frame
-  UIBox *first;
-  UIBox *last;
+  UIBox *parent;
+  UIBox *first_child;
+  UIBox *last_child;
   UIBox *next;
   UIBox *prev;
-  UIBox *parent;
 
   // NOTE(Ryan): Persistent
-  // TODO(Ryan): What exactly are these pointing to? used at begin and end frame
-  UIBox *hash_next;
-  UIBox *hash_prev;
   UIKey key;
-  u64 last_frame_touched_index; // if < current_frame_index then 'pruned'
-  b32 direct_set; // ??
+  u64 last_frame_touched_index; 
+  b32 direct_set; // seems to be if newly created?
 
   // NOTE(Ryan): From builders
   UI_BOX_FLAG flags;
@@ -165,9 +162,9 @@ struct UIBox
   // final display coordinates.
   // this will be used next frame for input event consumption
   // this will be used this frame for rendering
-	Vec2F32 target_bounds;
-	Vec2F32 bounds;
-	Vec2F32 clipped_bounds;
+	Rectangle target_bounds;
+	Rectangle bounds;
+	Rectangle clipped_bounds;
 	
 	f32 hot_t;
 	u32 hot_color;
@@ -176,16 +173,15 @@ struct UIBox
 	u32 active_color;
 	b8 is_on;
 	
-  // styling (would these be active styles, as oppose to what is in UICache?)
 	Font font;
-	u32 color;
-	u32 edge_color;
+	u32 bg_color;
 	u32 text_color;
-	f32 rounding;
-	f32 softness;
+	u32 edge_color;
+	f32 edge_softness;
 	f32 edge_size;
+	f32 edge_rounding;
 
-	ui_render_function* custom_render_function;
+	ui_render_function* render_function;
 };
 
 typedef struct UISignal UISignal;
@@ -257,35 +253,28 @@ struct UICache
 {
   MemArenaTemp style_stack_arena;
 
-  // map_create(closest prime to power of 2?);
-  // this is a hashmap (Map from base)
-  // UIKey -> UIBox
-  // so, this should be:
-  // Map persistent_elems; ?
-  UIBox *cache_elems;
-  u32 cache_len; // this is num_slots
+  UIBoxStack *parent_style_stack;
+  FontStack *font_style_stack;
+  ColorStack *bg_color_style_stack;
+  ColorStack *hot_color_style_stack;
+  ColorStack *active_color_style_stack;
+  F32Stack *edge_rounding_style_stack;
+  F32Stack *edge_softness_style_stack;
+  F32Stack *edge_size_style_stack;
+  ColorStack *edge_color_style_stack;
+  ColorStack *text_color_style_stack;
+  UISizeStack *pref_width_style_stack;
+  UISizeStack *pref_height_style_stack;
+  AXIS2Stack *layout_axis_style_stack;
+  RectangleStack *clip_rect_style_stack;
+  UIRenderFunctionStack *render_function_style_stack;
 
-  // NOTE(Ryan): Style stacks
-  struct parent_stack { UIBoxStack *first; } parent_stack;
-  struct font_stack { FontStack *first; } font_stack;
-  struct bg_color_stack { ColorStack *first; } bg_color_stack;
-  struct hot_color_stack { ColorStack *first; } hot_color_stack;
-  struct active_color_stack { ColorStack *first; } active_color_stack;
-  struct edge_rounding_stack { F32Stack *first; } edge_rounding_stack;
-  struct edge_softness_stack { F32Stack *first; } edge_softness_stack;
-  struct edge_size_stack { F32Stack *first; } edge_size_stack;
-  struct edge_color_stack { ColorStack *first; } edge_color_stack;
-  struct text_color_stack { ColorStack *first; } text_color_stack;
-  struct pref_width_stack { UISizeStack *first; } pref_width_stack;
-  struct pref_height_stack { UISizeStack *first; } pref_height_stack;
-  struct layout_axis_stack { AXIS2Stack *first; } layout_axis_stack;
-  struct clip_rect_stack { RectangleStack *first; } clip_rect_stack;
-  struct render_function_stack { UIRenderFunctionStack *first; } render_function_stack;
+  Map box_map;
 
 	Font default_font;
   f32 default_font_size;
 	
-	UIBox* root;
+	UIBox *root_box;
 	u64 current_frame_index;
 	
 	UIKey hot_key;
@@ -293,246 +282,246 @@ struct UICache
 };
 
 INTERNAL void 
-ui_push_clip_rect(UICache *cache, Rectangle clip_rect)
+ui_push_style_clip_rect(UICache *cache, Rectangle clip_rect)
 {
   RectangleStack *window_rect = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, RectangleStack);
   window_rect->val = clip_rect; 
-  SLL_STACK_PUSH(cache->clip_rect_stack.first, window_rect);
+  SLL_STACK_PUSH(cache->clip_rect_style_stack, window_rect);
 }
 
 INTERNAL void
-ui_pop_clip_rect(UICache *cache)
+ui_pop_style_clip_rect(UICache *cache)
 {
-  SLL_STACK_POP(cache->clip_rect_stack.first);
+  SLL_STACK_POP(cache->clip_rect_style_stack);
 }
 
 INTERNAL void 
-ui_push_font(UICache *cache, Font font)
+ui_push_style_font(UICache *cache, Font font)
 {
   FontStack *font_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, FontStack);
   font_stack->val = font; 
-  SLL_STACK_PUSH(cache->font_stack.first, font_stack);
+  SLL_STACK_PUSH(cache->font_style_stack, font_stack);
 }
 
 INTERNAL void
-ui_pop_font(UICache *cache)
+ui_pop_style_font(UICache *cache)
 {
-  SLL_STACK_POP(cache->font_stack.first);
+  SLL_STACK_POP(cache->font_style_stack);
 }
 
 INTERNAL void 
-ui_push_bg_color(UICache *cache, Color bg_color)
+ui_push_style_bg_color(UICache *cache, Color bg_color)
 {
   ColorStack *bg_color_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, ColorStack);
   bg_color_stack->val = bg_color; 
-  SLL_STACK_PUSH(cache->bg_color_stack.first, bg_color_stack);
+  SLL_STACK_PUSH(cache->bg_color_style_stack, bg_color_stack);
 }
 
 INTERNAL void
-ui_pop_bg_color(UICache *cache)
+ui_pop_style_bg_color(UICache *cache)
 {
-  SLL_STACK_POP(cache->bg_color_stack.first);
+  SLL_STACK_POP(cache->bg_color_style_stack);
 }
 
 INTERNAL void 
-ui_push_hot_color(UICache *cache, Color hot_color)
+ui_push_style_hot_color(UICache *cache, Color hot_color)
 {
   ColorStack *hot_color_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, ColorStack);
   hot_color_stack->val = hot_color; 
-  SLL_STACK_PUSH(cache->hot_color_stack.first, hot_color_stack);
+  SLL_STACK_PUSH(cache->hot_color_style_stack, hot_color_stack);
 }
 
 INTERNAL void
-ui_pop_hot_color(UICache *cache)
+ui_pop_style_hot_color(UICache *cache)
 {
-  SLL_STACK_POP(cache->hot_color_stack.first);
+  SLL_STACK_POP(cache->hot_color_style_stack);
 }
 
 INTERNAL void 
-ui_push_active_color(UICache *cache, Color active_color)
+ui_push_style_active_color(UICache *cache, Color active_color)
 {
   ColorStack *active_color_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, ColorStack);
   active_color_stack->val = active_color; 
-  SLL_STACK_PUSH(cache->active_color_stack.first, active_color_stack);
+  SLL_STACK_PUSH(cache->active_color_style_stack, active_color_stack);
 }
 
 INTERNAL void
-ui_pop_active_color(UICache *cache)
+ui_pop_style_active_color(UICache *cache)
 {
-  SLL_STACK_POP(cache->active_color_stack.first);
+  SLL_STACK_POP(cache->active_color_style_stack);
 }
 
 INTERNAL void 
-ui_push_edge_color(UICache *cache, Color edge_color)
+ui_push_style_edge_color(UICache *cache, Color edge_color)
 {
   ColorStack *edge_color_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, ColorStack);
   edge_color_stack->val = edge_color; 
-  SLL_STACK_PUSH(cache->edge_color_stack.first, edge_color_stack);
+  SLL_STACK_PUSH(cache->edge_color_style_stack, edge_color_stack);
 }
 
 INTERNAL void
-ui_pop_edge_color(UICache *cache)
+ui_pop_style_edge_color(UICache *cache)
 {
-  SLL_STACK_POP(cache->edge_color_stack.first);
+  SLL_STACK_POP(cache->edge_color_style_stack);
 }
 
 INTERNAL void 
-ui_push_text_color(UICache *cache, Color text_color)
+ui_push_style_text_color(UICache *cache, Color text_color)
 {
   ColorStack *text_color_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, ColorStack);
   text_color_stack->val = text_color; 
-  SLL_STACK_PUSH(cache->text_color_stack.first, text_color_stack);
+  SLL_STACK_PUSH(cache->text_color_style_stack, text_color_stack);
 }
 
 INTERNAL void
-ui_pop_text_color(UICache *cache)
+ui_pop_style_text_color(UICache *cache)
 {
-  SLL_STACK_POP(cache->text_color_stack.first);
+  SLL_STACK_POP(cache->text_color_style_stack);
 }
 
 INTERNAL void 
-ui_push_edge_rounding(UICache *cache, f32 edge_rounding)
+ui_push_style_edge_rounding(UICache *cache, f32 edge_rounding)
 {
   F32Stack *edge_rounding_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, F32Stack);
   edge_rounding_stack->val = edge_rounding;
-  SLL_STACK_PUSH(cache->edge_rounding_stack.first, edge_rounding_stack);
+  SLL_STACK_PUSH(cache->edge_rounding_style_stack, edge_rounding_stack);
 }
 
 INTERNAL void
-ui_pop_edge_rounding(UICache *cache)
+ui_pop_style_edge_rounding(UICache *cache)
 {
-  SLL_STACK_POP(cache->edge_rounding_stack.first);
+  SLL_STACK_POP(cache->edge_rounding_style_stack);
 }
 
 INTERNAL void 
-ui_push_edge_softness(UICache *cache, f32 edge_softness)
+ui_push_style_edge_softness(UICache *cache, f32 edge_softness)
 {
   F32Stack *edge_softness_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, F32Stack);
   edge_softness_stack->val = edge_softness;
-  SLL_STACK_PUSH(cache->edge_softness_stack.first, edge_softness_stack);
+  SLL_STACK_PUSH(cache->edge_softness_style_stack, edge_softness_stack);
 }
 
 INTERNAL void
-ui_pop_edge_softness(UICache *cache)
+ui_pop_style_edge_softness(UICache *cache)
 {
-  SLL_STACK_POP(cache->edge_softness_stack.first);
+  SLL_STACK_POP(cache->edge_softness_style_stack);
 }
 
 INTERNAL void 
-ui_push_edge_size(UICache *cache, f32 edge_size)
+ui_push_style_edge_size(UICache *cache, f32 edge_size)
 {
   F32Stack *edge_size_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, F32Stack);
   edge_size_stack->val = edge_size;
-  SLL_STACK_PUSH(cache->edge_size_stack.first, edge_size_stack);
+  SLL_STACK_PUSH(cache->edge_size_style_stack, edge_size_stack);
 }
 
 INTERNAL void
-ui_pop_edge_size(UICache *cache)
+ui_pop_style_edge_size(UICache *cache)
 {
-  SLL_STACK_POP(cache->edge_size_stack.first);
+  SLL_STACK_POP(cache->edge_size_style_stack);
 }
 
 INTERNAL void 
-ui_push_pref_width(UICache *cache, UISize pref_width)
+ui_push_style_pref_width(UICache *cache, UISize pref_width)
 {
   UISizeStack *pref_width_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, UISizeStack);
   pref_width_stack->val = pref_width;
-  SLL_STACK_PUSH(cache->pref_width_stack.first, pref_width_stack);
+  SLL_STACK_PUSH(cache->pref_width_style_stack, pref_width_stack);
 }
 
 INTERNAL void
-ui_pop_pref_width(UICache *cache)
+ui_pop_style_pref_width(UICache *cache)
 {
-  SLL_STACK_POP(cache->pref_width_stack.first);
+  SLL_STACK_POP(cache->pref_width_style_stack);
 }
 
 INTERNAL void 
-ui_push_pref_height(UICache *cache, UISize pref_height)
+ui_push_style_pref_height(UICache *cache, UISize pref_height)
 {
   UISizeStack *pref_height_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, UISizeStack);
   pref_height_stack->val = pref_height;
-  SLL_STACK_PUSH(cache->pref_height_stack.first, pref_height_stack);
+  SLL_STACK_PUSH(cache->pref_height_style_stack, pref_height_stack);
 }
 
 INTERNAL void
-ui_pop_pref_height(UICache *cache)
+ui_pop_style_pref_height(UICache *cache)
 {
-  SLL_STACK_POP(cache->pref_height_stack.first);
+  SLL_STACK_POP(cache->pref_height_style_stack);
 }
 
 INTERNAL void 
-ui_push_layout_axis(UICache *cache, AXIS2 layout_axis)
+ui_push_style_layout_axis(UICache *cache, AXIS2 layout_axis)
 {
   AXIS2Stack *layout_axis_stack = MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, AXIS2Stack);
   layout_axis_stack->val = layout_axis;
-  SLL_STACK_PUSH(cache->layout_axis_stack.first, layout_axis_stack);
+  SLL_STACK_PUSH(cache->layout_axis_style_stack, layout_axis_stack);
 }
 
 INTERNAL void
-ui_pop_layout_axis(UICache *cache)
+ui_pop_style_layout_axis(UICache *cache)
 {
-  SLL_STACK_POP(cache->layout_axis_stack.first);
+  SLL_STACK_POP(cache->layout_axis_style_stack);
 }
 
 INTERNAL void 
-ui_push_render_function(UICache *cache, ui_render_function render_function)
+ui_push_style_render_function(UICache *cache, ui_render_function render_function)
 {
   UIRenderFunctionStack *render_function_stack = \
     MEM_ARENA_PUSH_STRUCT_ZERO(cache->style_stack_arena.arena, UIRenderFunctionStack);
   render_function_stack->val = render_function;
-  SLL_STACK_PUSH(cache->render_function_stack.first, render_function_stack);
+  SLL_STACK_PUSH(cache->render_function_style_stack, render_function_stack);
 }
 
 INTERNAL void
 ui_pop_render_function(UICache *cache)
 {
-  SLL_STACK_POP(cache->render_function_stack.first);
+  SLL_STACK_POP(cache->render_function_style_stack);
 }
 
-#define UI_SET_PARENT(ui_cache, parent) \
-  DEFER_LOOP(ui_push_parent(ui_cache, parent), ui_pop_parent(ui_cache))
+#define UI_STYLE_PARENT(ui_cache, parent) \
+  DEFER_LOOP(ui_push_style_parent(ui_cache, parent), ui_pop_style_parent(ui_cache))
 
-#define UI_SET_FONT(ui_cache, font) \
-  DEFER_LOOP(ui_push_font(ui_cache, font), ui_pop_font(ui_cache))
+#define UI_STYLE_FONT(ui_cache, font) \
+  DEFER_LOOP(ui_push_style_font(ui_cache, font), ui_pop_style_font(ui_cache))
 
-#define UI_SET_BG_COLOR(ui_cache, bg_color) \
-  DEFER_LOOP(ui_push_bg_color(ui_cache, bg_color), ui_pop_bg_color(ui_cache))
+#define UI_STYLE_BG_COLOR(ui_cache, bg_color) \
+  DEFER_LOOP(ui_push_style_bg_color(ui_cache, bg_color), ui_pop_style_bg_color(ui_cache))
 
-#define UI_SET_HOT_COLOR(ui_cache, hot_color) \
-  DEFER_LOOP(ui_push_hot_color(ui_cache, hot_color), ui_pop_hot_color(ui_cache))
+#define UI_STYLE_HOT_COLOR(ui_cache, hot_color) \
+  DEFER_LOOP(ui_push_style_hot_color(ui_cache, hot_color), ui_pop_style_hot_color(ui_cache))
 
-#define UI_SET_ACTIVE_COLOR(ui_cache, active_color) \
-  DEFER_LOOP(ui_push_active_color(ui_cache, active_color), ui_pop_active_color(ui_cache))
+#define UI_STYLE_ACTIVE_COLOR(ui_cache, active_color) \
+  DEFER_LOOP(ui_push_style_active_color(ui_cache, active_color), ui_pop_style_active_color(ui_cache))
 
-#define UI_EDGE_ROUNDING(ui_cache, rounding) \
-  DEFER_LOOP(ui_push_edge_rounding(ui_cache, rounding), ui_pop_edge_rounding(ui_cache))
+#define UI_STYLE_EDGE_ROUNDING(ui_cache, rounding) \
+  DEFER_LOOP(ui_push_style_STYLE_EDGE_rounding(ui_cache, rounding), ui_pop_style_STYLE_EDGE_rounding(ui_cache))
 
-#define UI_EDGE_SOFTNESS(ui_cache, softness) \
-  DEFER_LOOP(ui_push_edge_softness(ui_cache, softness), ui_pop_edge_softness(ui_cache))
+#define UI_STYLE_EDGE_SOFTNESS(ui_cache, softness) \
+  DEFER_LOOP(ui_push_style_STYLE_EDGE_softness(ui_cache, softness), ui_pop_style_STYLE_EDGE_softness(ui_cache))
 
-#define UI_EDGE_SIZE(ui_cache, edge_size) \
-  DEFER_LOOP(ui_push_edge_size(ui_cache, edge_size), ui_pop_edge_size(ui_cache))
+#define UI_STYLE_EDGE_SIZE(ui_cache, STYLE_EDGE_size) \
+  DEFER_LOOP(ui_push_style_STYLE_EDGE_size(ui_cache, STYLE_EDGE_size), ui_pop_style_STYLE_EDGE_size(ui_cache))
 
-#define UI_EDGE_COLOR(ui_cache, edge_color) \
-  DEFER_LOOP(ui_push_edge_color(ui_cache, edge_color), ui_pop_edge_color(ui_cache))
+#define UI_STYLE_EDGE_COLOR(ui_cache, STYLE_EDGE_color) \
+  DEFER_LOOP(ui_push_style_edge_color(ui_cache, edge_color), ui_pop_style_edge_color(ui_cache))
 
-#define UI_TEXT_COLOR(ui_cache, text_color) \
-  DEFER_LOOP(ui_push_text_color(ui_cache, text_color), ui_pop_text_color(ui_cache))
+#define UI_STYLE_TEXT_COLOR(ui_cache, text_color) \
+  DEFER_LOOP(ui_push_style_text_color(ui_cache, text_color), ui_pop_style_text_color(ui_cache))
 
-#define UI_PREF_WIDTH(ui_cache, pref_width) \
-  DEFER_LOOP(ui_push_pref_width(ui_cache, pref_width), ui_pop_pref_width(ui_cache))
+#define UI_STYLE_PREF_WIDTH(ui_cache, pref_width) \
+  DEFER_LOOP(ui_push_style_pref_width(ui_cache, pref_width), ui_pop_style_pref_width(ui_cache))
 
-#define UI_PREF_HEIGHT(ui_cache, pref_height) \
-  DEFER_LOOP(ui_push_pref_height(ui_cache, pref_height), ui_pop_pref_height(ui_cache))
+#define UI_STYLE_PREF_HEIGHT(ui_cache, pref_height) \
+  DEFER_LOOP(ui_push_style_pref_height(ui_cache, pref_height), ui_pop_style_pref_height(ui_cache))
 
-#define UI_LAYOUT_AXIS(ui_cache, layout_axis) \
-  DEFER_LOOP(ui_push_layout_axis(ui_cache, layout_axis), ui_pop_layout_axis(ui_cache))
+#define UI_STYLE_LAYOUT_AXIS(ui_cache, layout_axis) \
+  DEFER_LOOP(ui_push_style_layout_axis(ui_cache, layout_axis), ui_pop_style_layout_axis(ui_cache))
 
-#define UI_RENDER_FUNCTION(ui_cache, render_function) \
-  DEFER_LOOP(ui_push_render_function(ui_cache, render_function), ui_pop_render_function(ui_cache))
+#define UI_STYLE_RENDER_FUNCTION(ui_cache, render_function) \
+  DEFER_LOOP(ui_push_style_render_function(ui_cache, render_function), ui_pop_style_render_function(ui_cache))
 
-#define UI_CLIP_RECT(ui_cache, clipping_rect) \
-  DEFER_LOOP(ui_push_clip_rect(ui_cache, clipping_rect), ui_pop_clip_rect(ui_cache))
+#define UI_STYLE_CLIP_RECT(ui_cache, clip_rect) \
+  DEFER_LOOP(ui_push_style_clip_rect(ui_cache, clip_rect), ui_pop_style_clip_rect(ui_cache))
 
 
 INTERNAL void
@@ -579,9 +568,11 @@ ui_make_box(UICache *cache, UI_BOX_FLAGS flags, String8 str)
 	// Else add a new Box to the cache
   MapKey key = map_key_str(str);
 	
-	UIBox *result = map_lookup(cache->box_map, key);
-  if (result != NULL)
+  MapSlot *slot = map_lookup(cache->box_map, key);
+  if (slot != NULL)
   {
+    result = (UIBox *)slot->val;
+
     result->last_frame_touched_index = cache->current_frame_index; 
 
     UIBox *parent = cache->parent_stack.first;
@@ -601,8 +592,8 @@ ui_make_box(UICache *cache, UI_BOX_FLAGS flags, String8 str)
   }
   else
   {
-    result = new_box;
-    add_to_cache_map();
+    result = ui_make_box();
+    map_insert(cache->box_arena, cache->box_map, key, result);
 
     result->last_frame_touched_index = cache->current_frame_index;
     UIBox *parent = cache->parent_stack.first;
