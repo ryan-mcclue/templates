@@ -209,32 +209,6 @@ A tab is a combination of a Window and Panel
   
 
 /*
- * TODO: replace cache with UIContext?
-         1. font init (load and set size)
-         2. default style stacks (perhaps with stack add len field)
-            SLL_STACK_PUSH(ui_cache.clipping_rect.first, ui_cache.clipping_rect.last, rect(0, 0, window_width, window_height))
-            SLL_STACK_PUSH(ui_cache.fonts.first, ui_cache.fonts.last, default_font)
-	          UI_BoxColorPush(ui_cache, 0x111111FF);
-	          UI_HotColorPush(ui_cache, 0x131313FF);
-	          UI_ActiveColorPush(ui_cache, 0x131313FF);
-	          UI_EdgeColorPush(ui_cache, 0x9A5EBDFF);
-	          UI_TextColorPush(ui_cache, 0xFFAAFFFF);
-	          UI_RoundingPush(ui_cache, 5.f);
-	          UI_EdgeSoftnessPush(ui_cache, 2.f);
-	          UI_EdgeSizePush(ui_cache, 2.f);
-	          UI_PrefWidthPush(ui_cache, UI_Pixels(100));
-	          UI_PrefHeightPush(ui_cache, UI_Pixels(100));
-	          UI_LayoutAxisPush(ui_cache, axis2_y);
-	          UI_CustomRenderFunctionPush(ui_cache, nullptr);
-         3. UIBeginFrame:
-            - pruning using persistent hashing?
-            - reset style stacks to default
-            - create new parent/root box for entire screen
-              MakeBox():
-                1. handle spacers
-                2. check if box in cache (will be in cache if existed previous frame)
-                   and only create if it isn't
-                   (cache is just container for boxes?)
          4. gui application specific
          5. UIEndFrame:
             - recursively autolayout position and bounds
@@ -259,7 +233,55 @@ A tab is a combination of a Window and Panel
   }
 
   // update
-  
+  ui_begin_frame(state->ui_cache);
+
+  UI_SET_PREF_WIDTH(state->ui_cache, ui_size_percentage(100))
+  UI_SET_PREF_HEIGHT(state->ui_cache, ui_size_percentage(100))
+  UI_SET_LAYOUT_AXIS(state->ui_cache, AXIS2_X)
+	{
+		UI_Box* full_container = UI_BoxMake(ui_cache, BoxFlag_DrawBackground | BoxFlag_DrawBorder | BoxFlag_Clip, str_lit("foo"));
+		UI_SET_PARENT(ui_cache, full_container)
+    {
+	    ui_spacer_instance(ui_cache, UI_Percentage(35));
+				
+		  UI_LayoutAxis(ui_cache, axis2_y)
+		  UI_PrefWidth(ui_cache, UI_Percentage(30))
+			UI_PrefHeight(ui_cache, UI_Percentage(100))
+      {
+			  UI_Box* vert = UI_BoxMake(ui_cache, 0, str_lit("VerticalCheckboxContainer"));
+					
+				UI_Parent(ui_cache, vert)
+				UI_PrefWidth(ui_cache, UI_Percentage(100))
+				UI_PrefHeight(ui_cache, UI_Pixels(35))
+				UI_LayoutAxis(ui_cache, axis2_x) 
+        {
+					UI_Box* pm = UI_BoxMake(ui_cache, 0, str_lit("PlusMinusContainer"));
+					
+					UI_Parent(ui_cache, pm)
+					UI_PrefWidth(ui_cache, UI_Percentage(50))
+					UI_PrefHeight(ui_cache, UI_Pixels(35))
+          {
+							if (UI_Button(ui_cache, str_lit("+##AddCheckbox")).clicked)
+								show_btn ++;
+							if (UI_Button(ui_cache, str_lit("-##SubCheckbox")).clicked)
+								show_btn --;
+							if (show_btn < 0) show_btn = 0;
+					}
+						
+					UI_Spacer(ui_cache, UI_Pixels(15));
+						
+					UI_ActiveColor(ui_cache, 0x9A5EBDFF)
+          {
+            for (i32 i = show_btn; i > 0; i--)
+              UI_CheckboxF(ui_cache, "Checkbox##%d", i);
+					}
+				}
+			}
+		}
+  }
+
+  ui_end_frame(state->ui_cache, delta);
+
   // render
 
   DrawRectangle(0, 0, state->window_width, state->window_height, DARKBLUE);
