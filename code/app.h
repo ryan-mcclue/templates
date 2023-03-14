@@ -2,6 +2,8 @@
 #if !defined(APP_H)
 #define APP_H
 
+#include "ui.h"
+
 IGNORE_WARNING_PADDED()
 typedef struct AppState AppState;
 struct AppState
@@ -10,10 +12,7 @@ struct AppState
 
   f32 window_width, window_height;
 
-  Font font;
-  f32 font_size, font_scale;
-
-
+  UICache *ui_cache;
 
   u64 t;
   u32 x, y;

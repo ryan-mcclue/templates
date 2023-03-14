@@ -4,29 +4,46 @@
 
 // TODO(Ryan): Investigate using gcc extensions for safer macros.
 // Do they add any overhead?
-
 #include <stdint.h>
 typedef int8_t i8;
 typedef int16_t  i16;
 typedef int32_t  i32;
 typedef int64_t  i64;
-typedef i8 b8;
-typedef i16 b16;
-typedef i32 b32;
-typedef i64 b64;
 // TODO(Ryan): It seems that on embedded, using say 'uint_fast8_t' can provide information to compiler to possibly
 // use a register to hold the value for say array index incrementing
 typedef uint8_t u8;
 typedef uint16_t  u16;
 typedef uint32_t  u32;
 typedef uint64_t  u64;
+typedef u8 b8;
+typedef u16 b16;
+typedef u32 b32;
+typedef u64 b64;
 typedef float f32;
 typedef double f64;
 
+#include <stdbool.h>
+
 #define GLOBAL static
-#define LOCAL static
-#define INTERNAL static
+#define LOCAL_PERSIST static
+#if !defined(TEST_BUILD)
+ #define INTERNAL static
+#else
+  #define INTERNAL
+#endif
 #define GLOBAL_CONST PROGMEM
+
+#if defined(TEST_BUILD)
+  GLOBAL u32 global_forever_counter = 1;
+  #define FOREVER (global_forever_counter--) 
+#else
+  #define FOREVER 1
+#endif
+
+#if defined(SIMULATOR_BUILD) || defined(TEST_BUILD)
+  #define WANT_MOCKS 1
+#endif
+
 
 // TODO(Ryan): Seems use global variables for constants, macros for functions? we get added type safety and can get pointer to them
 // we know that any compile time constants will save RAM. compiler optimisation should save codespace also
@@ -155,15 +172,15 @@ abs_f64(f64 x)
   return *(f64 *)(&temp);
 }
 
-typedef struct SourceLocation SourceLocation;
-struct SourceLocation
+typedef struct SourceLoc SourceLoc;
+struct SourceLoc
 {
   const char *file_name;
   const char *function_name;
   u64 line_number;
 };
-#define SOURCE_LOCATION { __FILE__, __func__, __LINE__ }
-#define LITERAL_SOURCE_LOCATION LITERAL(SourceLocation) SOURCE_LOCATION 
+#define SOURCE_LOC { __FILE__, __func__, __LINE__ }
+#define LITERAL_SOURCE_LOC LITERAL(SourceLoc) SOURCE_LOC 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -266,7 +283,7 @@ INTERNAL void __bp(void) {}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(a[0]))
 
-#define INT_FROM_PTR(p) ((unsigned long long)((char *)p - (char *)0))
+#define INT_FROM_PTR(p) ((uintptr_t)((char *)p - (char *)0))
 #define PTR_FROM_INT(n) ((void *)((char *)0 + (n)))
 
 #define ABSTRACT_MEMBER(s, member) (((s *)0)->member)
@@ -304,6 +321,10 @@ INTERNAL void __bp(void) {}
 
 #define TRILLION(x) ((x)*1000000000000LL)
 #define PICO_TO_SEC(x) ((x)*1000000000000ULL)
+
+#define INC_SATURATE_U8(x) ((x) = ((x) >= (MAX_U8) ? (MAX_U8) : (x + 1)))
+#define INC_SATURATE_U16(x) ((x) = ((x) >= (MAX_U16) ? (MAX_U16) : (x + 1)))
+#define INC_SATURATE_U32(x) ((x) = ((x) >= (MAX_U32) ? (MAX_U32) : (x + 1)))
 
 #include <stdio.h>
 #define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
@@ -410,6 +431,10 @@ INTERNAL void __bp(void) {}
     (\
      ((first) = (first)->next) \
     )\
+  : \
+  (\
+    (NULL) \
+  )\
 )
 
 #endif

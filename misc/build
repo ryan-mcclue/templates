@@ -158,7 +158,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   # NOTE(Ryan): Ignored warnings
   compiler_flags+=( "-Wno-unknown-pragmas" "-Wno-missing-field-initializers" "-Wno-cast-align" "-Wno-useless-cast" "-Wno-comment" "-Wno-missing-declarations" )
-  compiler_flags+=( "-Wno-parentheses" "-Wno-conversion" )
+  compiler_flags+=( "-Wno-parentheses" "-Wno-conversion" "-Wno-padded" )
   # TODO(Ryan): Perhaps disable some cast types and keep some, e.g. -Wdouble-promotion
 
   # NOTE(Ryan): C++ specific

@@ -6,198 +6,6 @@
 
 #include "app.h"
 
-/*
-// IMPORTANT(Ryan): Rename Widget to Box, so as to extend UI decomposition, e.g:
- List Box Region (child layout on x)
-| * Scrollable Region (fill space, clip rectangle, overflow y)
-| | * List Item 1 (clickable text)
-| | * List Item 2 (clickable text)
-| | * List Item 3 (clickable text)
-| | * List Item 4 (clickable text)
-| | * (etc.)
-|
-| * Scroll Bar Region (fixed size, child layout on y)
-| | * Scroll-Up Button (clickable button with up-arrow)
-| | * Space Before Scroller
-| | * Scroller (fixed size, proportional to view - draggable)
-| | * Space After Scroller
-| | * Scroll-Down Button (clickable button with down-arrow) 
-
-Single-line text field:
-* Container (allow overflow in x, clip rectangle, scrollable, clickable)
-| * Text Content (text + extra rendering for cursor/selection)
-
-* Menu Bar Container (layout children in x)
-| * File Menu Bar Button (clickable. if the menu bar is not 
-|                         activated, then activate the menu bar
-|                         and load this button's menu on *press*. |                         if it is activated, then activate on
-|                         *hover*.)
-| * Window Menu Bar Button
-| * Panel Menu Bar Button
-| * View Menu Bar Button
-| * Control Menu Bar Button
-
-* Button "Container" (clickable, but click happens after children)
-| * Icon Label
-| * Text Label
-| * Space, to align to right-hand-side
-| * Binding Button (clickable, with other special behavior)
-*/
-
-enum AXIS2
-{
-  AXIS2_X,
-  AXIS2_Y,
-  AXIS2_COUNT
-};
-
-typedef struct UIKey UIKey;
-struct UIKey
-{
-  u64 key;
-};
-
-typedef u32 UI_SIZE_KIND;
-enum
-{
-  UI_SIZE_KIND_NULL,
-  UI_SIZE_KIND_PIXELS,
-  UI_SIZE_KIND_TEXT_CONTENT,
-  UI_SIZE_KIND_PERCENT_OF_PARENT,
-  UI_SIZE_KIND_CHILDREN_SUM,
-};
-typedef struct UISize UISize;
-struct UISize
-{
-	UI_SIZE_KIND kind;
-	f32 value; // 0 for ChildrenSum
-	f32 strictness; // 1 == no budge
-};
-
-typedef u32 UI_BOX_FLAG;
-enum
-{
-	UI_BOX_FLAG_CLICKABLE       =  (1 << 0),    // @done
-	UI_BOX_FLAG_VIEW_SCROLL      = (1 << 1),  // TODO hard
-	UI_BOX_FLAG_DRAW_TEXT        = (1 << 2),  // @done
-	UI_BOX_FLAG_DRAW_BORDER      = (1 << 3),  // @done
-	UI_BOX_FLAG_DRAW_BACKGROUND  = (1 << 4),  // @done
-	UI_BOX_FLAG_DRAW_DROP_SHADOW = (1 << 5),   // @done
-	UI_BOX_FLAG_CLIP            =  (1 << 6), // @done
-	UI_BOX_FLAG_HOT_ANIMATION    = (1 << 7),  // @done
-	UI_BOX_FLAG_ACTIVE_ANIMATION = (1 << 8),  // @done
-	UI_BOX_FLAG_CUSTOM_RENDERER  = (1 << 9),  // @done
-};
-
-typedef struct UIBox UIBox;
-struct UIBox
-{
-  // NOTE(Ryan): Per-frame
-  UIBox *first;
-  UIBox *last;
-  UIBox *next;
-  UIBox *prev;
-  UIBox *parent;
-
-  // NOTE(Ryan): Persistent
-  // TODO(Ryan): What exactly are these pointing to? used at begin and end frame
-  UIBox *hash_next;
-  UIBox *hash_prev;
-  UIKey key;
-  u64 last_frame_touched_index; // if < current_frame_index then 'pruned'
-  b32 direct_set; // ??
-
-  // NOTE(Ryan): From builders
-  UI_BOX_FLAG flags;
-  String8 identifier;
-
-  b32 pressed_on_this; // ??
-
-	// layouting
-	UISize semantic_size[AXIS2_COUNT];
-	f32 computed_size[AXIS2_COUNT]; // final pixel size
-	axis2 layout_axis;
-	f32 computed_rel_position[AXIS2_COUNT]; // size relative to parent
-
-  // final display coordinates.
-  // this will be used next frame for input event consumption
-  // this will be used this frame for rendering
-	rect target_bounds;
-	rect bounds;
-	rect clipped_bounds;
-	
-	f32 hot_t;
-	u32 hot_color;
-  // exponential animation curves for animating these two values (_t for transition)
-	f32 active_t;
-	u32 active_color;
-	b8 is_on;
-	
-  // styling (would these be active styles, as oppose to what is in UICache?)
-	Font font;
-	u32 color;
-	u32 edge_color;
-	u32 text_color;
-	f32 rounding;
-	f32 softness;
-	f32 edge_size;
-
-	UI_RenderFunction* custom_render;
-};
-
-typedef struct UISignal UISignal;
-struct UISignal
-{
-  //UIBox *box;
-  //Vec2F32 mouse;
-  //Vec2F32 drag_delta;
-
-	b32 clicked;        // @done
-	b32 double_clicked; // TODO
-	b32 right_clicked;  // @done
-	b32 pressed;        // @done
-	b32 released;       // @done
-	b32 dragging;       // TODO
-	b32 hovering;       // @done
-};
-
-typedef struct UICache UICache;
-struct UICache
-{
-  MemArena arena;
-
-  // map_create(closest prime to power of 2?);
-  // this is a hashmap (Map from base)
-  // UIKey -> UIBox
-  UIBox *cache_elems;
-  u32 cache_len; // this is num_slots
-
-  // NOTE(Ryan): Style stacks
-  struct parent_stack { UIBox *first, *last; };
-  struct font_stack { Font *first, *last; };
-  struct bg_color_stack { Color *first, *last; };
-  struct hot_color_stack { Color *first, *last; };
-  struct active_color_stack { Color *first, *last; };
-  struct rounding_stack { f32 *first, *last; };
-  struct softness_stack { f32 *first, *last; };
-  struct edge_size_stack { f32 *first, *last; };
-  struct edge_color_stack { u32 *first, *last };
-  struct text_color_stack { u32 *first, *last };
-  struct pref_width_stack { UISize *first, *last; };
-  struct pref_height_stack { UISize *first, *last; };
-  struct layout_axis_stack { AXIS2 *first, *last; };
-  struct clipping_rect_stack { V2F32 *first, *last; };
-  struct render_function_stack { ui_render_function *first, *last };
-
-	Font default_font;
-	
-	UIBox* root;
-	u64 current_frame_index;
-	
-	UIKey hot_key;
-	UIKey active_key;
-};
-
 void
 draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
 {
@@ -445,6 +253,8 @@ A tab is a combination of a Window and Panel
     state->y = 20;
     state->t = 30;
 
+    ui_cache_init(state->ui_cache, state->window_width, state->window_height);
+
     state->is_initialised = true;
   }
 
@@ -452,18 +262,8 @@ A tab is a combination of a Window and Panel
   
   // render
 
-  for (i32 y = 0; y < (i32)state->height; ++y)
-  {
-    for (i32 x = 0; x < (i32)state->width; ++x)
-    {
-      f32 coord = sin_f32(x) + sin_f32(y);
-      //Vec3F32 colour = vec3_f32_dup(((coord * (state->ms)) % 256) / 256.0f);
-      //draw_rect(vec2_f32(x, y), vec2_f32(x + 5, y + 1), colour);
-    }
-  }
-
-  //DrawRectangle(0, 0, state->width, state->height, DARKBLUE);
-  //DrawRectangle(0, state->height - 150, state->width, state->height, GREEN);
+  DrawRectangle(0, 0, state->window_width, state->window_height, DARKBLUE);
+  DrawRectangle(0, state->window_height - 150, state->window_width, state->window_height, GREEN);
 
   // TODO(Ryan): Perhaps use i32 whenever used in calculation for drawing
   //i32 snow_num_x = 10, snow_width = 10, snow_gutter_x = 30;

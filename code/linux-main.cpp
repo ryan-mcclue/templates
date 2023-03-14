@@ -127,35 +127,10 @@ main(int argc, char *argv[])
   void *app_lib = NULL;
   app_func app = NULL;
 
-  UICache *cache = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, UICache);
-  // preserve previous elements for animation? 
-	// stable_table_init(UI_Key, UI_Box, &ui_cache->cache, 64);
-
-  // load font
-	// UI_ClippingRectPush(ui_cache, rect_init(0, 0, window->width, window->height));
-	// UI_FontPush(ui_cache, &ui_cache->default_font);
-	// UI_BoxColorPush(ui_cache, 0x111111FF);
-	// UI_HotColorPush(ui_cache, 0x131313FF);
-	// UI_ActiveColorPush(ui_cache, 0x131313FF);
-	// UI_EdgeColorPush(ui_cache, 0x9A5EBDFF);
-	// UI_TextColorPush(ui_cache, 0xFFAAFFFF);
-	// UI_RoundingPush(ui_cache, 5.f);
-	// UI_EdgeSoftnessPush(ui_cache, 2.f);
-	// UI_EdgeSizePush(ui_cache, 2.f);
-	// UI_PrefWidthPush(ui_cache, UI_Pixels(100));
-	// UI_PrefHeightPush(ui_cache, UI_Pixels(100));
-	// UI_LayoutAxisPush(ui_cache, axis2_y);
-
-
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-  // TODO(Ryan): just call getWindowWidth() to handle resizing?
-  app_state->window_width = (f32)window_width;
-  app_state->window_height = (f32)window_height;
 
-  app_state->font = LoadFont("");
-  ASSERT(app_state->font.texture.id != 0);
-  app_state->font_size = 34.0f; 
-  app_state->font_scale = 1.0f; 
+  app_state->ui_cache = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, UICache);
+  app_state->ui_cache->style_stack_arena = mem_arena_scratch_get(NULL, 0);
 
   // boxes have hashes computed by builder code? (distinction between builder code and ...?)
 
@@ -168,7 +143,7 @@ main(int argc, char *argv[])
 
   // styling pass: 
 
-  // these are the 'per-box' styling properties that can be overridden
+  /* these are the 'per-box' styling properties that can be overridden
   // 'size' is flexible constraint, e.g. size of the box’s text, as a number of pixels, etc.
   // 'layout' is flexible, e.g. layout axis (vertical or horizontal), the spacing of boxes along the layout axis, etc.
   // 'floating' indicates if not be included in layout ('floating_target' is location)
@@ -212,6 +187,7 @@ main(int argc, char *argv[])
 			[MP_GUI_STYLE_COLOR_SCROLLBAR_ACTIVE] = {0.1, 0.1, 0.1, 1},
 		}
 	};
+  */
 
 
   Color clear_colour = {0, 0, 0, 255};
@@ -233,7 +209,7 @@ main(int argc, char *argv[])
     BeginDrawing();
     ClearBackground(clear_colour); 
 
-    MemArenaTemp mem_temp_arena = mem_arena_scratch_get(NULL, 0);
+    MemArenaTemp mem_temp_arena = mem_arena_scratch_get(&app_state->ui_cache->style_stack_arena.arena, 1);
 
     u64 app_mod_time = linux_get_file_mod_time(app_name);
     if (app_mod_time > last_app_reload_time)
@@ -277,6 +253,8 @@ main(int argc, char *argv[])
     {
       app_state->ms = linux_get_ms();
 
+      app_state->window_width = GetScreenWidth();
+      app_state->window_height = GetScreenHeight(); 
 
       app(app_state);
     }
