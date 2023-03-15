@@ -141,68 +141,10 @@ main(int argc, char *argv[])
   
   // optional arguments: one arg for struct, other arg for flags to obtain from this struct
 
-  // styling pass: 
-
-  /* these are the 'per-box' styling properties that can be overridden
-  // 'size' is flexible constraint, e.g. size of the box’s text, as a number of pixels, etc.
-  // 'layout' is flexible, e.g. layout axis (vertical or horizontal), the spacing of boxes along the layout axis, etc.
-  // 'floating' indicates if not be included in layout ('floating_target' is location)
-  // 'animation' controls property transition to new styles, i.e. doesn't happen immediately ('animation_mask' is what properties)
-  app_state->border_width = 2;
-		.borderWidth = 2,
-		.borderWidthHover = 2,
-		.borderWidthActive = 4,
-		.viewBorderWidth = 2,
-		.frameRoundness = 0,
-		.elementRoundess = 0,
-		.scrollbarRoundness = 1,
-		.margin = 10,
-		.titleHeight = 80,
-
-		.colors = {
-			[MP_GUI_STYLE_COLOR_BG] = {0.2, 0.2, 0.2, 1},
-			[MP_GUI_STYLE_COLOR_BG_HOVER] = {0.2, 0.2, 0.2, 1},
-			[MP_GUI_STYLE_COLOR_BG_ACTIVE] = {0.2, 0.2, 0.2, 1},
-
-			[MP_GUI_STYLE_COLOR_BORDER] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_BORDER_HOVER] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_BORDER_ACTIVE] = {1, 1, 1, 1},
-
-			[MP_GUI_STYLE_COLOR_ELT] = {0.5, 0.5, 0.5, 1},
-			[MP_GUI_STYLE_COLOR_ELT_HOVER] = {0.5, 0.5, 0.5, 1},
-			[MP_GUI_STYLE_COLOR_ELT_ACTIVE] = {0.1, 0.1, 0.1, 1},
-
-			[MP_GUI_STYLE_COLOR_TEXT] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_TEXT_HOVER] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_TEXT_ACTIVE] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_TEXT_SELECTION_BG] = {0, 0, 1, 1},
-			[MP_GUI_STYLE_COLOR_TEXT_SELECTION_FG] = {1, 1, 1, 1},
-
-			[MP_GUI_STYLE_COLOR_VIEW_BG] = {0.3, 0.3, 0.3, 1},
-			[MP_GUI_STYLE_COLOR_VIEW_TITLE_BG] = {0.1, 0.1, 0.1, 1},
-			[MP_GUI_STYLE_COLOR_VIEW_TITLE_TEXT] = {1, 1, 1, 1},
-			[MP_GUI_STYLE_COLOR_VIEW_BORDER] = {1, 1, 1, 1},
-
-			[MP_GUI_STYLE_COLOR_SCROLLBAR] = {0.2, 0.2, 0.2, 1},
-			[MP_GUI_STYLE_COLOR_SCROLLBAR_ACTIVE] = {0.1, 0.1, 0.1, 1},
-		}
-	};
-  */
-
 
   Color clear_colour = {0, 0, 0, 255};
 
-// DrawRectangleGradientH(), DrawRectangleGradientEx()
-// MeasureTextEx()
-//    positions[i].x = screenWidth/2.0f - MeasureTextEx(fonts[i], messages[i], fonts[i].baseSize*2.0f, (float)spacings[i]).x/2.0f;
-//    positions[i].y = 60.0f + fonts[i].baseSize + 45.0f*i; 
-//    DrawTextEx()
-
-  // IsKeyDown(); IsMouseButtonPressed();
-  // GetMouseWheelMove() * scroll_speed;
-  // SetMouseCursor(MOUSE_CURSOR_IBEAM);
-  //      if (CheckCollisionPointRec(GetMousePosition(), textBox)) mouseOnText = true;
-  //      else mouseOnText = false;
+  // DrawRectangleGradientH(), DrawRectangleGradientEx()
 
   while (!WindowShouldClose())
   {

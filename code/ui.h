@@ -125,7 +125,7 @@ enum
 	UI_BOX_FLAG_CLIP            =  (1 << 6), // @done
 	UI_BOX_FLAG_HOT_ANIMATION    = (1 << 7),  // @done
 	UI_BOX_FLAG_ACTIVE_ANIMATION = (1 << 8),  // @done
-	UI_BOX_FLAG_CUSTOM_RENDERER  = (1 << 9),  // @done
+	UI_BOX_FLAG_RENDER_FUNCTION  = (1 << 9),  // @done
 };
 
 typedef struct UICache UICache;
@@ -838,16 +838,20 @@ ui_autolayout_preorder_screen_positions(UICache *cache, UIBox *box, f32 xoff, f3
 	}
 }
 
-static b8 UI_StateRecurseCheckHotAndActive(UI_Cache* ui_cache, UI_Box* box) {
+INTERNAL b32
+UI_StateRecurseCheckHotAndActive(UI_Cache* ui_cache, UI_Box* box) 
+{
 	UI_Box* curr = box->first;
 	while (curr) {
 		if (UI_StateRecurseCheckHotAndActive(ui_cache, curr)) return true;
 		curr = curr->next;
 	}
 	
-	if (!box->parent || UI_KeyIsNull(box->key)) return false;
-	if (rect_contains_point(box->clipped_bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY()))) {
-		if (OS_InputButton(Input_MouseButton_Left)) {
+	if (box->parent != NULL || UI_KeyIsNull(box->key)) return false;
+
+  if (CheckCollisionPointRec(GetMousePosition(), box->clipped_bounds)) 
+  {
+		if (IsMouseButtonPressed()) {
 			ui_cache->hot_key = (UI_Key) {0};
 			ui_cache->active_key = box->key;
 		} else {
@@ -855,88 +859,81 @@ static b8 UI_StateRecurseCheckHotAndActive(UI_Cache* ui_cache, UI_Box* box) {
 			ui_cache->active_key = (UI_Key) {0};
 		}
 		return true;
-	}
+  }
+
 	return false;
 }
 
-static void UI_PushBox(UI_Cache* ui_cache, UI_Box* box) {
-	if (box->flags & BoxFlag_CustomRenderer) {
-		box->custom_render(ui_cache, box);
+INTERNAL void 
+ui_render_box(UICache *cache, UIBox *box) 
+{
+	if (box->flags & UI_BOX_FLAG_RENDER_FUNCTION) 
+  {
+		box->render_function(cache, box);
 		return;
 	}
 	
-	if (box->flags & BoxFlag_DrawDropShadow) {
-		UI_PushQuad(ui_cache, (rect) {box->bounds.x + 5, box->bounds.y + 5, box->bounds.w, box->bounds.h}, rect_init(0, 0, 1, 1),
-					&ui_cache->white_texture, UI_Vec4ColorSetUniform(v4(0.05, 0.05, 0.05, 1.0)),
-					box->rounding, 5,
-					0.f);
+	if (box->flags & UI_BOX_FLAG_DRAW_DROP_SHADOW) 
+  {
+    u32 drop_shadow_offset = 5;
+    Rectangle drop_shadow_rect = {box->bounds.x + drop_shadow_offset, 
+                                  box->bounds.y + drop_shadow_offset, 
+                                  box->bounds.w, box->bounds.h};
+    Color drop_shadow_color = {12, 12, 12, 255};
+    DrawRectangleRounded(drop_shadow_rectangle, box->edge_rounding, 4, drop_shadow_color);
 	}
 	
-	if (box->flags & BoxFlag_DrawBackground) {
-		UI_QuadVec4ColorSet color = UI_ColorToVec4Set(box->color);
-		if (box->flags & BoxFlag_HotAnimation) {
-			UI_QuadVec4ColorSet hot_color = UI_ColorToVec4Set(box->hot_color);
-			color = UI_ColorSetLerp(&color, &hot_color, box->hot_t);
+	if (box->flags & UI_BOX_FLAG_DRAW_BACKGROUND) 
+  {
+    Color bg_color = box->color;
+
+		if (box->flags & UI_BOX_FLAG_HOT_ANIMATION) 
+    {
+			bg_color = ColorLerp(bg_color, box->hot_color, box->hot_t);
 		}
-		if (box->flags & BoxFlag_ActiveAnimation) {
-			UI_QuadVec4ColorSet active_color = UI_ColorToVec4Set(box->active_color);
-			color = UI_ColorSetLerp(&color, &active_color, box->active_t);
+		if (box->flags & UI_BOX_FLAG_ACTIVE_ANIMATION) 
+    {
+			bg_color = ColorLerp(bg_color, box->active_color, box->active_t);
 		}
 		
-		UI_PushQuad(ui_cache, box->bounds, rect_init(0, 0, 1, 1),
-					&ui_cache->white_texture, color, box->rounding, box->softness,
-					0.f);
+    DrawRectangleRounded(box->bounds, box->edge_rounding, 4, bg_color);
 	}
 	
-	if (box->flags & BoxFlag_DrawText) {
-		f32 string_size = UI_GetStringSize(box->font, box->identifier);
-		vec2 pos = v2(box->bounds.x + (box->bounds.w / 2.f), box->bounds.y + (box->bounds.h / 2.f));
-		pos.x -= string_size / 2.f;
-		pos.y += box->font->baseline / 2.f;
-		vec4 vcolor = color_code_to_vec4(box->text_color);
-		
-		for (u32 i = 0; i < box->identifier.size; i++) {
-			if (box->identifier.str[i] >= 32 && box->identifier.str[i] < 128) {
-				stbtt_packedchar* info = &box->font->cdata[box->identifier.str[i] - 32];
-				rect uvs = {
-					info->x0 / 512.f,
-					info->y0 / 512.f,
-					(info->x1 - info->x0) / 512.f,
-					(info->y1 - info->y0) / 512.f
-				};
-				rect loc = { pos.x + info->xoff, pos.y + info->yoff, info->x1 - info->x0, info->y1 - info->y0 };
-				UI_PushQuad(ui_cache, loc, uvs, &box->font->font_texture,
-							UI_Vec4ColorSetUniform(vcolor), 0.f, 0.f, 0.f);
-				pos.x += info->xadvance;
-			}
-		}
+	if (box->flags & UI_BOX_FLAG_DRAW_TEXT) 
+  {
+    Vector2 text_size = MeasureTextEx(box->identifier, box->font);
+
+    Vector2 centered_text_pos = {(box->bounds.x + (box->bounds.w * 0.5f)) - (text_size.x * 0.5f),
+                                  (box->bounds.y + (box->bounds.h * 0.5f)) - (text_size.y * 0.5f)};
+
+    DrawTextEx(box->font, box->identifier, centered_text_pos, cache->font_size, 0.0f, box->text_color);
 	}
 	
-	if (box->flags & BoxFlag_DrawBorder) {
-		vec4 bcolor = color_code_to_vec4(box->edge_color);
-		UI_QuadVec4ColorSet bcolor_set = { bcolor, bcolor, bcolor, bcolor };
-		UI_PushQuad(ui_cache, box->bounds, rect_init(0, 0, 1, 1),
-					&ui_cache->white_texture, bcolor_set, box->rounding,
-					box->softness, box->edge_size);
+	if (box->flags & UI_BOX_FLAG_DRAW_BORDER) 
+  {
+    DrawRectangleRoundedLines(box->bounds, box->edge_roundness, 4, box->edge_size, box->edge_color);
 	}
 }
 
-
-static void UI_PushBoxRecursive(UI_Cache* ui_cache, UI_Box* box) {
-	UI_PushBox(ui_cache, box);
+INTERNAL void 
+ui_render_boxes(UICache *cache, UIBox *box) 
+{
+	ui_render_box(cache, box);
 	
-	if (box->flags & BoxFlag_Clip) {
-		UI_ClippingRectPush(ui_cache, box->clipped_bounds);
+  // TODO(Ryan): Incorporate clip rect into box render
+	if (box->flags & UI_BOX_FLAG_CLIP) 
+  {
+		ui_push_clip_rect(cache, box->clipped_bounds);
 	}
 	
-	UI_Box* curr = box->first;
-	while (curr) {
-		UI_PushBoxRecursive(ui_cache, curr);
-		curr = curr->next;
-	}
+  for (UIBox *box_child = box->first_child; box_child != NULL; box_child = box_child->next)
+  {
+		ui_render_boxes(cache, box_child);
+  }
 	
-	if (box->flags & BoxFlag_Clip) {
-		UI_ClippingRectPop(ui_cache);
+	if (box->flags & UI_BOX_FLAG_CLIP) 
+  {
+    ui_pop_clip_rect(cache);
 	}
 }
 
@@ -955,6 +952,7 @@ ui_end_frame(UICache *cache, f32 delta)
   ui_autolayout_preorder_screen_positions(cache, cache->root, 0.0f, 0.0f);
 
 
+  // checking if mouse is hovering or clicked on box
 	ui_cache->hot_key = (UI_Key) {0};
 	ui_cache->active_key = (UI_Key) {0};
 	UI_StateRecurseCheckHotAndActive(ui_cache, ui_cache->root);
@@ -962,10 +960,18 @@ ui_end_frame(UICache *cache, f32 delta)
 	// UI_Animate inlined
 	f32 fast_rate = 1 - pow(2.f, -50.f * delta_time);
 	f32 slow_rate = 1 - pow(2.f, -30.f * delta_time);
-	Iterate (ui_cache->cache, i) {
-		UI_Box* curr = &ui_cache->cache.elems[i];
-		if (UI_KeyIsNull(curr->key)) continue;
-		while (curr) {
+  for (u32 box_map_i = 0; box_map_i < cache->box_map.bucket_count; box_map_i += 1)
+  {
+    MapBucket box_map_bucket = cache->box_map[box_map_i];
+
+    if (box_map_bucket.first == NULL) continue;
+
+    for (MapSlot *box_map_slot = box_map_bucket.first; 
+         box_map_slot != NULL; 
+         box_map_slot = box_map_slot->next)
+    {
+      UIBox *curr = (UIBox *)box_map_slot->val;
+
 			if (!UI_KeyIsNull(curr->key)) {
 				b8 is_hot        = UI_KeyEquals(ui_cache->hot_key, curr->key);
 				b8 is_active     = UI_KeyEquals(ui_cache->active_key, curr->key);
@@ -984,12 +990,60 @@ ui_end_frame(UICache *cache, f32 delta)
 					curr->bounds.h += (curr->target_bounds.h - curr->bounds.h) * slow_rate;
 				}
 			}
-			curr = curr->hash_next;
-		}
+    }
+  }
+	
+	ui_render_boxes(cache, cache->root);
+}
+
+static b8 UI_RecurseCheckChildrenMouseTest(UI_Box* box) {
+	if (box->flags & BoxFlag_Clickable &&
+		rect_contains_point(box->bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY())))
+		return true;
+	UI_Box* curr = box->first;
+	while (curr) {
+		if (UI_RecurseCheckChildrenMouseTest(curr)) return true;
+		curr = curr->next;
+	}
+	return false;
+}
+
+UI_Signal UI_Button(UI_Cache* ui_cache, string id) {
+	UI_CustomRenderFunctionSetNext(ui_cache, UI_ButtonRenderFunction);
+	UI_Box* the_box =
+		UI_BoxMake(ui_cache, BoxFlag_DrawBackground | BoxFlag_DrawBorder | BoxFlag_HotAnimation |
+				   BoxFlag_ActiveAnimation | BoxFlag_DrawDropShadow | BoxFlag_Clickable |
+				   BoxFlag_DrawText | BoxFlag_CustomRenderer, id);
+	return UI_SignalFromBox(the_box);
+}
+
+UI_Signal UI_SignalFromBox(UI_Box* box) {
+	UI_Signal ret = {0};
+	if (!rect_contains_point(box->clipped_bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY())))
+		return ret;
+	
+	UI_Box* curr = box->first;
+	while (curr) {
+		if (UI_RecurseCheckChildrenMouseTest(curr))
+			return ret;
+		curr = curr->next;
 	}
 	
-	// NOTE(Ryan): Rendering 
-	UI_PushBoxRecursive(ui_cache, ui_cache->root);
+	ret.hovering = true;
+	if (box->flags & BoxFlag_Clickable) {
+		ret.pressed  = (b8) OS_InputButtonPressed(Input_MouseButton_Left);
+		ret.released = (b8) OS_InputButtonReleased(Input_MouseButton_Left);
+		ret.clicked  = ret.released && box->pressed_on_this;
+		
+		ret.right_clicked = (b8) OS_InputButtonReleased(Input_MouseButton_Right) && box->pressed_on_this;
+		
+		if (OS_InputButtonPressed(Input_MouseButton_Left) || (b8) OS_InputButtonPressed(Input_MouseButton_Right))
+			box->pressed_on_this = true;
+	}
+	if (!(OS_InputButton(Input_MouseButton_Left) || OS_InputButton(Input_MouseButton_Right)))
+		box->pressed_on_this = false;
+	
+	return ret;
 }
 
 
