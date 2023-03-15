@@ -996,55 +996,72 @@ ui_end_frame(UICache *cache, f32 delta)
 	ui_render_boxes(cache, cache->root);
 }
 
-static b8 UI_RecurseCheckChildrenMouseTest(UI_Box* box) {
-	if (box->flags & BoxFlag_Clickable &&
-		rect_contains_point(box->bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY())))
-		return true;
-	UI_Box* curr = box->first;
-	while (curr) {
-		if (UI_RecurseCheckChildrenMouseTest(curr)) return true;
-		curr = curr->next;
-	}
+INTERNAL b32 
+ui_box_children_clicked(UIBox *box) 
+{
+	if (box->flags & UI_BOX_FLAG_CLICKABLE && CheckCollisionPointRec(GetMousePosition(), box->bounds)) 
+  {
+    return true;
+  }
+
+  for (UIBox *box_child = box->first_child; box_child != NULL; box_child = box_child->next)
+  {
+		if (ui_box_children_clicked(curr)) return true;
+  }
+
 	return false;
 }
 
-UI_Signal UI_Button(UI_Cache* ui_cache, string id) {
-	UI_CustomRenderFunctionSetNext(ui_cache, UI_ButtonRenderFunction);
-	UI_Box* the_box =
-		UI_BoxMake(ui_cache, BoxFlag_DrawBackground | BoxFlag_DrawBorder | BoxFlag_HotAnimation |
-				   BoxFlag_ActiveAnimation | BoxFlag_DrawDropShadow | BoxFlag_Clickable |
-				   BoxFlag_DrawText | BoxFlag_CustomRenderer, id);
-	return UI_SignalFromBox(the_box);
-}
+INTERNAL UISignal 
+ui_signal_from_box(UIBox *box) 
+{
+	UI_Signal ret = ZERO_STRUCT;
 
-UI_Signal UI_SignalFromBox(UI_Box* box) {
-	UI_Signal ret = {0};
-	if (!rect_contains_point(box->clipped_bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY())))
-		return ret;
-	
-	UI_Box* curr = box->first;
-	while (curr) {
-		if (UI_RecurseCheckChildrenMouseTest(curr))
+  if (!CheckCollisionPointRec(GetMousePosition(), box->clipped_bounds)) 
+  {
+    return ret;
+  }
+
+  for (UIBox *box_child = box->first_child; box_child != NULL; box_child = box_child->next)
+  {
+		if (ui_box_children_clicked(curr))
 			return ret;
-		curr = curr->next;
-	}
+  }
 	
 	ret.hovering = true;
-	if (box->flags & BoxFlag_Clickable) {
-		ret.pressed  = (b8) OS_InputButtonPressed(Input_MouseButton_Left);
-		ret.released = (b8) OS_InputButtonReleased(Input_MouseButton_Left);
+	if (box->flags & UI_BOX_FLAG_CLICKABLE) 
+  {
+		ret.pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+		ret.released = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
 		ret.clicked  = ret.released && box->pressed_on_this;
 		
-		ret.right_clicked = (b8) OS_InputButtonReleased(Input_MouseButton_Right) && box->pressed_on_this;
+		ret.right_clicked = IsMouseButtonReleased(MOUSE_BUTTON_RIGHT) && box->pressed_on_this;
 		
-		if (OS_InputButtonPressed(Input_MouseButton_Left) || (b8) OS_InputButtonPressed(Input_MouseButton_Right))
+		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
 			box->pressed_on_this = true;
 	}
-	if (!(OS_InputButton(Input_MouseButton_Left) || OS_InputButton(Input_MouseButton_Right)))
+
+	if (IsMouseButtonUp(MOUSE_BUTTON_LEFT) ||  IsMouseButtonUp(MOUSE_BUTTON_RIGHT))
 		box->pressed_on_this = false;
 	
 	return ret;
 }
+
+INTERNAL UISignal 
+ui_button(UICache *cache, String8 id) 
+{
+  UIBox *box = NULL;
+  UI_STYLE_RENDER_FUNCTION(cache, ui_button_render_function)
+  {
+    the_box = ui_make_box(cache, 
+        UI_BOX_FLAG_DRAW_BACKGROUND | UI_BOX_FLAG_DRAW_BORDER | UI_BOX_FLAG_HOT_ANIMATION |
+        UI_BOX_FLAG_ACTIVE_ANIMATION | UI_BOX_FLAG_DRAW_DROP_SHADOW | UI_BOX_FLAG_CLICKABLE |
+        UI_BOX_FLAG_DRAWTEXT | UI_BOX_FLAG_RENDER_FUNCTION, id);
+  }
+
+	return ui_signal_from_box(the_box);
+}
+
 
 
 #endif

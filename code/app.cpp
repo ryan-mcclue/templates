@@ -222,53 +222,56 @@ A tab is a combination of a Window and Panel
     state->y = 20;
     state->t = 30;
 
+    state->show_button = 0;
+
     ui_cache_init(state->ui_cache, state->window_width, state->window_height);
 
     state->is_initialised = true;
   }
 
-  // update
   ui_begin_frame(state->ui_cache);
 
-  UI_SET_PREF_WIDTH(state->ui_cache, ui_size_percentage(100))
-  UI_SET_PREF_HEIGHT(state->ui_cache, ui_size_percentage(100))
-  UI_SET_LAYOUT_AXIS(state->ui_cache, AXIS2_X)
+  UI_STYLE_PREF_WIDTH(state->ui_cache, ui_size_percentage(100))
+  UI_STYLE_PREF_HEIGHT(state->ui_cache, ui_size_percentage(100))
+  UI_STYLE_LAYOUT_AXIS(state->ui_cache, AXIS2_X)
 	{
-		UI_Box* full_container = UI_BoxMake(ui_cache, BoxFlag_DrawBackground | BoxFlag_DrawBorder | BoxFlag_Clip, str_lit("foo"));
-		UI_SET_PARENT(ui_cache, full_container)
+		UIBox *full_container = ui_make_box(state->ui_cache, 
+                                        UI_BOX_FLAG_DRAW_BACKGROUND | UI_BOX_FLAG_DRAW_BORDER | UI_BOX_FLAG_CLIP, 
+                                        s8_lit("foo"));
+		UI_STYLE_PARENT(state->ui_cache, full_container)
     {
-	    ui_spacer_instance(ui_cache, UI_Percentage(35));
+	    ui_spacer(state->ui_cache, ui_style_percentage(35));
 				
-		  UI_LayoutAxis(ui_cache, axis2_y)
-		  UI_PrefWidth(ui_cache, UI_Percentage(30))
-			UI_PrefHeight(ui_cache, UI_Percentage(100))
+		  UI_STYLE_LAYOUT_AXIS(state->ui_cache, AXIS2_Y)
+		  UI_STYLE_PREF_WIDTH(state->ui_cache, ui_style_percentage(30))
+			UI_STYLE_PREF_HEIGHT(state->ui_cache, ui_style_percentage(100))
       {
-			  UI_Box* vert = UI_BoxMake(ui_cache, 0, str_lit("VerticalCheckboxContainer"));
+			  UIBox *vert = ui_make_box(state->ui_cache, 0, s8_lit("VerticalCheckboxContainer"));
 					
-				UI_Parent(ui_cache, vert)
-				UI_PrefWidth(ui_cache, UI_Percentage(100))
-				UI_PrefHeight(ui_cache, UI_Pixels(35))
-				UI_LayoutAxis(ui_cache, axis2_x) 
+				UI_STYLE_PARENT(state->ui_cache, vert)
+				UI_STYLE_PREF_WIDTH(state->ui_cache, ui_style_percentage(100))
+				UI_STYLE_PREF_HEIGHT(state->ui_cache, ui_style_pixels(35))
+				UI_STYLE_LAYOUT_AXIS(state->ui_cache, AXIS2_X) 
         {
-					UI_Box* pm = UI_BoxMake(ui_cache, 0, str_lit("PlusMinusContainer"));
+					UIBox *pm = ui_make_box(state->ui_cache, 0, s8_lit("PlusMinusContainer"));
 					
-					UI_Parent(ui_cache, pm)
-					UI_PrefWidth(ui_cache, UI_Percentage(50))
-					UI_PrefHeight(ui_cache, UI_Pixels(35))
+					UI_STYLE_PARENT(state->ui_cache, pm)
+					UI_STYLE_PREF_WIDTH(state->ui_cache, ui_style_percentage(50))
+					UI_STYLE_PREF_HEIGHT(state->ui_cache, ui_style_pixels(35))
           {
-							if (UI_Button(ui_cache, str_lit("+##AddCheckbox")).clicked)
-								show_btn ++;
-							if (UI_Button(ui_cache, str_lit("-##SubCheckbox")).clicked)
-								show_btn --;
-							if (show_btn < 0) show_btn = 0;
+							if (ui_button(state->ui_cache, s8_lit("+##AddCheckbox")).clicked)
+								state->show_btn++;
+							if (ui_button(state->ui_cache, s8_lit("-##SubCheckbox")).clicked)
+								state->show_btn--;
+							if (state->show_btn < 0) state->show_btn = 0;
 					}
 						
-					UI_Spacer(ui_cache, UI_Pixels(15));
+					ui_spacer(state->ui_cache, ui_style_pixels(15));
 						
-					UI_ActiveColor(ui_cache, 0x9A5EBDFF)
+					UI_STYLE_ACTIVE_COLOR(state->ui_cache, 0x9A5EBDFF)
           {
-            for (i32 i = show_btn; i > 0; i--)
-              UI_CheckboxF(ui_cache, "Checkbox##%d", i);
+            for (i32 i = state->show_btn; i > 0; i--)
+              ui_checkbox_fmt(state->ui_cache, "Checkbox##%d", i);
 					}
 				}
 			}
@@ -276,15 +279,4 @@ A tab is a combination of a Window and Panel
   }
 
   ui_end_frame(state->ui_cache, delta);
-
-  // render
-
-  DrawRectangle(0, 0, state->window_width, state->window_height, DARKBLUE);
-  DrawRectangle(0, state->window_height - 150, state->window_width, state->window_height, GREEN);
-
-  // TODO(Ryan): Perhaps use i32 whenever used in calculation for drawing
-  //i32 snow_num_x = 10, snow_width = 10, snow_gutter_x = 30;
-  //i32 snow_num_y = 20, snow_height = 10, snow_gutter_y = 50;
-
-
 }
