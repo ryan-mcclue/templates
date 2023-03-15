@@ -214,11 +214,6 @@ A tab is a combination of a Window and Panel
             - recursively autolayout position and bounds
             - check hot/active and animate values
             - recurse hierarchy and render based on box flags 
-             
-
-         graphics init (clear colour)
-         set event process callback (on frame refresh event call app)
-         enter event loop
 */
     
   if (!state->is_initialised)

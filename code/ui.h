@@ -680,88 +680,316 @@ ui_begin_frame(UICache *cache)
 
 
 
-//- Layouting Helpers TODO(voxel): @rework replace recursives with queue/stack 
-//                                 Callstack size may become an issue
-static void UI_LayoutRecurseForward(UI_Cache* ui_cache, UI_Box* box, u32 axis) {
+
+
+/*
+ * In general, if need to traverse entire tree use DFS as less state/memory required and simpler.
+ *
+ * Consider shape of tree (really only if large search space?)
+ * DFS:
+ *   - target close to bottom
+ *   - tree very wide
+ *
+ * BFS:
+ *   - target close to root
+ *   - very deep tree
+ *
+ * in tail recursion, final answer computed on last invocation
+ * tail recursion simply changed to iterative
+ * more efficient, especially with tail call optimisation in compilers
+   u32 sum(x) {
+       if (x == 0) {
+         return 0;
+       } else {
+         return x + sum(x - 1);
+       }
+   }
+   u32 tail_sum(x, running_total) {
+    if (x == 0) {
+        return running_total;
+    } else {
+        return tail_sum(x - 1, running_total + x);
+    }
+   }
+
+  DFS traversals:
+    In recursive implementations: consider root node, left subtree, right subtree 
+    * pre-order: 
+    * post-order: property dependent on children, e.g. children_sum
+                  traversal is not tail recursive
+
+  level-order is same as BFS
+ */
+INTERNAL void
+ui_autolayout_preorder_sizes(UICache *cache, UIBox *box, AXIS2 axis)
+{
+  if (box == NULL)
+  {
+    return;
+  }
+
   f32 edge_correction_factor = 0.0f;
   if (box->parent != NULL)
   {
     edge_correction_factor = box->parent->edge_size + (box->parent->edge_size)*0.25f;
   }
 
-	f32 edge_correction_factor = box->parent ?
-		box->parent->edge_size + (box->parent->edge_size)*0.25 : 0;
-	
-	if (box->semantic_size[axis].kind == SizeKind_Pixels) {
+	if (box->semantic_size[axis].kind == UI_SIZE_KIND_PIXELS)
+  {
 		box->computed_size[axis] = box->semantic_size[axis].value;
-	} else if (box->semantic_size[axis].kind == SizeKind_TextContent) {
-		if (axis == axis2_x) {
+	} 
+  else if (box->semantic_size[axis].kind == UI_SIZE_KIND_TEXT_CONTENT)
+  {
+		if (axis == AXIS2_X) 
+    {
 			box->computed_size[axis] = UI_GetStringSize(box->font, box->identifier) + box->semantic_size[axis].value * 2;
-		} else {
+		} 
+    else 
+    {
 			box->computed_size[axis] = box->font->font_size + box->semantic_size[axis].value * 2;
 		}
-	} else if (box->semantic_size[axis].kind == SizeKind_PercentOfParent) {
+	}
+  else if (box->semantic_size[axis].kind == UI_SIZE_KIND_PERCENT_OF_PARENT)
+  {
 		box->computed_size[axis] = (box->parent->computed_size[axis] - edge_correction_factor*2) * 
 			box->semantic_size[axis].value / 100.f;
 	}
-	
-	UI_Box* curr = box->first;
-	while (curr) {
-		UI_LayoutRecurseForward(ui_cache, curr, axis);
-		curr = curr->next;
-	}
+
+  for (UIBox *box_child = box->first_child; box_child != NULL; box_child = box_child->next)
+  {
+    ui_autolayout_preorder_sizes(cache, box_child, axis);
+  }
 }
 
-static void UI_LayoutRecurseBackward(UI_Cache* ui_cache, UI_Box* box, u32 axis) {
-	UI_Box* curr = box->first;
-	f32 size = 0.f;
-	while (curr) {
-		UI_LayoutRecurseBackward(ui_cache, curr, axis);
-		size += curr->computed_size[axis];
-		
-		curr = curr->next;
-	}
-	if (box->semantic_size[axis].kind == SizeKind_ChildrenSum) {
+INTERNAL void
+ui_autolayout_postorder_sizes(UICache *cache, UIBox *box, AXIS2 axis)
+{
+  if (box == NULL)
+  {
+    return;
+  }
+
+  f32 size = 0.0f;
+  for (UIBox *box_child = box->first_child; box_child != NULL; box_child = box_child->next)
+  {
+    ui_autolayout_postorder_sizes(cache, box_child, axis);
+    size += box_child->computed_size[axis];
+  }
+
+	if (box->semantic_size[axis].kind == UI_SIZE_KIND_CHILDREN_SUM)
+  {
 		box->computed_size[axis] = size;
 	}
 }
 
-// https://www.enjoyalgorithms.com/blog/iterative-binary-tree-traversals-using-stack
-
-// iterative tree searching: stack DFS, queue BFS
 INTERNAL void
-dfs(UIBox *box)
+ui_autolayout_preorder_relative_positions(UICache *cache, UIBox *box, f32 depth)
 {
-  UIBox *first = NULL;
-  SLL_STACK_PUSH(first, box);
-  while (first != NULL)
-  {
-    UIBox *cur = SLL_STACK_POP(first);
-    for (u32 i = len(cur->children) - 1; i >= 0; i--)
-    {
-      SLL_STACK_PUSH(first, cur->children[i]);
-    }
-  }
+	f32 edge_correction_factor = box->parent ? (box->parent->edge_size)*0.25 : 0;
+	f32 child_depth = box->edge_size + edge_correction_factor;
+	UI_Box* curr = box->first;
+	while (curr) {
+		UI_LayoutRecursePositionForward(ui_cache, curr, child_depth);
+		child_depth += curr->computed_size[box->layout_axis];
+		curr = curr->next;
+	}
+	
+	if (box->parent) {
+		box->computed_rel_position[box->parent->layout_axis] = depth;
+		box->computed_rel_position[!box->parent->layout_axis] = box->parent->edge_size + edge_correction_factor;
+	}
+}
+
+INTERNAL void
+ui_autolayout_preorder_screen_positions(UICache *cache, UIBox *box, f32 xoff, f32 yoff) 
+{
+	xoff += box->computed_rel_position[axis2_x];
+	yoff += box->computed_rel_position[axis2_y];
+	
+	box->target_bounds.x = xoff;
+	box->target_bounds.y = yoff;
+	box->target_bounds.w = box->computed_size[axis2_x];
+	box->target_bounds.h = box->computed_size[axis2_y];
+	
+	rect clippable_bounds = box->bounds;
+	if (box->flags & BoxFlag_DrawBorder) {
+		f32 edge_correction_factor = box->parent ? (box->parent->edge_size)*0.25 : 0;
+		clippable_bounds.x += box->edge_size + edge_correction_factor;
+		clippable_bounds.y += box->edge_size + edge_correction_factor;
+		clippable_bounds.w -= box->edge_size * 2 + edge_correction_factor;
+		clippable_bounds.h -= box->edge_size * 2 + edge_correction_factor;
+	}
+	
+	rect clipping_quad = UI_ClippingRectPeek(ui_cache);
+	box->clipped_bounds = rect_get_overlap(clippable_bounds, clipping_quad);
+	
+	if (box->flags & BoxFlag_Clip) {
+		UI_ClippingRectPush(ui_cache, box->clipped_bounds);
+	}
+	
+	UI_Box* curr = box->first;
+	while (curr) {
+		UI_LayoutRecurseCalculateBounds(ui_cache, curr, xoff, yoff);
+		curr = curr->next;
+	}
+	
+	if (box->flags & BoxFlag_Clip) {
+		UI_ClippingRectPop(ui_cache);
+	}
+}
+
+static b8 UI_StateRecurseCheckHotAndActive(UI_Cache* ui_cache, UI_Box* box) {
+	UI_Box* curr = box->first;
+	while (curr) {
+		if (UI_StateRecurseCheckHotAndActive(ui_cache, curr)) return true;
+		curr = curr->next;
+	}
+	
+	if (!box->parent || UI_KeyIsNull(box->key)) return false;
+	if (rect_contains_point(box->clipped_bounds, v2(OS_InputGetMouseX(), OS_InputGetMouseY()))) {
+		if (OS_InputButton(Input_MouseButton_Left)) {
+			ui_cache->hot_key = (UI_Key) {0};
+			ui_cache->active_key = box->key;
+		} else {
+			ui_cache->hot_key = box->key;
+			ui_cache->active_key = (UI_Key) {0};
+		}
+		return true;
+	}
+	return false;
+}
+
+static void UI_PushBox(UI_Cache* ui_cache, UI_Box* box) {
+	if (box->flags & BoxFlag_CustomRenderer) {
+		box->custom_render(ui_cache, box);
+		return;
+	}
+	
+	if (box->flags & BoxFlag_DrawDropShadow) {
+		UI_PushQuad(ui_cache, (rect) {box->bounds.x + 5, box->bounds.y + 5, box->bounds.w, box->bounds.h}, rect_init(0, 0, 1, 1),
+					&ui_cache->white_texture, UI_Vec4ColorSetUniform(v4(0.05, 0.05, 0.05, 1.0)),
+					box->rounding, 5,
+					0.f);
+	}
+	
+	if (box->flags & BoxFlag_DrawBackground) {
+		UI_QuadVec4ColorSet color = UI_ColorToVec4Set(box->color);
+		if (box->flags & BoxFlag_HotAnimation) {
+			UI_QuadVec4ColorSet hot_color = UI_ColorToVec4Set(box->hot_color);
+			color = UI_ColorSetLerp(&color, &hot_color, box->hot_t);
+		}
+		if (box->flags & BoxFlag_ActiveAnimation) {
+			UI_QuadVec4ColorSet active_color = UI_ColorToVec4Set(box->active_color);
+			color = UI_ColorSetLerp(&color, &active_color, box->active_t);
+		}
+		
+		UI_PushQuad(ui_cache, box->bounds, rect_init(0, 0, 1, 1),
+					&ui_cache->white_texture, color, box->rounding, box->softness,
+					0.f);
+	}
+	
+	if (box->flags & BoxFlag_DrawText) {
+		f32 string_size = UI_GetStringSize(box->font, box->identifier);
+		vec2 pos = v2(box->bounds.x + (box->bounds.w / 2.f), box->bounds.y + (box->bounds.h / 2.f));
+		pos.x -= string_size / 2.f;
+		pos.y += box->font->baseline / 2.f;
+		vec4 vcolor = color_code_to_vec4(box->text_color);
+		
+		for (u32 i = 0; i < box->identifier.size; i++) {
+			if (box->identifier.str[i] >= 32 && box->identifier.str[i] < 128) {
+				stbtt_packedchar* info = &box->font->cdata[box->identifier.str[i] - 32];
+				rect uvs = {
+					info->x0 / 512.f,
+					info->y0 / 512.f,
+					(info->x1 - info->x0) / 512.f,
+					(info->y1 - info->y0) / 512.f
+				};
+				rect loc = { pos.x + info->xoff, pos.y + info->yoff, info->x1 - info->x0, info->y1 - info->y0 };
+				UI_PushQuad(ui_cache, loc, uvs, &box->font->font_texture,
+							UI_Vec4ColorSetUniform(vcolor), 0.f, 0.f, 0.f);
+				pos.x += info->xadvance;
+			}
+		}
+	}
+	
+	if (box->flags & BoxFlag_DrawBorder) {
+		vec4 bcolor = color_code_to_vec4(box->edge_color);
+		UI_QuadVec4ColorSet bcolor_set = { bcolor, bcolor, bcolor, bcolor };
+		UI_PushQuad(ui_cache, box->bounds, rect_init(0, 0, 1, 1),
+					&ui_cache->white_texture, bcolor_set, box->rounding,
+					box->softness, box->edge_size);
+	}
+}
+
+
+static void UI_PushBoxRecursive(UI_Cache* ui_cache, UI_Box* box) {
+	UI_PushBox(ui_cache, box);
+	
+	if (box->flags & BoxFlag_Clip) {
+		UI_ClippingRectPush(ui_cache, box->clipped_bounds);
+	}
+	
+	UI_Box* curr = box->first;
+	while (curr) {
+		UI_PushBoxRecursive(ui_cache, curr);
+		curr = curr->next;
+	}
+	
+	if (box->flags & BoxFlag_Clip) {
+		UI_ClippingRectPop(ui_cache);
+	}
 }
 
 INTERNAL void
 ui_end_frame(UICache *cache, f32 delta)
 {
-	// TODO(voxel): @rework Use a queue and stack to bypass recusive functions
-	//              I have yet to implement a queue in ds.h so I'll hold off on that for now
-	for (u32 i = AXIS2_X; i < AXIS2_COUNT; i++) 
+	for (u32 axis = AXIS2_X; axis < AXIS2_COUNT; axis++) 
   {
-    // upwards-dependent (pre-order)
-		UI_LayoutRecurseForward(ui_cache, ui_cache->root, i);
-    // downwards-dependent (post-order)
-		UI_LayoutRecurseBackward(ui_cache, ui_cache->root, i);
-		// NOTE(voxel): What the hell is this supposed to do even. I'll implement this
-		//              if I find things to be weird
-		//UI_LayoutRecurseSolveViolations(ui_cache, ui_cache->root, i);
-	}
-	UI_LayoutRecursePositionForward(ui_cache, ui_cache->root, 0.f);
-	UI_LayoutRecurseCalculateBounds(ui_cache, ui_cache->root, 0.f, 0.f);
+    ui_autolayout_preorder_sizes(cache, cache->root, axis);
+    ui_autolayout_postorder_sizes(cache, cache->root, axis);
+    // TODO(Ryan): solve violations step with strictness
+  }
 
+  // TODO(Ryan): Should these be in axis loop?
+  ui_autolayout_preorder_relative_positions(cache, cache->root, 0.0f);
+  ui_autolayout_preorder_screen_positions(cache, cache->root, 0.0f, 0.0f);
+
+
+	ui_cache->hot_key = (UI_Key) {0};
+	ui_cache->active_key = (UI_Key) {0};
+	UI_StateRecurseCheckHotAndActive(ui_cache, ui_cache->root);
+	
+	// UI_Animate inlined
+	f32 fast_rate = 1 - pow(2.f, -50.f * delta_time);
+	f32 slow_rate = 1 - pow(2.f, -30.f * delta_time);
+	Iterate (ui_cache->cache, i) {
+		UI_Box* curr = &ui_cache->cache.elems[i];
+		if (UI_KeyIsNull(curr->key)) continue;
+		while (curr) {
+			if (!UI_KeyIsNull(curr->key)) {
+				b8 is_hot        = UI_KeyEquals(ui_cache->hot_key, curr->key);
+				b8 is_active     = UI_KeyEquals(ui_cache->active_key, curr->key);
+				curr->hot_t     += ((f32)!!is_hot - curr->hot_t) * fast_rate;
+				curr->active_t  += ((f32)!!is_active - curr->active_t) * fast_rate;
+				
+				if (curr->direct_set) {
+					curr->bounds.x += curr->target_bounds.x;
+					curr->bounds.y += curr->target_bounds.y;
+					curr->bounds.w += curr->target_bounds.w;
+					curr->bounds.h += curr->target_bounds.h;
+				} else {
+					curr->bounds.x += (curr->target_bounds.x - curr->bounds.x) * slow_rate;
+					curr->bounds.y += (curr->target_bounds.y - curr->bounds.y) * slow_rate;
+					curr->bounds.w += (curr->target_bounds.w - curr->bounds.w) * slow_rate;
+					curr->bounds.h += (curr->target_bounds.h - curr->bounds.h) * slow_rate;
+				}
+			}
+			curr = curr->hash_next;
+		}
+	}
+	
+	// NOTE(Ryan): Rendering 
+	UI_PushBoxRecursive(ui_cache, ui_cache->root);
 }
 
 
