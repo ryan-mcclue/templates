@@ -40,18 +40,11 @@ app(AppState *state)
     5. View button, sized the same way.
     6. Control button, sized the same way.
     7. Enough space to fill the screen, leaving enough room for the following buttons.
-IMPORTANT:
-Need to account for parts of widget tree we don't have yet
-Rendering deferred
-Widgets rendered last, consume input events first
-build hierarchy -> autolayout -> render
-Input delay one frame, rendering immediately
     8. “Play” button, only being big enough for the “Play” icon.
     9. “Pause” button, the same size as the previous.
     10. “X” button, the same size as the previous.
     11. End the row (one ascent in the hierarchy).
 
-  DFS has pre-order (node before children) and post-order (node after children) traversals
 Autolayout for each exis:
   1. Standalone sizes, e.g. UI_SizeKind_Pixels, UI_SizeKind_TextContent 
   2. (pre-order) 'upwards-dependent' UI_SizeKind_PercentOfParent
@@ -83,60 +76,6 @@ Autolayout for each exis:
     Bypassing text-truncation with ellipses
 
 commonly useful to have a “make a widget that has text, border, background rendering, hot/active animations, is clickable, and has a specific hovering cursor icon” (effectively your standard, everyday button). But, we should also then immediately realize that an identical button but without the border is not an impossibility or even an improbability.
-
-IMPORTANT(Ryan): Design for combinatoric, i.e. many combinations
-BAD (WE WANT TO FOCUS ON HIGH LEVEL TRANSFORMATIONS NOT SAY WHAT A BUTTON IS):
-struct UI_Widget
-{
-  UI_WidgetKind kind;
-  // ...
-  union
-  {
-    struct { ... } button;
-    struct { ... } checkbox;
-    struct { ... } slider;
-    // ...
-  };
-};
-
-GOOD:
-typedef U32 UI_WidgetFlags;
-enum
-{
-  UI_WidgetFlag_Clickable       = (1<<0),
-  UI_WidgetFlag_ViewScroll      = (1<<1),
-  UI_WidgetFlag_DrawText        = (1<<2),
-  UI_WidgetFlag_DrawBorder      = (1<<3),
-  UI_WidgetFlag_DrawBackground  = (1<<4),
-  UI_WidgetFlag_DrawDropShadow  = (1<<5),
-  UI_WidgetFlag_Clip            = (1<<6),
-  UI_WidgetFlag_HotAnimation    = (1<<7),
-  UI_WidgetFlag_ActiveAnimation = (1<<8),
-  // ...
-};
-
-struct UI_Widget
-{
-  // ...
-  UI_WidgetFlags flags;
-  // ...
-};
-================================================================================
-
-Spacing box has no layout parametisations. The hash should be some NULL-id
-UI_Box *spacer = UI_BoxMakeF(0, "");
-
-IMPORTANT: Defer loop useful for when stacks are scope based
-Using style stacks:
-#define UI_TextColor(v) UI_DeferLoop(UI_PushTextColor(v), UI_PopTextColor())
-UI_TextColor(V4(1, 0, 0, 1))
-{
-  UI_ButtonF("Red Button A");
-  UI_ButtonF("Red Button B");
-  UI_ButtonF("Red Button C");
-}
-
-================================================================================
 
 Solid rectangles, text, icons, bitmaps, gradients (embossed, debossed), rounded corners (useful for drop shadows), hollow rectangles
 
@@ -204,16 +143,6 @@ struct Panel
 
 A tab is a combination of a Window and Panel
 ================================================================================
-*/
-
-  
-
-/*
-         4. gui application specific
-         5. UIEndFrame:
-            - recursively autolayout position and bounds
-            - check hot/active and animate values
-            - recurse hierarchy and render based on box flags 
 */
     
   if (!state->is_initialised)

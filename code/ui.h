@@ -173,24 +173,21 @@ struct UIBox
 	u32 active_color;
 	b8 is_on;
 	
+  // TODO(Ryan): Add gradient colors, i.e. V4 for colors for corners
 	Font font;
-	u32 bg_color;
-	u32 text_color;
-	u32 edge_color;
+	Color bg_color;
+	Color text_color;
+	Color edge_color;
 	f32 edge_softness;
 	f32 edge_size;
 	f32 edge_rounding;
 
-	ui_render_function* render_function;
+	ui_render_function *render_function;
 };
 
 typedef struct UISignal UISignal;
 struct UISignal
 {
-  //UIBox *box;
-  //Vec2F32 mouse;
-  //Vec2F32 drag_delta;
-
 	b32 clicked;        // @done
 	b32 double_clicked; // TODO
 	b32 right_clicked;  // @done
@@ -553,7 +550,6 @@ ui_cache_init(UICache *cache, u32 window_width, u32 window_height)
   ui_push_render_function(cache, NULL);
 }
 
-// TODO(Ryan): rename to ui_box_instance
 INTERNAL UIBox *
 ui_make_box(UICache *cache, UI_BOX_FLAGS flags, String8 str)
 {
@@ -592,6 +588,7 @@ ui_make_box(UICache *cache, UI_BOX_FLAGS flags, String8 str)
   }
   else
   {
+    // map_overwrite() instead of explicit deletion
     result = ui_make_box();
     map_insert(cache->box_arena, cache->box_map, key, result);
 
@@ -1045,6 +1042,67 @@ ui_signal_from_box(UIBox *box)
 		box->pressed_on_this = false;
 	
 	return ret;
+}
+
+INTERNAL void 
+ui_spacer(UICache *cache, UISize size) 
+{
+	UIBox *parent = cache->parent_stack->val;
+
+	if (parent->layout_axis == AXIS2_X)
+  {
+		UI_STYLE_PREF_WIDTH(ui_cache, size)
+    {
+	    ui_make_box(cache, 0, s8_lit(""));
+    }
+  }
+	else 
+  {
+		UI_STYLE_PREF_HEIGHT(ui_cache, size)
+    {
+	    ui_make_box(cache, 0, s8_lit(""));
+    }
+  }
+}
+
+INTERNAL b32 
+ui_checkbox(UICache *cache, String8 id) 
+{
+	UIBox *outer = ui_make_box(cache, BoxFlag_DrawBackground | BoxFlag_DrawBorder | BoxFlag_HotAnimation | BoxFlag_Clickable, 
+                             str_cat(U_GetFrameArena(), id, str_lit("_outer")));
+
+	if (outer->is_on) 
+  {
+    UI_STYLE_PARENT(cache, outer)
+    UI_STYLE_BOX_COLOR(cache, outer->active_color)
+    UI_STYLE_PREF_WIDTH(cache, ui_percentage(100))
+    UI_STYLE_PREF_HEIGHT(cache, ui_percentage(100))
+		{
+			ui_make_box(cache, BoxFlag_DrawBackground,
+					         str_cat(U_GetFrameArena(), id, str_lit("_inner")));
+		}
+	}
+	
+	if (ui_signal_from_box(outer).clicked)
+		outer->is_on = !outer->is_on;
+	
+	return outer->is_on;
+}
+
+
+INTERNAL void 
+ui_button_render_function(UICache *cache, UIBox *box) 
+{
+  // drop shadow
+	
+  // bg rectangle
+	
+	b32 is_hot = UI_KeyEquals(cache->hot_key, box->key);
+	
+  // draw centered text
+  // if hot, offset text
+	
+  // draw edges
 }
 
 INTERNAL UISignal 
