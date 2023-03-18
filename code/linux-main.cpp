@@ -100,6 +100,9 @@ main(int argc, char *argv[])
   ThreadContext tctx = thread_context_create();
   thread_context_set(&tctx);
 
+  // TODO(Ryan): Add pools to memory arenas
+  MemArenaTemp mem_arena_temp = mem_arena_scratch_get(NULL, 0);
+
   i32 window_width = 1280;
   i32 window_height = 720;
 
@@ -128,19 +131,7 @@ main(int argc, char *argv[])
   app_func app = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-
-  app_state->ui_cache = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, UICache);
-  app_state->ui_cache->style_stack_arena = mem_arena_scratch_get(NULL, 0);
-
-  // boxes have hashes computed by builder code? (distinction between builder code and ...?)
-
-  // 'slack' is how much size willing to give to satisfy layout constraints (used in combination with excess size in parent)
-
-  // stack based styling doesn't easily allow for modifying subtree styles 
-  // For example, we want to style all buttons with the text “OK” that are children of boxes named “dialog”. 
-  
-  // optional arguments: one arg for struct, other arg for flags to obtain from this struct
-
+  app_state->delta = 1.0f / 60.0f;
 
   Color clear_colour = {0, 0, 0, 255};
 
@@ -151,8 +142,6 @@ main(int argc, char *argv[])
     BeginDrawing();
     ClearBackground(clear_colour); 
 
-    MemArenaTemp mem_temp_arena = mem_arena_scratch_get(&app_state->ui_cache->style_stack_arena.arena, 1);
-
     u64 app_mod_time = linux_get_file_mod_time(app_name);
     if (app_mod_time > last_app_reload_time)
     {
@@ -161,7 +150,7 @@ main(int argc, char *argv[])
         dlclose(app_lib);
       }
 
-      s8_copy_file(mem_temp_arena.arena, app_name, app_temp_abs_path);
+      s8_copy_file(mem_arena_temp.arena, app_name, app_temp_abs_path);
       struct stat app_stat = ZERO_STRUCT;
       stat((char *)app_name.str, &app_stat);
       chmod((char *)app_temp_abs_path.str, app_stat.st_mode);
@@ -198,14 +187,18 @@ main(int argc, char *argv[])
       app_state->window_width = GetScreenWidth();
       app_state->window_height = GetScreenHeight(); 
 
-      app(app_state);
+      app_state->ui_state.mouse_x = GetMouseX();
+      app_state->ui_state.mouse_y = GetMouseY();
+      app_state->ui_state.is_mouse_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+
+      app(app_state, linux_mem_arena_perm, &mem_arena_temp);
     }
     else
     {
       //DrawText("Failed to load app.", 200, 200, 20, RED);
     }
 
-    mem_arena_scratch_release(mem_temp_arena);
+    mem_arena_scratch_release(mem_arena_temp);
 
     EndDrawing();
   }

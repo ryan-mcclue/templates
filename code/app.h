@@ -11,19 +11,16 @@ struct AppState
   b32 is_initialised;
 
   f32 window_width, window_height;
-
-  UICache *ui_cache;
-
-  u64 t;
-  u32 x, y;
-
   u64 ms;
+  f32 delta;
+
+  UIState ui_state;
 };
 IGNORE_WARNING_POP()
 
-typedef void (*app_func)(AppState *state);
+typedef void (*app_func)(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena);
 
 EXPORT void
-app(AppState *state);
+app(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena);
 
 #endif

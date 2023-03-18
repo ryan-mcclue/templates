@@ -516,7 +516,8 @@ IGNORE_WARNING_POP()
 
 // IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
 
-#define vec3_f32_dup(a) vec3_f32(a, a, a)
+#define vec2_f32_dup(a) vec2_f32((a), (a))
+#define vec3_f32_dup(a) vec3_f32((a), (a), (a))
 
 INTERNAL Vec2F32
 vec2_f32(f32 x, f32 y)
