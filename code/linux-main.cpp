@@ -131,7 +131,7 @@ main(int argc, char *argv[])
   app_func app = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-  app_state->delta = 1.0f / 60.0f;
+  app_state->ui_state.delta = 1.0f / 60.0f;
 
   Color clear_colour = {0, 0, 0, 255};
 
@@ -189,7 +189,7 @@ main(int argc, char *argv[])
 
       app_state->ui_state.mouse_x = GetMouseX();
       app_state->ui_state.mouse_y = GetMouseY();
-      app_state->ui_state.is_mouse_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+      app_state->ui_state.mouse_is_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
 
       app(app_state, linux_mem_arena_perm, &mem_arena_temp);
     }

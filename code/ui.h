@@ -2,15 +2,15 @@
 #if !defined(UI_H)
 #define UI_H
 
-// http://solhsa.com/imgui/
-
 typedef struct UIState UIState;
 struct UIState
 {
-  u32 hot_box_id, active_box_id;
+  f32 delta;
 
   i32 mouse_x, mouse_y;
-  b32 is_mouse_down;
+  b32 mouse_is_down;
+
+  f32 hot_t, active_t;
 };
 
 #if 0

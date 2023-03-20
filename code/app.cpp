@@ -6,6 +6,13 @@
 
 #include "app.h"
 
+
+
+
+// http://solhsa.com/imgui/
+
+#define GEN_UI_ID __LINE__
+
 INTERNAL void
 draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
 {
@@ -16,6 +23,62 @@ draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
   DrawRectangleV(position, size, color);
 }
 
+INTERNAL b32
+ui_region_hot(UIState *ui_state, Vec2F32 min, Vec2F32 max)
+{
+  b32 result = false;
+
+  if (ui_state->mouse_x >= min.x && ui_state->mouse_x <= max.x &&
+      ui_state->mouse_y >= min.y && ui_state->mouse_y <= max.y)
+  {
+    result = true;
+  }
+
+  return result;
+}
+
+INTERNAL b32
+ui_button(UIState *ui_state, Vec2F32 min, Vec2F32 max)
+{
+  b32 is_active = false;
+
+  Vec3F32 base_color = vec3_f32_dup(0.9f);
+  Vec3F32 hot_color = vec3_f32_dup(0.5f);
+  Vec3F32 active_color = vec3_f32_dup(0.1f);
+
+  Vec3F32 final_color = base_color;
+
+  if (ui_region_hot(ui_state, min, max))
+  {
+	  f32 slow_rate = 1.0f - pow_f32(2.0f, -30.0f * ui_state->delta);
+	  f32 fast_rate = 1.0f - pow_f32(2.0f, -50.0f * ui_state->delta);
+
+    if (ui_state->mouse_is_down)
+    {
+	    ui_state->active_t += (1.0f - ui_state->active_t) * slow_rate;
+      final_color = vec3_f32_lerp(hot_color, active_color, ui_state->active_t); 
+      is_active = true;
+      ui_state->hot_t = 0.0f;
+    }
+    else
+    {
+	    ui_state->hot_t += (1.0f - ui_state->hot_t) * fast_rate;
+      final_color = vec3_f32_lerp(base_color, hot_color, ui_state->hot_t); 
+      ui_state->active_t = 0.0f;
+    }
+  }
+  else
+  {
+    ui_state->active_t = 0.0f;
+    ui_state->hot_t = 0.0f;
+  }
+
+  draw_rect(min, max, final_color);
+
+  return is_active;
+}
+
+
 EXPORT void
 app(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena)
 {
@@ -24,23 +87,15 @@ app(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena)
     state->is_initialised = true;
   }
 
-  active_t = 0.0f;
+  // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
-	f32 fast_rate = 1 - pow_f32(2.0f, -50.0f * state->delta);
-	f32 slow_rate = 1 - pow_f32(2.0f, -30.0f * state->delta);
-
-  // I more-or-less always recommend self-correcting exponential animation curves for animating these two values, because their sharp initial motion fits with the user’s expectation of instantaneous feedback.
+  // NOTE(Ryan): Self-correcting, exponential. Fastest on first frame to satisfy user requirement of instantaneous feedback
   // current = current + (target - current) * rate;
-  // fastest on first frame, slowest on last frame
-	curr->active_t  += ((f32)!!is_active - curr->active_t) * fast_rate;
+  Vec2F32 min = vec2_f32(64, 64);
+  Vec2F32 max = vec2_f32(min.x + 256, min.y + 256);
+  if (ui_button(&state->ui_state, min, max))
+  {
+    DrawText("Button pressed", 300, 300, 24, {255, 255, 255, 255});  
+  }
 
-	bg_color = ColorLerp(bg_color, box->active_color, box->active_t);
-
-  Vec2F32 min = vec2_f32(state->ui_state.mouse_x - 32, state->ui_state.mouse_y - 32);
-  Vec2F32 max = vec2_f32(min.x + 64, min.y + 64);
-  Vec3F32 base_color = vec3_f32_dup(0.8f);
-  Vec3F32 active_color = vec3_f32_dup(0.1f);
-  Vec3F32 color = vec3_f32_lerp(base_color, active_color, 0.5f * state->ui_state.is_mouse_down); 
-
-  draw_rect(min, max, color);
 }

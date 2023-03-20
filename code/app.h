@@ -12,7 +12,6 @@ struct AppState
 
   f32 window_width, window_height;
   u64 ms;
-  f32 delta;
 
   UIState ui_state;
 };
