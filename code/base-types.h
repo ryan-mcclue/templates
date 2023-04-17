@@ -206,7 +206,27 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
  * i.e. 'structured' logging, not just custom text
  *
  * Use Splunk?
+ * https://devconnected.com/the-definitive-guide-to-centralized-logging-with-syslog-on-linux/
+ * https://sematext.com/blog/linux-logs/ 
  
+  for assert, include glibc backtrace() and backtrace_symbols()
+ 
+  ERROR MESSAGES:
+So what makes a good error message then? To me, it boils down to three pieces of information which should be conveyed by an error message:
+(also include severity, e.g. INFO, WARNING, etc.)
+    1. Context: What led to the error? What was the code trying to do when it failed?
+Couldn’t parse config file: /etc/sample-config.properties"
+    2. The error itself: What exactly failed?
+Failed to create an initial snapshot of the data; database user 'snapper' is lacking the required permissions 'SELECT', 'REPLICATION'
+    3. Mitigation: What needs to be done in order to overcome the error?
+Please see https://example.com/knowledge-base/snapshot-permissions/ for the complete set of necessary permissions
+
+  LOG MESSAGES (note important functions to establish a trace):
+    1. time (when)
+    2. function (where)
+    3. what
+    4. why
+
 std::string StrTime() {
     const int CTIME_LEN = 24;
     std::time_t t;

@@ -14,6 +14,7 @@
 #include "app.h"
 
 #include <syslog.h>
+#include <execinfo.h>
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -98,7 +99,7 @@ main(int argc, char *argv[])
   // For logging, put in own file with fopen()
 
   // syslog_r() for threadsafe
-  openlog("log-file", LOG_PID | LOG_CONS, LOG_USER); // sets a prefix for log file messages
+  openlog("log-file", LOG_CONS, LOG_USER); // sets a prefix for log file messages
   setlogmask(LOG_UPTO(LOG_ERR));
   u32 val = 10;
   // syslog(LOG_INFO | LOG_LOCAL2, "started logging with %d", val);
@@ -113,6 +114,24 @@ main(int argc, char *argv[])
   // https://stackify.com/syslog-101
 
   // /etc/rsyslog.conf?
+
+  /*
+  void *callstack_addr[128] = ZERO_STRUCT;
+  int num_backtrace_frames = backtrace(callstack_addr, 128);
+
+  // TODO(Ryan): addr2line could convert addresses to names
+  char **backtrace_strs = backtrace_symbols(callstack_addr, num_backtrace_frames);
+
+  u32 max_backtrace_str_len = 255;
+  int message_size = sizeof(backtrace_strs) * max_backtrace_str_len;
+
+  for (int i = 0; i < num_backtrace_frames; ++i) {
+      printf("%s\n", strs[i]);
+  }
+  free(strs); 
+  */
+
+
 
   // IMPORTANT(Ryan): For switch statements, put default at top 
 
