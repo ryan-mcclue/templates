@@ -13,10 +13,6 @@
 
 #include "app.h"
 
-#include <syslog.h>
-#include <execinfo.h>
-#include <signal.h>
-
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 // TODO(Ryan): linux_run_command_block/fork()
@@ -108,14 +104,24 @@ linux_was_launched_by_gdb(void)
   return result;
 }
 
+
+
 int
 main(int argc, char *argv[])
 {
+  IGNORED(argc); IGNORED(argv);
+
   global_debugger_present = linux_was_launched_by_gdb();
 
-  BP();
-
-  IGNORED(argc); IGNORED(argv);
+#if defined(MAIN_DEBUG)
+  openlog("app", LOG_CONS, LOG_LOCAL7);
+  setlogmask(LOG_UPTO(LOG_DEBUG));
+  syslog(LOG_INFO, "Initialised logging"); // TODO(Ryan): perhaps cleaner to use %m instead of strerror(errno)?
+  // closelog();
+#else
+  openlog("app", 0, LOG_USER);
+  setlogmask(LOG_UPTO(LOG_ERROR));
+#endif
 
   // IMPORTANT(Ryan): For release, don't rely on LOG_LOCAL
   // In this case, use LOG_USER but only put error messages
@@ -123,18 +129,7 @@ main(int argc, char *argv[])
 
   // centralised logging logs to a central server
 
-  // linux logging:
-  //   * binary journalctl via systemd
-  //   * syslog
-  //   * kernel dmesg
   // syslog_r() for threadsafe
-  // syslog daemon parse and sends to destination (rsyslog common, could also have syslog-ng daemon)
-  openlog("app", LOG_CONS, LOG_USER); // sets a prefix for log file messages
-  setlogmask(LOG_UPTO(LOG_ERR));
-  u32 val = 10;
-  // syslog(LOG_INFO | LOG_LOCAL2, "started logging with %d", val);
-  syslog(LOG_INFO, "started logging with %d", val); // TODO(Ryan): perhaps cleaner to use %m instead of strerror(errno)?
-  closelog();
   // output in /var/log/syslog (or /var/log/messages)
   // Note that your syslogd configuration might not be set up to keep messages of log level LOG_INFO
   // syslogd can be configured to send logs to a server

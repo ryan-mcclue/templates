@@ -203,12 +203,40 @@ GLOBAL b32 global_debugger_present;
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <syslog.h>
 // NOTE(Ryan): Returns a u32 to account for situations when used in a ternary that requires operands of the same type 
-INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int line_num, 
-                            const char *message)
+
+/* NOTE(Ryan): Example:
+ * attempt_msg: "Couldn’t parse config file: /etc/sample-config.properties"
+ * reason_msg: "Failed to create an initial snapshot of the data; database user 'snapper' is lacking the required permissions 'SELECT', 'REPLICATION'"
+ * resolution_msg: "Please see https://example.com/knowledge-base/snapshot-permissions/ for the complete set of necessary permissions"
+ */
+#define FATAL_ERROR(attempt_msg, reason_msg, resolution_msg) \
+  __fatal_error(__FILE__, __func__, __LINE__, attempt_msg, reason_msg, resolution_msg)
+INTERNAL u32
+__fatal_error(const char *file_name, const char *func_name, int line_num,
+              const char *attempt_msg, const char *reason_msg, const char *resolution_msg)
 { 
-  fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
-          func_name, line_num, message);
+  /* stack trace
+#include <execinfo.h>
+  void *callstack_addr[128] = ZERO_STRUCT;
+  int num_backtrace_frames = backtrace(callstack_addr, 128);
+
+  // TODO(Ryan): addr2line could convert addresses to names
+  char **backtrace_strs = backtrace_symbols(callstack_addr, num_backtrace_frames);
+
+  u32 max_backtrace_str_len = 255;
+  int message_size = sizeof(backtrace_strs) * max_backtrace_str_len;
+
+  for (int i = 0; i < num_backtrace_frames; ++i) {
+      printf("%s\n", strs[i]);
+  }
+  free(strs); 
+  */
+
+  syslog(LOG_EMERG, "(%s:%s:%d)\n %s\n%s\n%s", 
+         file_name, func_name, line_num, 
+         attempt_msg, reason_msg, resolution_msg);
 
   BP();
 
@@ -217,6 +245,17 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
   return 0;
 }
 
+/* NOTE(Ryan): Example:
+ * what_msg: Initialised logging  
+ * why_msg: To provide trace information to understand program flow in the event of a bug
+ */
+#define DBG(what_msg, why_msg) \
+  syslog(LOG_DEBUG, "%s:\n%s\n%s", __func__, what_msg, why_msg);
+#define INFO(what_msg, why_msg) \
+  syslog(LOG_INFO, "%s:\n%s\n%s", __func__, what_msg, why_msg);
+#define WARN(what_msg, why_msg) \
+  syslog(LOG_WARNING, "%s:\n%s\n%s", __func__, what_msg, why_msg);
+
 /*
  * have a wrapper around vsyslog as reading log files is much harder than writing them?
  * syslog normally for network events
@@ -224,78 +263,16 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
  *
  * Use Splunk?
  * https://devconnected.com/the-definitive-guide-to-centralized-logging-with-syslog-on-linux/
- 
-  for assert, include glibc backtrace() and backtrace_symbols()
- 
-  ERROR MESSAGES:
-So what makes a good error message then? To me, it boils down to three pieces of information which should be conveyed by an error message:
-(also include severity, e.g. INFO, WARNING, etc.)
-    1. Context: What led to the error? What was the code trying to do when it failed?
-Couldn’t parse config file: /etc/sample-config.properties"
-    2. The error itself: What exactly failed?
-Failed to create an initial snapshot of the data; database user 'snapper' is lacking the required permissions 'SELECT', 'REPLICATION'
-    3. Mitigation: What needs to be done in order to overcome the error?
-Please see https://example.com/knowledge-base/snapshot-permissions/ for the complete set of necessary permissions
 
-  LOG MESSAGES (note important functions to establish a trace):
-    1. time (when)
-    2. function (where)
-    3. what
-    4. why
-
-std::string StrTime() {
-    const int CTIME_LEN = 24;
-    std::time_t t;
-    std::time( & t );
-    return std::string( std::ctime( & t ), CTIME_LEN );
-}
-
-#define LOG( x )                         \
-    std::cout << StrTime() << "  ";        \
-    std::cout << x << "\n";
-
-
-int main() {
-    LOG( "program started" );
-    for( int i = 0; i < 10; i++ ) {
-        LOG( "value of i is " << i );
-    }
-    LOG( "program ended" );
-}
 */
 
-INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
-                                  const char *message)
-{ 
-  const char *errno_msg = strerror(errno);
-  fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
-          func_name, line_num, errno_msg, message);
-  BP();
-
-  exit(1);
-
-  return 0;
-}
-
-INTERNAL void errno_inspect(void)
-{
-  const char *errno_msg = strerror(errno);
-  return;
-}
-
-
-#define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)
-#define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
 
 #if defined(MAIN_DEBUG)
-  // IMPORTANT(Ryan): assert() when never want to handle in production
-  #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c)); } } while (0)
-  #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(c)); } } while (0)
+  #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c), "Assertion error", ""); } } while (0)
   #define UNREACHABLE_CODE_PATH ASSERT(!"UNREACHABLE_CODE_PATH")
   #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE_CODE_PATH }
 #else
   #define ASSERT(c)
-  #define ERRNO_ASSERT(c)
   #define UNREACHABLE_CODE_PATH UNREACHABLE() 
   #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE() }
 #endif

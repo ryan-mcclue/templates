@@ -44,7 +44,11 @@ mem_arena_allocate(u64 cap)
 {
   u64 rounded_size = round_to_nearest(cap, MEM_DEFAULT_ALLOCATE_QUANTA);
   MemArena *result = (MemArena *)malloc(rounded_size);
-  ERRNO_ASSERT(result != NULL);
+  if (result == NULL)
+  {
+    FATAL_ERROR("Result", strerror(errno), "restart");
+  }
+
 
   result->memory = result + sizeof(MemArena);
   result->max = cap;
