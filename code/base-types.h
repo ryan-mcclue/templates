@@ -213,11 +213,13 @@ GLOBAL b32 global_debugger_present;
  */
 #define FATAL_ERROR(attempt_msg, reason_msg, resolution_msg) \
   __fatal_error(__FILE__, __func__, __LINE__, attempt_msg, reason_msg, resolution_msg)
+
 INTERNAL u32
 __fatal_error(const char *file_name, const char *func_name, int line_num,
               const char *attempt_msg, const char *reason_msg, const char *resolution_msg)
 { 
-  /* stack trace
+#if defined(MAIN_RELEASE)
+  /* TODO(Ryan): Add stack trace to message
 #include <execinfo.h>
   void *callstack_addr[128] = ZERO_STRUCT;
   int num_backtrace_frames = backtrace(callstack_addr, 128);
@@ -233,6 +235,7 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   }
   free(strs); 
   */
+#endif
 
   syslog(LOG_EMERG, "(%s:%s:%d)\n %s\n%s\n%s", 
          file_name, func_name, line_num, 
@@ -245,6 +248,7 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   return 0;
 }
 
+// TODO(Ryan): Use syslog_r() for threadsafe
 /* NOTE(Ryan): Example:
  * what_msg: Initialised logging  
  * why_msg: To provide trace information to understand program flow in the event of a bug
@@ -253,19 +257,18 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   syslog(LOG_DEBUG, "%s:\n%s\n%s", __func__, what_msg, why_msg);
 #define INFO(what_msg, why_msg) \
   syslog(LOG_INFO, "%s:\n%s\n%s", __func__, what_msg, why_msg);
+
+#if defined(MAIN_DEBUG)
+#define WARN(what_msg, why_msg) \
+  do \
+  { \
+    BP(); \
+    syslog(LOG_CRIT, "%s:\n%s\n%s", __func__, what_msg, why_msg); \
+  } while (0)
+#else
 #define WARN(what_msg, why_msg) \
   syslog(LOG_WARNING, "%s:\n%s\n%s", __func__, what_msg, why_msg);
-
-/*
- * have a wrapper around vsyslog as reading log files is much harder than writing them?
- * syslog normally for network events
- * i.e. 'structured' logging, not just custom text
- *
- * Use Splunk?
- * https://devconnected.com/the-definitive-guide-to-centralized-logging-with-syslog-on-linux/
-
-*/
-
+#endif
 
 #if defined(MAIN_DEBUG)
   #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c), "Assertion error", ""); } } while (0)

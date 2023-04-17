@@ -81,7 +81,10 @@ linux_get_seed_u32(void)
 {
   u32 result = 0;
 
-  ERRNO_ASSERT(getentropy(&result, sizeof(result)) != -1);
+  if (getentropy(&result, sizeof(result)) != -1)
+  {
+    WARN("getentropy failed", strerror(errno));
+  }
 
   return result;
 }
@@ -114,49 +117,19 @@ main(int argc, char *argv[])
   global_debugger_present = linux_was_launched_by_gdb();
 
 #if defined(MAIN_DEBUG)
+  // IMPORTANT(Ryan): Content in /etc/rsyslog.conf:
+  //   local7.info /var/log/app.log
+  // And subsequent daemon restart: $(pkill -HUP syslogd)
   openlog("app", LOG_CONS, LOG_LOCAL7);
   setlogmask(LOG_UPTO(LOG_DEBUG));
-  syslog(LOG_INFO, "Initialised logging"); // TODO(Ryan): perhaps cleaner to use %m instead of strerror(errno)?
-  // closelog();
 #else
   openlog("app", 0, LOG_USER);
-  setlogmask(LOG_UPTO(LOG_ERROR));
+  setlogmask(LOG_UPTO(LOG_WARNING));
 #endif
 
-  // IMPORTANT(Ryan): For release, don't rely on LOG_LOCAL
-  // In this case, use LOG_USER but only put error messages
-  // For logging, put in own file with fopen()
-
-  // centralised logging logs to a central server
-
-  // syslog_r() for threadsafe
   // output in /var/log/syslog (or /var/log/messages)
   // Note that your syslogd configuration might not be set up to keep messages of log level LOG_INFO
   // syslogd can be configured to send logs to a server
-
-  // want to log stacktrace on assertion/crash?
-  // /etc/rsyslog.conf:
-  // local1.info /var/log/programname.log
-  // pkill -HUP syslogd
-
-
-  /*
-  void *callstack_addr[128] = ZERO_STRUCT;
-  int num_backtrace_frames = backtrace(callstack_addr, 128);
-
-  // TODO(Ryan): addr2line could convert addresses to names
-  char **backtrace_strs = backtrace_symbols(callstack_addr, num_backtrace_frames);
-
-  u32 max_backtrace_str_len = 255;
-  int message_size = sizeof(backtrace_strs) * max_backtrace_str_len;
-
-  for (int i = 0; i < num_backtrace_frames; ++i) {
-      printf("%s\n", strs[i]);
-  }
-  free(strs); 
-  */
-
-
 
   // IMPORTANT(Ryan): For switch statements, put default at top 
 
@@ -180,7 +153,7 @@ main(int argc, char *argv[])
 
   u32 cwd_path_size = KB(32);
   u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);
-  ERRNO_ASSERT(getcwd((char *)cwd_path_buffer, cwd_path_size) != NULL);
+  //ERRNO_ASSERT(getcwd((char *)cwd_path_buffer, cwd_path_size) != NULL);
 
   String8List app_temp_name_list = ZERO_STRUCT;
   s8_list_push(linux_mem_arena_perm, &app_temp_name_list, s8_cstring(cwd_path_buffer));
@@ -233,13 +206,11 @@ main(int argc, char *argv[])
         }
         else
         {
-          errno_inspect();
           app = NULL;
         }
       }
       else
       {
-        errno_inspect();
         app = NULL;
       }
     }
