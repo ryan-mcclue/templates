@@ -182,6 +182,23 @@ struct SourceLoc
 #define SOURCE_LOC { __FILE__, __func__, __LINE__ }
 #define LITERAL_SOURCE_LOC LITERAL(SourceLoc) SOURCE_LOC 
 
+#include <signal.h>
+
+GLOBAL b32 global_debugger_present;
+
+#if defined(MAIN_DEBUG)
+  #define BP() \
+  do \
+  { \
+    if (global_debugger_present) \
+    { \
+      raise(SIGTRAP); \
+    } \
+  } while (0)
+#else
+  #define BP()
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -192,10 +209,10 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
 { 
   fprintf(stderr, "FATAL ERROR TRIGGERED! (%s:%s:%d)\n\"%s\"\n", file_name, 
           func_name, line_num, message);
-  #if !defined(MAIN_DEBUGGER)
-    // IMPORTANT(Ryan): If using fork(), will not exit entire program
-    exit(1); 
-  #endif
+
+  BP();
+
+  exit(1); 
 
   return 0;
 }
@@ -207,7 +224,6 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
  *
  * Use Splunk?
  * https://devconnected.com/the-definitive-guide-to-centralized-logging-with-syslog-on-linux/
- * https://sematext.com/blog/linux-logs/ 
  
   for assert, include glibc backtrace() and backtrace_symbols()
  
@@ -254,10 +270,9 @@ INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, i
   const char *errno_msg = strerror(errno);
   fprintf(stderr, "FATAL ERROR ERRNO TRIGGERED! (%s:%s:%d)\n%s\n\"%s\"\n", file_name, 
           func_name, line_num, errno_msg, message);
-  #if !defined(MAIN_DEBUGGER)
-    // IMPORTANT(Ryan): If using fork(), will not exit entire program
-    exit(1);
-  #endif
+  BP();
+
+  exit(1);
 
   return 0;
 }
@@ -268,7 +283,6 @@ INTERNAL void errno_inspect(void)
   return;
 }
 
-INTERNAL void __bp(void) {}
 
 #define FATAL_ERROR(msg) __fatal_error(__FILE__, __func__, __LINE__, msg)
 #define ERRNO_FATAL_ERROR(msg) __fatal_error_errno(__FILE__, __func__, __LINE__, msg)
@@ -277,13 +291,11 @@ INTERNAL void __bp(void) {}
   // IMPORTANT(Ryan): assert() when never want to handle in production
   #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c)); } } while (0)
   #define ERRNO_ASSERT(c) do { if (!(c)) { ERRNO_FATAL_ERROR(STRINGIFY(c)); } } while (0)
-  #define BP() __bp()
   #define UNREACHABLE_CODE_PATH ASSERT(!"UNREACHABLE_CODE_PATH")
   #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE_CODE_PATH }
 #else
   #define ASSERT(c)
   #define ERRNO_ASSERT(c)
-  #define BP()
   #define UNREACHABLE_CODE_PATH UNREACHABLE() 
   #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE() }
 #endif

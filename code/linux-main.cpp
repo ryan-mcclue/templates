@@ -15,6 +15,7 @@
 
 #include <syslog.h>
 #include <execinfo.h>
+#include <signal.h>
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -89,17 +90,46 @@ linux_get_seed_u32(void)
   return result;
 }
 
+INTERNAL b32
+linux_was_launched_by_gdb(void)
+{
+  b32 result = false;
+
+  pid_t ppid = getppid(); 
+  char path[64] = {0};
+  char buf[64] = {0};
+  snprintf(path, sizeof(path), "/proc/%d/exe", ppid);
+  readlink(path, buf, sizeof(buf));
+  if (strncmp(buf, "/usr/bin/gdb", sizeof("/usr/bin/gdb")) == 0)
+  {
+    result = true;
+  }
+
+  return result;
+}
+
 int
 main(int argc, char *argv[])
 {
+  global_debugger_present = linux_was_launched_by_gdb();
+
+  BP();
+
   IGNORED(argc); IGNORED(argv);
 
   // IMPORTANT(Ryan): For release, don't rely on LOG_LOCAL
   // In this case, use LOG_USER but only put error messages
   // For logging, put in own file with fopen()
 
+  // centralised logging logs to a central server
+
+  // linux logging:
+  //   * binary journalctl via systemd
+  //   * syslog
+  //   * kernel dmesg
   // syslog_r() for threadsafe
-  openlog("log-file", LOG_CONS, LOG_USER); // sets a prefix for log file messages
+  // syslog daemon parse and sends to destination (rsyslog common, could also have syslog-ng daemon)
+  openlog("app", LOG_CONS, LOG_USER); // sets a prefix for log file messages
   setlogmask(LOG_UPTO(LOG_ERR));
   u32 val = 10;
   // syslog(LOG_INFO | LOG_LOCAL2, "started logging with %d", val);
@@ -110,10 +140,10 @@ main(int argc, char *argv[])
   // syslogd can be configured to send logs to a server
 
   // want to log stacktrace on assertion/crash?
-  // https://unix.stackexchange.com/questions/11953/make-a-log-file
-  // https://stackify.com/syslog-101
+  // /etc/rsyslog.conf:
+  // local1.info /var/log/programname.log
+  // pkill -HUP syslogd
 
-  // /etc/rsyslog.conf?
 
   /*
   void *callstack_addr[128] = ZERO_STRUCT;
@@ -152,8 +182,6 @@ main(int argc, char *argv[])
 
   // how different to argv[0]?
   // binary dir: readlink("/proc/self/exe");
-  // char buf[256] = {0};
-  // readlink("/proc/self/exe", buf, sizeof(buf));
 
   u32 cwd_path_size = KB(32);
   u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);

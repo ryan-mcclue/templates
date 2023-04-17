@@ -186,6 +186,7 @@ struct MemArenaTemp
   u64 pos;
 };
 
+// IMPORTANT(Ryan): Require 2 scratches as code may not know if *arena is scratch or permanent
 INTERNAL MemArenaTemp
 mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
 {
