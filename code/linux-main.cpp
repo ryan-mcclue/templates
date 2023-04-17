@@ -13,6 +13,7 @@
 
 #include "app.h"
 
+#include <syslog.h>
 
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
@@ -91,6 +92,27 @@ int
 main(int argc, char *argv[])
 {
   IGNORED(argc); IGNORED(argv);
+
+  // IMPORTANT(Ryan): For release, don't rely on LOG_LOCAL
+  // In this case, use LOG_USER but only put error messages
+  // For logging, put in own file with fopen()
+
+  // syslog_r() for threadsafe
+  openlog("log-file", LOG_PID | LOG_CONS, LOG_USER); // sets a prefix for log file messages
+  setlogmask(LOG_UPTO(LOG_ERR));
+  u32 val = 10;
+  // syslog(LOG_INFO | LOG_LOCAL2, "started logging with %d", val);
+  syslog(LOG_INFO, "started logging with %d", val); // TODO(Ryan): perhaps cleaner to use %m instead of strerror(errno)?
+  closelog();
+  // output in /var/log/syslog (or /var/log/messages)
+  // Note that your syslogd configuration might not be set up to keep messages of log level LOG_INFO
+  // syslogd can be configured to send logs to a server
+
+  // want to log stacktrace on assertion/crash?
+  // https://unix.stackexchange.com/questions/11953/make-a-log-file
+  // https://stackify.com/syslog-101
+
+  // /etc/rsyslog.conf?
 
   // IMPORTANT(Ryan): For switch statements, put default at top 
 

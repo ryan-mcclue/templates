@@ -200,6 +200,34 @@ INTERNAL u32 __fatal_error(const char *file_name, const char *func_name, int lin
   return 0;
 }
 
+/*
+ * have a wrapper around vsyslog as reading log files is much harder than writing them?
+ * syslog normally for network events
+ * i.e. 'structured' logging, not just custom text
+ *
+ * Use Splunk?
+ 
+std::string StrTime() {
+    const int CTIME_LEN = 24;
+    std::time_t t;
+    std::time( & t );
+    return std::string( std::ctime( & t ), CTIME_LEN );
+}
+
+#define LOG( x )                         \
+    std::cout << StrTime() << "  ";        \
+    std::cout << x << "\n";
+
+
+int main() {
+    LOG( "program started" );
+    for( int i = 0; i < 10; i++ ) {
+        LOG( "value of i is " << i );
+    }
+    LOG( "program ended" );
+}
+*/
+
 INTERNAL u32 __fatal_error_errno(const char *file_name, const char *func_name, int line_num, 
                                   const char *message)
 { 
