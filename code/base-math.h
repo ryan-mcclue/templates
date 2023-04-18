@@ -282,6 +282,10 @@ union Vec2F32
   {
     f32 x, y;
   };
+  struct
+  {
+    f32 w, h;
+  };
 
   f32 elements[2];
   f32 v[2];

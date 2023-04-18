@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
-// .h includes
+// TODO(Ryan): Create a base-linux.c
 #include "base-inc.h"
 
-#include <raylib.h>
-// .c includes
+#include <SDL2/SDL.h>
 
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -107,6 +106,29 @@ linux_was_launched_by_gdb(void)
   return result;
 }
 
+INTERNAL u32
+sdl2_get_refresh_rate(SDL_Window *window)
+{
+  u32 result = 60;
+
+  SDL_DisplayMode display_mode = ZERO_STRUCT;
+
+  i32 display_index = SDL_GetWindowDisplayIndex(window);
+  if (SDL_GetCurrentDisplayMode(display_index, &display_mode) == 0)
+  {
+    // IMPORTANT(Ryan): This doesn't handle a variable refresh rate monitor
+    if (display_mode.refresh_rate > 0)
+    {
+      result = (u32)display_mode.refresh_rate;
+    }
+  }
+  else
+  {
+    WARN("Failed to retrieve current refresh rate. Defaulting to 60", SDL_GetError());
+  }
+
+  return result;
+}
 
 
 int
@@ -117,19 +139,16 @@ main(int argc, char *argv[])
   global_debugger_present = linux_was_launched_by_gdb();
 
 #if defined(MAIN_DEBUG)
-  // IMPORTANT(Ryan): Content in /etc/rsyslog.conf:
-  //   local7.info /var/log/app.log
-  // And subsequent daemon restart: $(pkill -HUP syslogd)
-  openlog("app", LOG_CONS, LOG_LOCAL7);
+  // IMPORTANT(Ryan): Content in /etc/rsyslog.d/app.conf:
+  //  if $programname == 'app' and $syslogseverity-text == 'error' then /var/log/app.log
+  // And subsequent daemon restart: $(sudo service rsyslog restart)
+  // global(parser.escapeControlCharactersOnReceive="off") 
+  openlog("app", LOG_CONS | LOG_PERROR, LOG_USER);
   setlogmask(LOG_UPTO(LOG_DEBUG));
 #else
   openlog("app", 0, LOG_USER);
   setlogmask(LOG_UPTO(LOG_WARNING));
 #endif
-
-  // output in /var/log/syslog (or /var/log/messages)
-  // Note that your syslogd configuration might not be set up to keep messages of log level LOG_INFO
-  // syslogd can be configured to send logs to a server
 
   // IMPORTANT(Ryan): For switch statements, put default at top 
 
@@ -145,15 +164,30 @@ main(int argc, char *argv[])
   i32 window_width = 1280;
   i32 window_height = 720;
 
-  InitWindow(window_width, window_height, "Test");        
-  SetTargetFPS(60);
+  if (SDL_Init(SDL_INIT_VIDEO) != 0)
+  {
+    FATAL_ERROR("Failed to initialise SDL2 video.", SDL_GetError(), "");
+  }
 
-  // how different to argv[0]?
-  // binary dir: readlink("/proc/self/exe");
+  SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                                        window_width, window_height, SDL_WINDOW_SHOWN);
+  if (window == NULL)
+  {
+    FATAL_ERROR("Failed to create SDL2 window.", SDL_GetError(), "");
+  }
+
+  SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (renderer == NULL)
+  {
+    FATAL_ERROR("Failed to create SDL2 renderer.", SDL_GetError(), "");
+  }
 
   u32 cwd_path_size = KB(32);
   u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);
-  //ERRNO_ASSERT(getcwd((char *)cwd_path_buffer, cwd_path_size) != NULL);
+  if (getcwd((char *)cwd_path_buffer, cwd_path_size) == NULL)
+  {
+    FATAL_ERROR("Failed to get current working directory.", strerror(errno), "");
+  }
 
   String8List app_temp_name_list = ZERO_STRUCT;
   s8_list_push(linux_mem_arena_perm, &app_temp_name_list, s8_cstring(cwd_path_buffer));
@@ -168,16 +202,25 @@ main(int argc, char *argv[])
   app_func app = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
-  app_state->ui_state.delta = 1.0f / 60.0f;
+  u32 refresh_rate = sdl2_get_refresh_rate(window);
+  app_state->ui_state.delta = 1.0f / refresh_rate;
 
-  Color clear_colour = {0, 0, 0, 255};
+  app_state->renderer = renderer;
 
-  // DrawRectangleGradientH(), DrawRectangleGradientEx()
-
-  while (!WindowShouldClose())
+  b32 want_to_run = true;
+  while (want_to_run)
   {
-    BeginDrawing();
-    ClearBackground(clear_colour); 
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
+    SDL_RenderClear(renderer);
+
+    SDL_Event sdl_event = ZERO_STRUCT;
+    while (SDL_PollEvent(&sdl_event) != 0)
+    {
+      if (sdl_event.type == SDL_QUIT)
+      {
+        want_to_run = false;
+      }
+    }
 
     u64 app_mod_time = linux_get_file_mod_time(app_name);
     if (app_mod_time > last_app_reload_time)
@@ -206,11 +249,13 @@ main(int argc, char *argv[])
         }
         else
         {
+          WARN("Failed to load app from shared library.", strerror(errno));
           app = NULL;
         }
       }
       else
       {
+        WARN("Failed to open app shared library.", strerror(errno));
         app = NULL;
       }
     }
@@ -219,12 +264,10 @@ main(int argc, char *argv[])
     {
       app_state->ms = linux_get_ms();
 
-      app_state->window_width = GetScreenWidth();
-      app_state->window_height = GetScreenHeight(); 
+      SDL_GetWindowSize(window, &app_state->window_width, &app_state->window_height);
 
-      app_state->ui_state.mouse_x = GetMouseX();
-      app_state->ui_state.mouse_y = GetMouseY();
-      app_state->ui_state.mouse_is_down = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+      u32 sdl_mouse_state = SDL_GetMouseState(&app_state->ui_state.mouse_x, &app_state->ui_state.mouse_y);
+      app_state->ui_state.mouse_is_down = sdl_mouse_state & SDL_BUTTON(1);
 
       app(app_state, linux_mem_arena_perm, &mem_arena_temp);
     }
@@ -235,12 +278,11 @@ main(int argc, char *argv[])
 
     mem_arena_scratch_release(mem_arena_temp);
 
-    EndDrawing();
+    SDL_RenderPresent(renderer);
   }
 
-  CloseWindow();
+  SDL_Quit();
 
-  
   // IMPORTANT(Ryan): Instead of choosing the right data structure
   // design the right data structure for the job, i.e. data structure composition
   // linked lists allow for seamless data structure composition?

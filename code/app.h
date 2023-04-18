@@ -10,7 +10,8 @@ struct AppState
 {
   b32 is_initialised;
 
-  f32 window_width, window_height;
+  i32 window_width, window_height;
+  SDL_Renderer *renderer;
   u64 ms;
 
   UIState ui_state;

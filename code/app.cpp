@@ -2,27 +2,44 @@
 
 #include "base-inc.h"
 
-#include <raylib.h>
+#include <SDL2/SDL.h>
 
 #include "app.h"
-
-
 
 
 // http://solhsa.com/imgui/
 
 #define GEN_UI_ID __LINE__
 
-INTERNAL void
-draw_rect(Vec2F32 min, Vec2F32 max, Vec3F32 colour)
+INTERNAL SDL_Colour
+vec4_f32_to_sdl_colour(Vec4F32 colour)
 {
-  Vector2 position = {min.x, min.y};
-  Vector2 size = {max.x - min.x, max.y - min.y};
-  Vec3F32 scaled = vec3_f32_mul(colour, 255.0f);
-  Color color = {(u8)scaled.r, (u8)scaled.g, (u8)scaled.b, 255};
-  DrawRectangleV(position, size, color);
+  SDL_Colour result = {0};
+
+  result.r = round_f32_to_i32(255.0f * colour.r);
+  result.g = round_f32_to_i32(255.0f * colour.g);
+  result.b = round_f32_to_i32(255.0f * colour.b);
+  result.a = round_f32_to_i32(255.0f * colour.a);
+
+  return result;
 }
 
+INTERNAL void
+draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
+{
+  SDL_Colour sdl_colour = vec4_f32_to_sdl_colour(colour);
+
+  SDL_SetRenderDrawColor(renderer, sdl_colour.r, sdl_colour.g, sdl_colour.b, sdl_colour.a);
+
+  SDL_Rect render_rect = {0};
+  render_rect.x = pos.x;
+  render_rect.y = pos.y;
+  render_rect.w = dim.w;
+  render_rect.h = dim.h;
+  SDL_RenderFillRect(renderer, &render_rect);
+}
+
+/*
 INTERNAL b32
 ui_region_hot(UIState *ui_state, Vec2F32 min, Vec2F32 max)
 {
@@ -77,6 +94,7 @@ ui_button(UIState *ui_state, Vec2F32 min, Vec2F32 max)
 
   return is_active;
 }
+*/
 
 
 EXPORT void
@@ -87,15 +105,17 @@ app(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena)
     state->is_initialised = true;
   }
 
+  draw_rect(state->renderer, vec2_f32(50.0f, 50.0f), vec2_f32(400.0f, 400.0f), vec4_f32(1.0f, 0.8f, 0.8f, 1.0f));
+
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
   // NOTE(Ryan): Self-correcting, exponential. Fastest on first frame to satisfy user requirement of instantaneous feedback
   // current = current + (target - current) * rate;
-  Vec2F32 min = vec2_f32(64, 64);
-  Vec2F32 max = vec2_f32(min.x + 256, min.y + 256);
-  if (ui_button(&state->ui_state, min, max))
-  {
-    DrawText("Button pressed", 300, 300, 24, {255, 255, 255, 255});  
-  }
+  //Vec2F32 min = vec2_f32(64, 64);
+  //Vec2F32 max = vec2_f32(min.x + 256, min.y + 256);
+  //if (ui_button(&state->ui_state, min, max))
+  //{
+  //  // DrawText("Button pressed", 300, 300, 24, {255, 255, 255, 255});  
+  //}
 
 }

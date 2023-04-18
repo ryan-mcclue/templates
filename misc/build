@@ -108,14 +108,6 @@ mkdir -p build run
 compiler_flags=()
 linker_flags=()
 
-# TODO(Ryan): EMBEDDED 
-#   -fstack-usage  generates .su files
-#   -Wstack-usage=255 (warn if usage over 255 bytes)
-#   better to use Ozone 'callgraph feature' to analyze stack
-#
-#   run arm-none-eabi-size to inspect output file
-#   -Os instead of -O3 optimisation 
-
 # -finstrument-functions
 
 # If wanting to build assets, would say have the relevent 'project' files, e.g. .blend files
@@ -127,8 +119,6 @@ linker_flags=()
 # https://github.com/makuto/spargus-vehicle-prototype/tree/master/Profiling
 # TODO(Ryan): renderdoc gpu profiler 
 
-# -finstrument-functions (we get pointer to function)
-# 
 # ctags -x --c-kinds=f filename.c
 # awk 'NR > first && /^}$/ { print NR; exit }' first=$FIRST_LINE filename.c
 
@@ -167,10 +157,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   compiler_flags+=( "-I code" "-isystem external" )
 
-  linker_flags+=( "-lm" "-lraylib" "-ldl" )
-  # -lc -lm -lnosys
-
-  # post-build get firmware size
+  linker_flags+=( "-lm" "-lSDL2" "-ldl" )
 
   # use for embedded, as will take into account region names specified in a linker script
   # compiler_flags+=( "-Wl,--print-memory-usage" )
