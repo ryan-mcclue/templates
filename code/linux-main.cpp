@@ -80,7 +80,7 @@ linux_get_seed_u32(void)
 {
   u32 result = 0;
 
-  if (getentropy(&result, sizeof(result)) != -1)
+  if (getentropy(&result, sizeof(result)) == -1)
   {
     WARN("getentropy failed", strerror(errno));
   }
@@ -130,6 +130,30 @@ sdl2_get_refresh_rate(SDL_Window *window)
   return result;
 }
 
+#if 0
+INTERNAL void
+sdl2_map_window_mouse_to_render_mouse(SDL_Window *window, SDL_Renderer *renderer, Input *input)
+{
+  s32 current_window_width, current_window_height = 0;
+  SDL_GetWindowSize(window, &current_window_width, &current_window_height);
+
+  s32 logical_render_width, logical_render_height = 0;
+  SDL_RenderGetLogicalSize(renderer, &logical_render_width, &logical_render_height);
+
+  s32 window_mouse_x, window_mouse_y = 0;
+  u32 mouse_state = SDL_GetMouseState(&window_mouse_x, &window_mouse_y);
+
+  r32 mouse_x_norm = (r32)window_mouse_x / (r32)current_window_width;
+  r32 mouse_y_norm = (r32)window_mouse_y / (r32)current_window_height;
+
+  s32 corrected_mouse_x = round_r32_to_s32(mouse_x_norm * logical_render_width); 
+  s32 corrected_mouse_y = round_r32_to_s32(mouse_y_norm * logical_render_height); 
+
+  input->mouse_x = corrected_mouse_x;
+  input->mouse_y = corrected_mouse_y;
+}
+#endif
+
 
 int
 main(int argc, char *argv[])
@@ -161,8 +185,11 @@ main(int argc, char *argv[])
   // TODO(Ryan): Add pools to memory arenas
   MemArenaTemp mem_arena_temp = mem_arena_scratch_get(NULL, 0);
 
-  i32 window_width = 1280;
-  i32 window_height = 720;
+  i32 render_width = 1280;
+  i32 render_height = 720;
+
+  i32 window_width = render_width;
+  i32 window_height = render_height;
 
   if (SDL_Init(SDL_INIT_VIDEO) != 0)
   {
@@ -180,6 +207,11 @@ main(int argc, char *argv[])
   if (renderer == NULL)
   {
     FATAL_ERROR("Failed to create SDL2 renderer.", SDL_GetError(), "");
+  }
+
+  if (SDL_RenderSetLogicalSize(renderer, render_width, render_height) != 0)
+  {
+    FATAL_ERROR("Failed to set SDL2 renderer size.", SDL_GetError(), "");
   }
 
   u32 cwd_path_size = KB(32);
@@ -203,9 +235,13 @@ main(int argc, char *argv[])
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
   u32 refresh_rate = sdl2_get_refresh_rate(window);
-  app_state->ui_state.delta = 1.0f / refresh_rate;
+  app_state->delta = 1.0f / refresh_rate;
+
+  app_state->rand_seed = linux_get_seed_u32();
 
   app_state->renderer = renderer;
+  app_state->render_width = (u32)render_width;
+  app_state->render_height = (u32)render_height;
 
   b32 want_to_run = true;
   while (want_to_run)
@@ -264,10 +300,10 @@ main(int argc, char *argv[])
     {
       app_state->ms = linux_get_ms();
 
-      SDL_GetWindowSize(window, &app_state->window_width, &app_state->window_height);
+      //SDL_GetWindowSize(window, &app_state->window_width, &app_state->window_height);
 
-      u32 sdl_mouse_state = SDL_GetMouseState(&app_state->ui_state.mouse_x, &app_state->ui_state.mouse_y);
-      app_state->ui_state.mouse_is_down = sdl_mouse_state & SDL_BUTTON(1);
+      //u32 sdl_mouse_state = SDL_GetMouseState(&app_state->ui_state.mouse_x, &app_state->ui_state.mouse_y);
+      //app_state->ui_state.mouse_is_down = sdl_mouse_state & SDL_BUTTON(1);
 
       app(app_state, linux_mem_arena_perm, &mem_arena_temp);
     }
