@@ -253,9 +253,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
  * what_msg: Initialised logging  
  * why_msg: To provide trace information to understand program flow in the event of a bug
  */
-#define DBG(what_msg, why_msg) \
-  syslog(LOG_DEBUG, "%s():\n%s\n%s", __func__, what_msg, why_msg);
-#define INFO(what_msg, why_msg) \
+#define DBG(fmt, ...) \
+  syslog(LOG_DEBUG, fmt, ##__VA_ARGS__);
+
+#define TRACE(what_msg, why_msg) \
   syslog(LOG_INFO, "%s():\n%s\n%s", __func__, what_msg, why_msg);
 
 #if defined(MAIN_DEBUG)

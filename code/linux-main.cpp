@@ -196,6 +196,16 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to initialise SDL2 video.", SDL_GetError(), "");
   }
 
+  SDL_version sdl2_version_compiled = ZERO_STRUCT;
+  SDL_VERSION(&sdl2_version_compiled);
+  DBG("Compiled with SDL2 %u.%u.%u\n", 
+       sdl2_version_compiled.major, sdl2_version_compiled.minor, sdl2_version_compiled.patch);
+
+  SDL_version sdl2_version_linked = ZERO_STRUCT;
+  SDL_GetVersion(&sdl2_version_linked);
+  DBG("Linked with SDL2 %u.%u.%u\n", 
+       sdl2_version_linked.major, sdl2_version_linked.minor, sdl2_version_linked.patch);
+
   SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                                         window_width, window_height, SDL_WINDOW_RESIZABLE);
   if (window == NULL)

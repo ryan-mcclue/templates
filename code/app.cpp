@@ -32,12 +32,13 @@ draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 
   SDL_SetRenderDrawColor(renderer, sdl_colour.r, sdl_colour.g, sdl_colour.b, sdl_colour.a);
 
-  SDL_Rect render_rect = {0};
+  SDL_FRect render_rect = ZERO_STRUCT;
   render_rect.x = pos.x;
   render_rect.y = pos.y;
   render_rect.w = dim.w;
   render_rect.h = dim.h;
-  SDL_RenderFillRect(renderer, &render_rect);
+
+  SDL_RenderFillRectF(renderer, &render_rect);
 }
 
 #define PERLIN_SIZE 256
@@ -100,6 +101,45 @@ perlin_like_noise(AppState *state, Renderer *renderer)
 
   return;
 }
+
+INTERNAL void
+draw_wire_frame(SDL_Renderer *renderer, Vec2F32 *points, u32 num_points, Vec2F32 origin, f32 rotation, f32 scale, Vec4F32 colour)
+{
+  // This is wireframe, i.e. base vertex points that are transformed when drawn
+  f32 mx[3] = { 0.0f, -2.5f, 2.5f};
+  f32 my[3] = { -5.5f, 2.5f, 2.5f};
+
+  // transformed points
+  f32 sx[3], sy[3];
+
+  // rotate
+  for (u32 i = 0; i < 3; i += 1)
+  {
+    sx[i] = mx[i] * cosf(state->player.angle) - my[i] * sinf(state->player.angle);
+    sy[i] = mx[i] * sinf(state->player.angle) + my[i] * cosf(state->player.angle);
+  }
+
+  // translate
+  for (u32 i = 0; i < 3; i += 1)
+  {
+    sx[i] = sx[i] + state->player.position.x;
+    sy[i] = sy[i] + state->player.position.y;
+  }
+
+  // draw polygon
+  SDL_FPoint points[4];
+  points[0].x = sx[0];
+  points[0].y = sy[0];
+  points[1].x = sx[1];
+  points[1].y = sy[1];
+  points[2].x = sx[2];
+  points[2].y = sy[2];
+  points[3].x = sx[0];
+  points[3].y = sy[0];
+  SDL_SetRenderDrawColor(renderer->renderer, 50, 100, 100, 0);
+  SDL_RenderDrawLinesF(renderer->renderer, points, 4); 
+}
+
 
 /*
 INTERNAL b32
@@ -261,10 +301,13 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, Mem
   Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
   state->player.position = toroidal_position_wrap(player_new_position, renderer->render_width, renderer->render_height);
 
+  // identity matrix is a NOP 
+  // scaling matrix is identity matrix > 1
+  // rotation matrix 
+
   draw_rect(renderer->renderer, state->asteroid.position, state->asteroid.size, vec4_f32(0.5f, 0.9f, 0.2f, 0.0f));
 
-  draw_rect(renderer->renderer, state->player.position, state->player.size, vec4_f32(0.3f, 0.3f, 0.8f, 0.0f));
-
+  
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
   // NOTE(Ryan): Self-correcting, exponential. Fastest on first frame to satisfy user requirement of instantaneous feedback
