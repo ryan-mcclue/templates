@@ -197,19 +197,19 @@ main(int argc, char *argv[])
   }
 
   SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                        window_width, window_height, SDL_WINDOW_SHOWN);
+                                        window_width, window_height, SDL_WINDOW_RESIZABLE);
   if (window == NULL)
   {
     FATAL_ERROR("Failed to create SDL2 window.", SDL_GetError(), "");
   }
 
-  SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  if (renderer == NULL)
+  SDL_Renderer *sdl2_renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (sdl2_renderer == NULL)
   {
     FATAL_ERROR("Failed to create SDL2 renderer.", SDL_GetError(), "");
   }
 
-  if (SDL_RenderSetLogicalSize(renderer, render_width, render_height) != 0)
+  if (SDL_RenderSetLogicalSize(sdl2_renderer, render_width, render_height) != 0)
   {
     FATAL_ERROR("Failed to set SDL2 renderer size.", SDL_GetError(), "");
   }
@@ -239,20 +239,25 @@ main(int argc, char *argv[])
 
   app_state->rand_seed = linux_get_seed_u32();
 
-  app_state->renderer = renderer;
-  app_state->render_width = (u32)render_width;
-  app_state->render_height = (u32)render_height;
+  Renderer *renderer = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, Renderer);
+  renderer->renderer = sdl2_renderer;
+  renderer->render_width = (u32)render_width;
+  renderer->render_height = (u32)render_height;
+  renderer->window_width = (u32)window_width;
+  renderer->window_height = (u32)window_height;
+
+  Input *input = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, Input);
 
   b32 want_to_run = true;
   while (want_to_run)
   {
-    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
-    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(sdl2_renderer, 0x00, 0x00, 0x00, 0xff);
+    SDL_RenderClear(sdl2_renderer);
 
-    SDL_Event sdl_event = ZERO_STRUCT;
-    while (SDL_PollEvent(&sdl_event) != 0)
+    SDL_Event sdl2_event = ZERO_STRUCT;
+    while (SDL_PollEvent(&sdl2_event) != 0)
     {
-      if (sdl_event.type == SDL_QUIT)
+      if (sdl2_event.type == SDL_QUIT)
       {
         want_to_run = false;
       }
@@ -300,12 +305,16 @@ main(int argc, char *argv[])
     {
       app_state->ms = linux_get_ms();
 
-      //SDL_GetWindowSize(window, &app_state->window_width, &app_state->window_height);
+      SDL_GetWindowSize(window, &window_width, &window_height);
+      renderer->window_width = (u32)window_width;
+      renderer->window_height = (u32)window_height;
 
-      //u32 sdl_mouse_state = SDL_GetMouseState(&app_state->ui_state.mouse_x, &app_state->ui_state.mouse_y);
-      //app_state->ui_state.mouse_is_down = sdl_mouse_state & SDL_BUTTON(1);
+      const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
+      input->move_left = keyboard_state[SDL_SCANCODE_LEFT];
+      input->move_right = keyboard_state[SDL_SCANCODE_RIGHT];
+      input->move_up = keyboard_state[SDL_SCANCODE_SPACE];
 
-      app(app_state, linux_mem_arena_perm, &mem_arena_temp);
+      app(app_state, renderer, input, linux_mem_arena_perm, &mem_arena_temp);
     }
     else
     {
@@ -314,7 +323,7 @@ main(int argc, char *argv[])
 
     mem_arena_scratch_release(mem_arena_temp);
 
-    SDL_RenderPresent(renderer);
+    SDL_RenderPresent(sdl2_renderer);
   }
 
   SDL_Quit();

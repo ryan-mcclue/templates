@@ -68,6 +68,7 @@
   #define IGNORE_WARNING_POP() \
     _Pragma("GCC diagnostic pop")
 
+  #define ISO_EXTENSION __extension__
   // TODO(Ryan): tail cail compiler macro?
   // https://blog.reverberate.org/2021/04/21/musttail-efficient-interpreters.html
 

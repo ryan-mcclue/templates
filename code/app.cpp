@@ -45,7 +45,7 @@ draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 // NOTE(Ryan): Higher values will give smoother results as contains more lower frequency parts
 #define PERLIN_SCALE 2.0f
 INTERNAL void
-perlin_like_noise(AppState *state)
+perlin_like_noise(AppState *state, Renderer *renderer)
 {
   // NOTE(Ryan): Allows pitch to be halved evenly
   ASSERT(IS_POW2(PERLIN_SIZE));
@@ -88,11 +88,11 @@ perlin_like_noise(AppState *state)
     noise[elem_i] = elem_noise_accum / scale_accum;
   }
 
-  u32 box_width = state->render_width / PERLIN_SIZE;
-  for (u32 x = 0; x < state->render_width / box_width; x += 1)
+  u32 box_width = renderer->render_width / PERLIN_SIZE;
+  for (u32 x = 0; x < renderer->render_width / box_width; x += 1)
   {
-    f32 box_height = (state->render_height * 0.5f) * noise[x];
-    draw_rect(state->renderer, 
+    f32 box_height = (renderer->render_height * 0.5f) * noise[x];
+    draw_rect(renderer->renderer, 
               vec2_f32(x * box_width, 0.0f), vec2_f32(box_width, box_height), 
               vec4_f32(1.0f, 0.8f, 0.8f, 1.0f));
   }
@@ -191,11 +191,6 @@ draw_rect_on_axis(SDL_Renderer *renderer, V2 origin, V2 x_axis, V2 y_axis, V4 co
 }
 */
 
-struct SpaceObject
-{
-  Vec2F32 position, velocity;
-  u32 size;
-};
 
 INTERNAL Vec2F32
 toroidal_position_wrap(Vec2F32 position, u32 render_width, u32 render_height)
@@ -224,27 +219,51 @@ toroidal_position_wrap(Vec2F32 position, u32 render_width, u32 render_height)
 }
 
 EXPORT void
-app(AppState *state, MemArena *perm_arena, MemArenaTemp *temp_arena)
+app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, MemArenaTemp *temp_arena)
 {
   if (!state->is_initialised)
   {
-    // TODO(Ryan): Cast this from arena
     state->is_initialised = true;
 
-    state->map_width = 1024;
-    state->map_height = 512;
-    state->map = MEM_ARENA_PUSH_ARRAY(perm_arena, u8, state->map_width * state->map_height);
+    state->asteroid.position = {20.0f, 20.0f};
+    state->asteroid.velocity = {50.0f, -6.0f};
+    state->asteroid.size = {128.0f, 128.0f};
+    state->asteroid.angle = 0.0f; 
+
+    state->player.position = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
+    state->player.velocity = {0.0f, 0.0f};
+    state->player.size = {64.0f, 64.0f};
+    state->player.angle = 0.0f; 
   }
 
-  SpaceObject asteroids[8] = ZERO_STRUCT;
-  asteroids[0] = {20.0f, 20.0f, 8.0f, -6.0f, 16};
+  if (input->move_left)
+  {
+    state->player.angle -= (5.0f * state->delta);
+  }
+  if (input->move_right)
+  {
+    state->player.angle += (5.0f * state->delta);
+  }
+  if (input->move_up)
+  {
+    f32 acceleration = 20.0f;
+    // changing velocity is acceleration
+    state->player.velocity.x += (sin(state->player.angle) * acceleration * state->delta);
+    // NOTE(Ryan): Negative to account for 0 being at top of screen
+    state->player.velocity.y += (-cos(state->player.angle) * acceleration * state->delta);
+  }
 
-  Vec2F32 modulated_velocity = vec2_f32_mul(asteroids[0].velocity, state->delta);
-  vec2_f32_add(asteroids[0].position, modulated_velocity);
+  Vec2F32 asteroid_modulated_velocity = vec2_f32_mul(state->asteroid.velocity, state->delta);
+  Vec2F32 asteroid_new_position = vec2_f32_add(state->asteroid.position, asteroid_modulated_velocity);
+  state->asteroid.position = toroidal_position_wrap(asteroid_new_position, renderer->render_width, renderer->render_height);
 
-  Vec2F32 new_position = toroidal_position_wrap(asteroids[0].position, state->render_width, state->render_height);
+  Vec2F32 player_modulated_velocity = vec2_f32_mul(state->player.velocity, state->delta);
+  Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
+  state->player.position = toroidal_position_wrap(player_new_position, renderer->render_width, renderer->render_height);
 
+  draw_rect(renderer->renderer, state->asteroid.position, state->asteroid.size, vec4_f32(0.5f, 0.9f, 0.2f, 0.0f));
 
+  draw_rect(renderer->renderer, state->player.position, state->player.size, vec4_f32(0.3f, 0.3f, 0.8f, 0.0f));
 
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
