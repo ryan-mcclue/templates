@@ -4,8 +4,12 @@
 
 struct SpaceObject
 {
-  Vec2F32 position, velocity, size;
-  f32 angle; // TODO(Ryan): Replace with x, y axis?
+  Vec2F32 position, velocity;
+  f32 angle;
+  f32 scale;
+
+  Vec2F32 *points;
+  u32 num_points;
 };
 
 IGNORE_WARNING_PADDED()
@@ -43,9 +47,9 @@ struct Input
 };
 IGNORE_WARNING_POP()
 
-typedef void (*app_func)(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, MemArenaTemp *temp_arena);
+typedef void (*app_func)(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena);
 
 EXPORT void
-app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, MemArenaTemp *temp_arena);
+app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena);
 
 #endif

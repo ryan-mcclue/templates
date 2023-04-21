@@ -324,7 +324,7 @@ main(int argc, char *argv[])
       input->move_right = keyboard_state[SDL_SCANCODE_RIGHT];
       input->move_up = keyboard_state[SDL_SCANCODE_SPACE];
 
-      app(app_state, renderer, input, linux_mem_arena_perm, &mem_arena_temp);
+      app(app_state, renderer, input, linux_mem_arena_perm);
     }
     else
     {

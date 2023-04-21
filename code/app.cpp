@@ -105,39 +105,34 @@ perlin_like_noise(AppState *state, Renderer *renderer)
 INTERNAL void
 draw_wire_frame(SDL_Renderer *renderer, Vec2F32 *points, u32 num_points, Vec2F32 origin, f32 rotation, f32 scale, Vec4F32 colour)
 {
-  // This is wireframe, i.e. base vertex points that are transformed when drawn
-  f32 mx[3] = { 0.0f, -2.5f, 2.5f};
-  f32 my[3] = { -5.5f, 2.5f, 2.5f};
+  MemArenaTemp temp_arena = mem_arena_scratch_get(NULL, 0);
 
-  // transformed points
-  f32 sx[3], sy[3];
+  SDL_FPoint *transformed_points = MEM_ARENA_PUSH_ARRAY_ZERO(temp_arena.arena, SDL_FPoint, num_points + 1);
 
-  // rotate
-  for (u32 i = 0; i < 3; i += 1)
+  for (u32 point_i = 0; point_i < num_points; point_i += 1)
   {
-    sx[i] = mx[i] * cosf(state->player.angle) - my[i] * sinf(state->player.angle);
-    sy[i] = mx[i] * sinf(state->player.angle) + my[i] * cosf(state->player.angle);
+    // NOTE(Ryan): Rotation
+    transformed_points[point_i].x = points[point_i].x * cos_f32(rotation) - points[point_i].y * sin_f32(rotation);
+    transformed_points[point_i].y = points[point_i].x * sin_f32(rotation) + points[point_i].y * cos_f32(rotation);
+
+    // NOTE(Ryan): Scaling
+    transformed_points[point_i].x *= scale;
+    transformed_points[point_i].y *= scale;
+    
+    // NOTE(Ryan): Translation
+    transformed_points[point_i].x += origin.x;
+    transformed_points[point_i].y += origin.y;
   }
 
-  // translate
-  for (u32 i = 0; i < 3; i += 1)
-  {
-    sx[i] = sx[i] + state->player.position.x;
-    sy[i] = sy[i] + state->player.position.y;
-  }
+  // NOTE(Ryan): Ensure closed
+  transformed_points[num_points] = transformed_points[0];
 
-  // draw polygon
-  SDL_FPoint points[4];
-  points[0].x = sx[0];
-  points[0].y = sy[0];
-  points[1].x = sx[1];
-  points[1].y = sy[1];
-  points[2].x = sx[2];
-  points[2].y = sy[2];
-  points[3].x = sx[0];
-  points[3].y = sy[0];
-  SDL_SetRenderDrawColor(renderer->renderer, 50, 100, 100, 0);
-  SDL_RenderDrawLinesF(renderer->renderer, points, 4); 
+  SDL_Colour sdl_colour = vec4_f32_to_sdl_colour(colour);
+  SDL_SetRenderDrawColor(renderer, sdl_colour.r, sdl_colour.g, sdl_colour.b, sdl_colour.a);
+
+  SDL_RenderDrawLinesF(renderer, transformed_points, (i32)(num_points + 1));
+
+  mem_arena_scratch_release(temp_arena);
 }
 
 
@@ -258,22 +253,40 @@ toroidal_position_wrap(Vec2F32 position, u32 render_width, u32 render_height)
   return result;
 }
 
+ThreadContext global_tctx;
+
 EXPORT void
-app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, MemArenaTemp *temp_arena)
+app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
   if (!state->is_initialised)
   {
     state->is_initialised = true;
 
+    global_tctx = thread_context_create();
+    thread_context_set(&global_tctx);
+
     state->asteroid.position = {20.0f, 20.0f};
     state->asteroid.velocity = {50.0f, -6.0f};
-    state->asteroid.size = {128.0f, 128.0f};
+    state->asteroid.scale = 32.0f;
     state->asteroid.angle = 0.0f; 
+    state->asteroid.num_points = 20;
+    state->asteroid.points = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, Vec2F32, state->asteroid.num_points);
+    for (u32 asteroid_point_i = 0; asteroid_point_i < state->asteroid.num_points; asteroid_point_i += 1)
+    {
+      f32 radius = 5.0f;
+      f32 a = ((f32)asteroid_point_i / (f32)state->asteroid.num_points) * TAU_F32; 
+      state->asteroid.points[asteroid_point_i] = {radius * sin_f32(a), radius * cos_f32(a)};
+    }
 
     state->player.position = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
     state->player.velocity = {0.0f, 0.0f};
-    state->player.size = {64.0f, 64.0f};
+    state->player.scale = 64.0f;
     state->player.angle = 0.0f; 
+    state->player.num_points = 3;
+    state->player.points = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, Vec2F32, state->player.num_points);
+    state->player.points[0] = {0.0f, -5.0f};
+    state->player.points[1] = {-2.5f, 2.5f};
+    state->player.points[2] = {2.5f, 2.5f};
   }
 
   if (input->move_left)
@@ -301,12 +314,15 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena, Mem
   Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
   state->player.position = toroidal_position_wrap(player_new_position, renderer->render_width, renderer->render_height);
 
-  // identity matrix is a NOP 
-  // scaling matrix is identity matrix > 1
-  // rotation matrix 
+  draw_wire_frame(renderer->renderer,
+                  state->asteroid.points, state->asteroid.num_points, 
+                  state->asteroid.position, state->asteroid.angle, state->asteroid.scale, 
+                  vec4_f32(0.8f, 0.2f, 0.1f, 0.0f));
 
-  draw_rect(renderer->renderer, state->asteroid.position, state->asteroid.size, vec4_f32(0.5f, 0.9f, 0.2f, 0.0f));
-
+  draw_wire_frame(renderer->renderer,
+                  state->player.points, state->player.num_points, 
+                  state->player.position, state->player.angle, state->player.scale, 
+                  vec4_f32(0.5f, 0.8f, 0.3f, 0.0f));
   
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
