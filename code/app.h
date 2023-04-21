@@ -33,6 +33,7 @@ struct AppState
   SpaceObject asteroid;
   SpaceObject player;
 
+  SpaceObjectDLL *first_free_bullet;
   SpaceObjectDLL *first_bullet;
   SpaceObjectDLL *last_bullet;
 };

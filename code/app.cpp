@@ -135,6 +135,35 @@ draw_wire_frame(SDL_Renderer *renderer, Vec2F32 *points, u32 num_points, Vec2F32
   mem_arena_scratch_release(temp_arena);
 }
 
+INTERNAL SpaceObjectDLL*
+push_bullet(SpaceObjectDLL *first_free_bullet, MemArena *perm_arena, Vec2F32 position, Vec2F32 velocity)
+{
+  SpaceObjectDLL *result = NULL;
+
+  if (first_free_bullet == NULL)
+  {
+    result = MEM_ARENA_PUSH_STRUCT_ZERO(perm_arena, SpaceObjectDLL);
+  }
+  else
+  {
+    result = first_free_bullet;
+    MEMORY_ZERO_STRUCT(result);
+
+    first_free_bullet = first_free_bullet->next;
+  }
+
+  result->object.position = position;
+  result->object.velocity = velocity;
+
+  return result;
+}
+
+INTERNAL void 
+release_bullet(SpaceObjectDLL *first_free_bullet, SpaceObjectDLL *bullet)
+{
+  bullet->next = first_free_bullet;
+  first_free_bullet = bullet;
+}
 
 /*
 INTERNAL b32
@@ -306,6 +335,18 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->player.velocity.y += (-cos(state->player.angle) * acceleration * state->delta);
   }
 
+  if (input->bullet_fired)
+  {
+    Vec2F32 bullet_position = state->player.position;
+    Vec2F32 bullet_velocity = ZERO_STRUCT;
+    bullet_velocity.x = 50.0f * sinf(state->player.angle);
+    bullet_velocity.y = -50.0f * cosf(state->player.angle);
+    f32 bullet_scale = 1.0f;
+
+    SpaceObjectDLL *bullet = push_bullet(state->first_free_bullet, perm_arena, bullet_position, bullet_velocity);
+    DLL_PUSH_FRONT(state->first_bullet, state->last_bullet, bullet);
+  }
+
   Vec2F32 asteroid_modulated_velocity = vec2_f32_mul(state->asteroid.velocity, state->delta);
   Vec2F32 asteroid_new_position = vec2_f32_add(state->asteroid.position, asteroid_modulated_velocity);
   state->asteroid.position = toroidal_position_wrap(asteroid_new_position, renderer->render_width, renderer->render_height);
@@ -314,26 +355,27 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
   state->player.position = toroidal_position_wrap(player_new_position, renderer->render_width, renderer->render_height);
 
-
-  if (input->bullet_fired)
+  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
   {
-    // bullet_list
-    // DLL_PUSH_FRONT(state->bullets_first, state->bullets_last, bullet);
-    // state->bullets(player_x, player_y, 50.0f * sinf(player_angle), -50 * cosf(player_angle))
+    Vec2F32 bullet_modulated_velocity = vec2_f32_mul(bullet->object.velocity, state->delta);
+    bullet->object.position = vec2_f32_add(bullet->object.position, bullet_modulated_velocity);
   }
 
-  // remove bullets if off screen
-  for (SpaceObjectDLL *bullet = state->bullets_first; bullet->next != NULL; bullet = bullet->next)
+  // NOTE(Ryan): Remove bullets that are off screen
+  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
   {
-    if (bullet->object.x <= 0 || bullet->object.x >= renderer->render_width ||
-        bullet->object.y <= 0 || bullet->object.y >= renderer->render_height)
+    if (bullet->object.position.x <= 0 || bullet->object.position.x >= renderer->render_width ||
+        bullet->object.position.y <= 0 || bullet->object.position.y >= renderer->render_height)
     {
-      DLL_REMOVE(state->bullets_first, state->bullets_last, bullet);
+      DLL_REMOVE(state->first_bullet, state->last_bullet, bullet);
+      release_bullet(state->first_free_bullet, bullet);
     }
   }
 
-
-  // draw bullets
+  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
+  {
+    draw_rect(renderer->renderer, bullet->object.position, vec2_f32(8.0f, 8.0f), vec4_f32(1.0f, 1.0f, 1.0f, 0.0f));
+  }
 
   draw_wire_frame(renderer->renderer,
                   state->asteroid.points, state->asteroid.num_points, 
@@ -359,53 +401,3 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 }
 
 
-// reusing memory that has been released 
-
-struct Entity
-{
-  Entity *next;
-  Vec2F32 position;
-  Vec2F32 velocity;
-};
-
-struct GameState
-{
-  Arena *permanent_arena;
-  Entity *first_free_entity;
-
-  SpaceObjectSLL *first_bullet;
-  SpaceObjectSLL *last_bullet;
-};
-
-SpaceObjectSLL *create_bullet()
-SLL_PUSH();
-
-Entity *EntityAlloc(GameState *game_state)
-{
-  Entity *result = NULL;
-
-  // if the free list was empty, push a new entity onto the arena
-  if (game_state->first_free_entity == NULL)
-  {
-    result = MEM_ARENA_PUSH_STRUCT_ZERO(game_state->permanent_arena, Entity);
-  }
-  // grab the top of the free list...
-  else
-  {
-    result = game_state->first_free_entity;
-    MemoryZeroStruct(result);
-
-    game_state->first_free_entity = game_state->first_free_entity->next;
-  }
-
-  return result;
-}
-
-void EntityRelease(GameState *game_state, Entity *entity)
-{
-  // releasing -> push onto free list. next allocation
-  // will take the top of the free list, not push onto
-  // the arena.
-  entity->next = game_state->first_free_entity;
-  game_state->first_free_entity = entity;
-}
