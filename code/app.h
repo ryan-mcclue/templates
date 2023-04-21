@@ -12,6 +12,12 @@ struct SpaceObject
   u32 num_points;
 };
 
+struct SpaceObjectDLL
+{
+  SpaceObject object;
+  SpaceObjectDLL *next, *prev;
+};
+
 IGNORE_WARNING_PADDED()
 typedef struct AppState AppState;
 struct AppState
@@ -26,6 +32,9 @@ struct AppState
 
   SpaceObject asteroid;
   SpaceObject player;
+
+  SpaceObjectDLL *first_bullet;
+  SpaceObjectDLL *last_bullet;
 };
 IGNORE_WARNING_POP()
 
@@ -43,7 +52,7 @@ IGNORE_WARNING_PADDED()
 typedef struct Input Input;
 struct Input
 {
-  b32 move_left, move_right, move_up; 
+  b32 move_left, move_right, move_up, bullet_fired;
 };
 IGNORE_WARNING_POP()
 

@@ -271,6 +271,15 @@ main(int argc, char *argv[])
       {
         want_to_run = false;
       }
+
+      if (sdl2_event.type == SDL_KEYUP)
+      {
+        input->bullet_fired = (sdl2_event.key.keysym.scancode == SDL_SCANCODE_S);
+      }
+      else
+      {
+        input->bullet_fired = false;
+      }
     }
 
     u64 app_mod_time = linux_get_file_mod_time(app_name);

@@ -314,6 +314,27 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
   state->player.position = toroidal_position_wrap(player_new_position, renderer->render_width, renderer->render_height);
 
+
+  if (input->bullet_fired)
+  {
+    // bullet_list
+    // DLL_PUSH_FRONT(state->bullets_first, state->bullets_last, bullet);
+    // state->bullets(player_x, player_y, 50.0f * sinf(player_angle), -50 * cosf(player_angle))
+  }
+
+  // remove bullets if off screen
+  for (SpaceObjectDLL *bullet = state->bullets_first; bullet->next != NULL; bullet = bullet->next)
+  {
+    if (bullet->object.x <= 0 || bullet->object.x >= renderer->render_width ||
+        bullet->object.y <= 0 || bullet->object.y >= renderer->render_height)
+    {
+      DLL_REMOVE(state->bullets_first, state->bullets_last, bullet);
+    }
+  }
+
+
+  // draw bullets
+
   draw_wire_frame(renderer->renderer,
                   state->asteroid.points, state->asteroid.num_points, 
                   state->asteroid.position, state->asteroid.angle, state->asteroid.scale, 
@@ -335,4 +356,56 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   //  // DrawText("Button pressed", 300, 300, 24, {255, 255, 255, 255});  
   //}
 
+}
+
+
+// reusing memory that has been released 
+
+struct Entity
+{
+  Entity *next;
+  Vec2F32 position;
+  Vec2F32 velocity;
+};
+
+struct GameState
+{
+  Arena *permanent_arena;
+  Entity *first_free_entity;
+
+  SpaceObjectSLL *first_bullet;
+  SpaceObjectSLL *last_bullet;
+};
+
+SpaceObjectSLL *create_bullet()
+SLL_PUSH();
+
+Entity *EntityAlloc(GameState *game_state)
+{
+  Entity *result = NULL;
+
+  // if the free list was empty, push a new entity onto the arena
+  if (game_state->first_free_entity == NULL)
+  {
+    result = MEM_ARENA_PUSH_STRUCT_ZERO(game_state->permanent_arena, Entity);
+  }
+  // grab the top of the free list...
+  else
+  {
+    result = game_state->first_free_entity;
+    MemoryZeroStruct(result);
+
+    game_state->first_free_entity = game_state->first_free_entity->next;
+  }
+
+  return result;
+}
+
+void EntityRelease(GameState *game_state, Entity *entity)
+{
+  // releasing -> push onto free list. next allocation
+  // will take the top of the free list, not push onto
+  // the arena.
+  entity->next = game_state->first_free_entity;
+  game_state->first_free_entity = entity;
 }
