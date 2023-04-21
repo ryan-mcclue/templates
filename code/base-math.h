@@ -6,7 +6,7 @@
 
 #include <math.h>
 
-#define square(x) ((x) * (x))
+#define SQUARE(x) ((x) * (x))
 
 // TODO(Ryan): Investigate using SIMD, e.g: 
 //   _mm_cvtss_f32(_mm_sqrt_ss(_mm_set1_ps(x)));

@@ -282,6 +282,12 @@ toroidal_position_wrap(Vec2F32 position, u32 render_width, u32 render_height)
   return result;
 }
 
+INTERNAL b32
+is_point_in_circle(Vec2F32 point, f32 radius, Vec2F32 circle)
+{
+  return (sqrt_f32(SQUARE((circle.x - point.x)) + SQUARE((circle.y - point.y))) < radius); 
+}
+
 ThreadContext global_tctx;
 
 EXPORT void
@@ -302,14 +308,15 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->asteroid.points = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, Vec2F32, state->asteroid.num_points);
     for (u32 asteroid_point_i = 0; asteroid_point_i < state->asteroid.num_points; asteroid_point_i += 1)
     {
-      f32 radius = 5.0f;
+      f32 radius = 3.0f + rand_unilateral_f32(&state->rand_seed) * 2.0f;
+
       f32 a = ((f32)asteroid_point_i / (f32)state->asteroid.num_points) * TAU_F32; 
       state->asteroid.points[asteroid_point_i] = {radius * sin_f32(a), radius * cos_f32(a)};
     }
 
     state->player.position = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
     state->player.velocity = {0.0f, 0.0f};
-    state->player.scale = 64.0f;
+    state->player.scale = 8.0f;
     state->player.angle = 0.0f; 
     state->player.num_points = 3;
     state->player.points = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, Vec2F32, state->player.num_points);
@@ -350,6 +357,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   Vec2F32 asteroid_modulated_velocity = vec2_f32_mul(state->asteroid.velocity, state->delta);
   Vec2F32 asteroid_new_position = vec2_f32_add(state->asteroid.position, asteroid_modulated_velocity);
   state->asteroid.position = toroidal_position_wrap(asteroid_new_position, renderer->render_width, renderer->render_height);
+  state->asteroid.angle += 0.5f * state->delta;
 
   Vec2F32 player_modulated_velocity = vec2_f32_mul(state->player.velocity, state->delta);
   Vec2F32 player_new_position = vec2_f32_add(state->player.position, player_modulated_velocity);
@@ -359,6 +367,11 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     Vec2F32 bullet_modulated_velocity = vec2_f32_mul(bullet->object.velocity, state->delta);
     bullet->object.position = vec2_f32_add(bullet->object.position, bullet_modulated_velocity);
+
+    // check collision with asteroid and create 2 child asteroids
+    // f32 angle1 = rand_f32_unilateral() * TAU_F32;
+
+    // if (player_dies) reset_game();
   }
 
   // NOTE(Ryan): Remove bullets that are off screen

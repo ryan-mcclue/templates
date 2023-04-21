@@ -244,6 +244,7 @@ main(int argc, char *argv[])
   app_func app = NULL;
 
   AppState *app_state = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, AppState);
+  // IMPORTANT(Ryan): Required to be called again if in fullscreen mode
   u32 refresh_rate = sdl2_get_refresh_rate(window);
   app_state->delta = 1.0f / refresh_rate;
 
@@ -256,7 +257,7 @@ main(int argc, char *argv[])
   renderer->window_width = (u32)window_width;
   renderer->window_height = (u32)window_height;
 
-  Input *input = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, Input);
+  Input *input = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, Input, 1);
 
   b32 want_to_run = true;
   while (want_to_run)
@@ -267,19 +268,23 @@ main(int argc, char *argv[])
     SDL_Event sdl2_event = ZERO_STRUCT;
     while (SDL_PollEvent(&sdl2_event) != 0)
     {
-      if (sdl2_event.type == SDL_QUIT)
+      switch (sdl2_event.type)
       {
-        want_to_run = false;
+        default: break;
+        case SDL_QUIT:
+        {
+          want_to_run = false;
+        } break;
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+        {
+          if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_S)
+          {
+            input->bullet_fired = (sdl2_event.key.state == SDL_RELEASED);
+          }
+        } break;
       }
 
-      if (sdl2_event.type == SDL_KEYUP)
-      {
-        input->bullet_fired = (sdl2_event.key.keysym.scancode == SDL_SCANCODE_S);
-      }
-      else
-      {
-        input->bullet_fired = false;
-      }
     }
 
     u64 app_mod_time = linux_get_file_mod_time(app_name);
@@ -334,6 +339,8 @@ main(int argc, char *argv[])
       input->move_up = keyboard_state[SDL_SCANCODE_SPACE];
 
       app(app_state, renderer, input, linux_mem_arena_perm);
+
+      input->bullet_fired = false;
     }
     else
     {
