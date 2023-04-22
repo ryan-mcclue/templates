@@ -36,6 +36,9 @@ struct AppState
   SpaceObjectDLL *first_free_bullet;
   SpaceObjectDLL *first_bullet;
   SpaceObjectDLL *last_bullet;
+
+  u32 map_width, map_height;
+  u8 *map;
 };
 IGNORE_WARNING_POP()
 

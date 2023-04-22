@@ -3,6 +3,34 @@
 #if !defined(BASE_MAP_H)
 #define BASE_MAP_H
 
+/* Usage:
+ * 
+ * IMPORTANT(Ryan): So, *hash_next, *hash_prev are for iterating through all has map entries
+ * TODO(Ryan): Require redefining queue/stack insert macros for different next/prev name combinations 
+ *
+ * These are to iterate through map entries
+   GEN_MapInfo *first_map = NULL;
+   GEN_MapInfo *last_map = NULL;
+
+   MD_Map map_map = MD_MapMake(arena);
+
+   GEN_MapInfo *map_info = MD_PushArrayZero(arena, GEN_MapInfo, 1);
+   map_info->node = node;
+   MD_QueuePush(first_map, last_map, map_info);
+   MD_MapInsert(arena, &map_map, MD_MapKeyStr(node->string), map_info);
+
+   MD_MapSlot *map_slot = MD_MapLookup(&map_map, MD_MapKeyStr(name));
+   if (map_slot != 0)
+   {
+       GEN_MapInfo *map_info = (GEN_MapInfo*)map_slot->val;
+       result = map_info->node;
+   }
+
+ *
+ */
+
+
+
 typedef struct MapKey MapKey;
 struct MapKey
 {
@@ -28,6 +56,7 @@ struct MapBucket
   MapSlot *first;
   MapSlot *last;
 };
+
 
 typedef struct Map Map;
 struct Map

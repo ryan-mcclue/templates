@@ -45,34 +45,35 @@ draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 #define PERLIN_OCTAVES 8
 // NOTE(Ryan): Higher values will give smoother results as contains more lower frequency parts
 #define PERLIN_SCALE 2.0f
-INTERNAL void
-perlin_like_noise(AppState *state, Renderer *renderer)
+INTERNAL f32 *
+perlin_1d(MemArena *perm_arena, u32 *rand_seed, u32 size, u32 octaves, f32 smoothness)
 {
   // NOTE(Ryan): Allows pitch to be halved evenly
-  ASSERT(IS_POW2(PERLIN_SIZE));
+  ASSERT(IS_POW2(size));
   // NOTE(Ryan): Ensure don't have a pitch less than 1
-  ASSERT(PERLIN_SIZE >> PERLIN_OCTAVES >= 1);
-  
-  f32 noise[PERLIN_SIZE] = ZERO_STRUCT;
+  ASSERT(size >> octaves >= 1);
 
-  f32 seed[PERLIN_SIZE] = ZERO_STRUCT;
-  for (u32 i = 0; i < PERLIN_SIZE; i += 1)
+  MemArenaTemp temp_arena = mem_arena_scratch_get(NULL, 0);
+  f32 *seed = MEM_ARENA_PUSH_ARRAY_ZERO(temp_arena.arena, f32, size);
+  for (u32 i = 0; i < size; i += 1)
   {
-    seed[i] = rand_unilateral_f32(&state->rand_seed);
+    seed[i] = rand_unilateral_f32(rand_seed);
   }
 
-  for (u32 elem_i = 0; elem_i < PERLIN_SIZE; elem_i += 1)
+  f32 *noise = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, f32, size);
+
+  for (u32 elem_i = 0; elem_i < size; elem_i += 1)
   {
     f32 elem_noise_accum = 0.0f;
     f32 scale = 1.0f;
     f32 scale_accum = 0.0f;
 
-    for (u32 octave_i = 0; octave_i < PERLIN_OCTAVES; octave_i += 1)
+    for (u32 octave_i = 0; octave_i < octaves; octave_i += 1)
     {
-      u32 pitch = PERLIN_SIZE >> octave_i;
+      u32 pitch = size >> octave_i;
       // NOTE(Ryan): First sample multiple of pitch
       u32 sample_one_i = (elem_i / pitch) * pitch;
-      u32 sample_two_i = (sample_one_i + pitch) % PERLIN_SIZE;
+      u32 sample_two_i = (sample_one_i + pitch) % size;
       
       // NOTE(Ryan): How far into pitch
       f32 blend = (f32)(elem_i - sample_one_i) / (f32)pitch;
@@ -82,24 +83,16 @@ perlin_like_noise(AppState *state, Renderer *renderer)
       elem_noise_accum += sample * scale;
 
       scale_accum += scale;
-      scale = scale / PERLIN_SCALE;
+      scale = scale / smoothness;
     }
 
     // NOTE(Ryan): Division to ensure between 0 and 1
     noise[elem_i] = elem_noise_accum / scale_accum;
   }
 
-  u32 box_width = renderer->render_width / PERLIN_SIZE;
-  for (u32 x = 0; x < renderer->render_width / box_width; x += 1)
-  {
-    f32 box_height = (renderer->render_height * 0.5f) * noise[x];
-    draw_rect(renderer->renderer, 
-              vec2_f32(x * box_width, 0.0f), vec2_f32(box_width, box_height), 
-              vec4_f32(1.0f, 0.8f, 0.8f, 1.0f));
-  }
+  mem_arena_scratch_release(temp_arena);
 
-
-  return;
+  return noise;
 }
 
 INTERNAL void
@@ -323,7 +316,12 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->player.points[0] = {0.0f, -5.0f};
     state->player.points[1] = {-2.5f, 2.5f};
     state->player.points[2] = {2.5f, 2.5f};
-  }
+
+    state->map_width = 1024;
+    state->map_height = 512;
+    // 1 with land, 0 without
+    state->map = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, u8, state->map_width * state->map_height);
+  } 
 
   if (input->move_left)
   {
@@ -375,14 +373,22 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   }
 
   // NOTE(Ryan): Remove bullets that are off screen
-  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
+  // TODO(Ryan): Compose linked lists rather than separate  
+  SpaceObjectDLL *bullet = state->first_bullet;
+  SpaceObjectDLL *bullet_next = NULL;
+  while (bullet != NULL)
   {
+    // NOTE(Ryan): Cache next prempting release
+    bullet_next = bullet->next;  
+
     if (bullet->object.position.x <= 0 || bullet->object.position.x >= renderer->render_width ||
         bullet->object.position.y <= 0 || bullet->object.position.y >= renderer->render_height)
     {
       DLL_REMOVE(state->first_bullet, state->last_bullet, bullet);
       release_bullet(state->first_free_bullet, bullet);
     }
+
+    bullet = bullet_next;
   }
 
   for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
