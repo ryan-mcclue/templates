@@ -6,6 +6,8 @@
 
 #include "app.h"
 
+// trees if don't care loop with recursion
+// however, loop is faster and more reliable
 
 // http://solhsa.com/imgui/
 
@@ -41,26 +43,15 @@ draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
   SDL_RenderFillRectF(renderer, &render_rect);
 }
 
-#define PERLIN_SIZE 256
-#define PERLIN_OCTAVES 8
-// NOTE(Ryan): Higher values will give smoother results as contains more lower frequency parts
-#define PERLIN_SCALE 2.0f
 INTERNAL f32 *
-perlin_1d(MemArena *perm_arena, u32 *rand_seed, u32 size, u32 octaves, f32 smoothness)
+perlin_1d(MemArena *arena, f32 *seed, u32 size, u32 octaves, f32 smoothness)
 {
   // NOTE(Ryan): Allows pitch to be halved evenly
   ASSERT(IS_POW2(size));
   // NOTE(Ryan): Ensure don't have a pitch less than 1
   ASSERT(size >> octaves >= 1);
 
-  MemArenaTemp temp_arena = mem_arena_scratch_get(NULL, 0);
-  f32 *seed = MEM_ARENA_PUSH_ARRAY_ZERO(temp_arena.arena, f32, size);
-  for (u32 i = 0; i < size; i += 1)
-  {
-    seed[i] = rand_unilateral_f32(rand_seed);
-  }
-
-  f32 *noise = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, f32, size);
+  f32 *noise = MEM_ARENA_PUSH_ARRAY_ZERO(arena, f32, size);
 
   for (u32 elem_i = 0; elem_i < size; elem_i += 1)
   {
@@ -90,7 +81,6 @@ perlin_1d(MemArena *perm_arena, u32 *rand_seed, u32 size, u32 octaves, f32 smoot
     noise[elem_i] = elem_noise_accum / scale_accum;
   }
 
-  mem_arena_scratch_release(temp_arena);
 
   return noise;
 }
@@ -321,6 +311,33 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->map_height = 512;
     // 1 with land, 0 without
     state->map = MEM_ARENA_PUSH_ARRAY_ZERO(perm_arena, u8, state->map_width * state->map_height);
+
+    MemArenaTemp temp_arena = mem_arena_scratch_get(NULL, 0);
+    f32 *seed = MEM_ARENA_PUSH_ARRAY_ZERO(temp_arena.arena, f32, state->map_width);
+    for (u32 i = 0; i < state->map_width; i += 1)
+    {
+      seed[i] = rand_unilateral_f32(&state->rand_seed);
+    }
+    // NOTE(Ryan): Ensure start and end are halfway up
+    seed[0] = 0.5f;
+    f32 *map_heights = perlin_1d(temp_arena.arena, seed, state->map_width, 8, 2.0f); 
+
+    for (u32 x = 0; x < state->map_width; x += 1)
+    {
+      for (u32 y = 0; y < state->map_height; y += 1)
+      {
+        if (y >= (map_heights[x] * state->map_height))
+        {
+          state->map[state->map_width * x + y] = 1;
+        }
+        else
+        {
+          state->map[state->map_width * x + y] = 0;
+        }
+      }
+    }
+
+    mem_arena_scratch_release(temp_arena);
   } 
 
   if (input->move_left)
@@ -405,6 +422,42 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                   state->player.points, state->player.num_points, 
                   state->player.position, state->player.angle, state->player.scale, 
                   vec4_f32(0.5f, 0.8f, 0.3f, 0.0f));
+
+  // IMPORTANT(Ryan): If cannot map larger than screen, require camera
+  f32 map_edge_scroll_speed = 400.0f;
+  if (input->mouse_x < 5)
+  {
+    state->camera.x -= map_edge_scroll_speed * state->delta; 
+  }
+  if (input->mouse_x > renderer->render_width - 5)
+  {
+    state->camera.x += map_edge_scroll_speed * state->delta; 
+  }
+  if (input->mouse_y < 5)
+  {
+    state->camera.y -= map_edge_scroll_speed * state->delta; 
+  }
+  if (input->mouse_y > renderer->render_height - 5)
+  {
+    state->camera.y += map_edge_scroll_speed * state->delta; 
+  }
+
+  if (state->camera.x < 0)
+  {
+    state->camera.x = 0;
+  }
+  if (state->camera.x >= state->map_width - renderer->render_width)
+  {
+    state->camera.x = state->map_width - renderer->render_width; 
+  }
+  if (state->camera.y < 0)
+  {
+    state->camera.y = 0;
+  }
+  if (state->camera.y >= state->map_height - renderer->render_height)
+  {
+    state->camera.y = state->map_height - renderer->render_height; 
+  }
   
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 

@@ -130,29 +130,18 @@ sdl2_get_refresh_rate(SDL_Window *window)
   return result;
 }
 
-#if 0
 INTERNAL void
-sdl2_map_window_mouse_to_render_mouse(SDL_Window *window, SDL_Renderer *renderer, Input *input)
+sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
 {
-  s32 current_window_width, current_window_height = 0;
-  SDL_GetWindowSize(window, &current_window_width, &current_window_height);
-
-  s32 logical_render_width, logical_render_height = 0;
-  SDL_RenderGetLogicalSize(renderer, &logical_render_width, &logical_render_height);
-
-  s32 window_mouse_x, window_mouse_y = 0;
+  i32 window_mouse_x, window_mouse_y = 0;
   u32 mouse_state = SDL_GetMouseState(&window_mouse_x, &window_mouse_y);
 
-  r32 mouse_x_norm = (r32)window_mouse_x / (r32)current_window_width;
-  r32 mouse_y_norm = (r32)window_mouse_y / (r32)current_window_height;
+  f32 mouse_x_norm = (f32)window_mouse_x / (f32)renderer->window_width;
+  f32 mouse_y_norm = (f32)window_mouse_y / (f32)renderer->window_height;
 
-  s32 corrected_mouse_x = round_r32_to_s32(mouse_x_norm * logical_render_width); 
-  s32 corrected_mouse_y = round_r32_to_s32(mouse_y_norm * logical_render_height); 
-
-  input->mouse_x = corrected_mouse_x;
-  input->mouse_y = corrected_mouse_y;
+  input->mouse_x = round_f32_to_i32(mouse_x_norm * renderer->render_width); 
+  input->mouse_y = round_f32_to_i32(mouse_y_norm * renderer->render_height); 
 }
-#endif
 
 
 int
@@ -337,6 +326,8 @@ main(int argc, char *argv[])
       input->move_left = keyboard_state[SDL_SCANCODE_LEFT];
       input->move_right = keyboard_state[SDL_SCANCODE_RIGHT];
       input->move_up = keyboard_state[SDL_SCANCODE_SPACE];
+
+      sdl2_map_window_mouse_to_render_mouse(renderer, input);
 
       app(app_state, renderer, input, linux_mem_arena_perm);
 

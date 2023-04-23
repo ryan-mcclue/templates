@@ -39,6 +39,8 @@ struct AppState
 
   u32 map_width, map_height;
   u8 *map;
+
+  Vec2F32 camera;
 };
 IGNORE_WARNING_POP()
 
@@ -57,6 +59,7 @@ typedef struct Input Input;
 struct Input
 {
   b32 move_left, move_right, move_up, bullet_fired;
+  f32 mouse_x, mouse_y; 
 };
 IGNORE_WARNING_POP()
 
