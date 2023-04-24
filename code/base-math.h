@@ -524,8 +524,6 @@ union Vec4I64
 };
 IGNORE_WARNING_POP()
 
-// IMPORTANT(Ryan): Could use C++ operator overloading, or GCC specific vector extensions in C
-
 #define vec2_f32_dup(a) vec2_f32((a), (a))
 #define vec3_f32_dup(a) vec3_f32((a), (a), (a))
 
@@ -549,6 +547,13 @@ vec2_f32_sub(Vec2F32 a, Vec2F32 b)
 }
 
 INTERNAL Vec2F32 
+vec2_f32_neg(Vec2F32 a) 
+{ 
+  return vec2_f32(-a.x, -a.y);
+}
+
+
+INTERNAL Vec2F32 
 vec2_f32_hadamard(Vec2F32 a, Vec2F32 b) 
 { 
   return vec2_f32(a.x * b.x, a.y * b.y); 
@@ -564,6 +569,24 @@ INTERNAL Vec2F32
 vec2_f32_div(Vec2F32 a, Vec2F32 b) 
 { 
   return vec2_f32(a.x / b.x, a.y / b.y); 
+}
+
+INTERNAL Vec2F32 
+vec2_f32_arm(f32 angle) 
+{ 
+  return vec2_f32(cos_f32(angle), sin_f32(angle)); 
+}
+
+INTERNAL Vec2F32
+vec2_f32_perp(Vec2F32 a)
+{
+  return vec2_f32(-a.y, a.x);
+}
+
+INTERNAL f32
+vec2_f32_angle(Vec2F32 a)
+{
+  return atan2_f32(a.y, a.x);
 }
 
 INTERNAL f32 
@@ -595,6 +618,63 @@ vec2_f32_lerp(Vec2F32 a, Vec2F32 b, f32 t)
 { 
   return vec2_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t)); 
 }
+
+#if defined(LANG_CPP)
+INTERNAL Vec2F32
+operator*(f32 s, Vec2F32 a)
+{
+  return vec2_f32_mul(a, s);
+}
+
+INTERNAL Vec2F32
+operator*(Vec2F32 a, f32 s)
+{
+  return vec2_f32_mul(a, s);
+}
+
+INTERNAL Vec2F32 &
+operator*=(Vec2F32 &a, f32 s)
+{
+  a = a * s;
+
+  return a;
+}
+
+INTERNAL Vec2F32
+operator+(Vec2F32 a, Vec2F32 b)
+{
+  return vec2_f32_add(a, b);
+}
+
+INTERNAL Vec2F32 &
+operator+=(Vec2F32 &a, Vec2F32 b)
+{
+  a = a + b;
+
+  return a;
+}
+
+INTERNAL Vec2F32
+operator-(Vec2F32 a, Vec2F32 b)
+{
+  return vec2_f32_sub(a, b);
+}
+
+INTERNAL Vec2F32 &
+operator-=(Vec2F32 &a, Vec2F32 b)
+{
+  a = a - b;
+
+  return a;
+}
+
+INTERNAL Vec2F32
+operator-(Vec2F32 a)
+{
+  return vec2_f32_neg(a);
+}
+#endif
+// TODO(Ryan): Add gcc vector extensions here
 
 
 INTERNAL Vec3F32

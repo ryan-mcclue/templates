@@ -296,7 +296,7 @@ create_test_entity(MemArena *arena, f32 x, f32 y)
   for (u32 p = 0; p < result->num_points - 1; p += 1)
   {
     f32 a = ((f32)p / (f32)(result->num_points - 2)) * TAU_F32; 
-    result->points[p] = {result->radius * cos_f32(a), result->radius * sin_f32(a)};
+    result->points[p] = vec2_f32_arm(a) * result->radius;
   }
   result->points[result->num_points - 1] = {0.0f, 0.0f};
 
@@ -497,19 +497,19 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       // gravity
       test_entity->acceleration.y += 2.0f;
 
-      test_entity->velocity.x += test_entity->acceleration.x * state->delta;
-      test_entity->velocity.y += test_entity->acceleration.y * state->delta;
+      test_entity->velocity += test_entity->acceleration * state->delta;
 
-      f32 potential_x = test_entity->position.x + test_entity->velocity.x * state->delta;
-      f32 potential_y = test_entity->position.y + test_entity->velocity.y * state->delta;
+      Vec2F32 potential_pos = test_entity->position + (test_entity->velocity * state->delta);
 
-      test_entity->acceleration.x = 0.0f;
-      test_entity->acceleration.y = 0.0f;
+      test_entity->acceleration = {0.0f, 0.0f};
 
       // it's moving
       test_entity->stable = false;
 
-      f32 angle = atan2_f32(test_entity->velocity.x, test_entity->velocity.y);
+#if 0
+      test_entity->position = potential_pos;
+#else
+      f32 angle = vec2_f32_angle(test_entity->velocity);
       Vec2F32 response = ZERO_STRUCT;
 
       b32 collision = false;
@@ -517,38 +517,50 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       // ensure increment amount has arc length <= 1 pixel
       for (f32 r = angle - HALF_PI_F32; r < angle + HALF_PI_F32; r += PI_F32 / 8.0f)
       {
-        f32 test_pos_x = (test_entity->radius * cos_f32(r)) + potential_x;
-        f32 test_pos_y = (test_entity->radius * sin_f32(r)) + potential_y;
+        Vec2F32 test_pos = potential_pos + (test_entity->radius * vec2_f32_arm(r));
 
-        if (test_pos_x >= state->map_width) test_pos_x = state->map_width - 1;
-        if (test_pos_x < 0) test_pos_x = 0;
-        if (test_pos_y >= state->map_height) test_pos_y = state->map_height - 1;
-        if (test_pos_y < 0) test_pos_y = 0;
+        if (test_pos.x >= state->map_width) 
+        {
+          test_pos.x = state->map_width - 1;
+        }
+        if (test_pos.x < 0) 
+        {
+          test_pos.x = 0;
+        }
+        if (test_pos.y >= state->map_height) 
+        {
+          test_pos.y = state->map_height - 1;
+        }
+        if (test_pos.y < 0)
+        {
+          test_pos.y = 0;
+        }
 
-        if (state->map[(u32)test_pos_y * state->map_width + (u32)test_pos_x] != 0)
+        if (state->map[(u32)test_pos.y * state->map_width + (u32)test_pos.x] != 0)
         {
           // accumulate to get response vector? semicircle gives resultant?  
-          response.x += potential_x - test_pos_x;
-          response.y += potential_y - test_pos_y;
+          // response vector is our normal to collision surface
+          response += potential_pos - test_pos;
           collision = true;
         }
       }
 
       if (collision)
       {
-        // so, won't actually collide
+        // so, won't actually collide as stopping before
         test_entity->stable = true;
-        f32 velocity_magnitude = sqrt_f32(SQUARE(test_entity->position.x) + SQUARE(test_entity->position.y));
-        f32 response_magnitude = sqrt_f32(SQUARE(response.x) + SQUARE(response.y));
+        f32 velocity_magnitude = vec2_f32_length(test_entity->position);
+        Vec2F32 normal = vec2_f32_normalise(response);
 
         // reflection vector with dot product
+        test_entity->velocity += -2.0f * (vec2_f32_dot(test_entity->velocity, normal)) * normal;
+        
       }
       else
       {
-        test_entity->position.x = potential_x;
-        test_entity->position.y = potential_y;
+        test_entity->position = potential_pos;
       }
-
+#endif
     }
   }
 
@@ -575,10 +587,9 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     draw_wire_frame(renderer->renderer,
                     test_entity->points, test_entity->num_points, 
-                    vec2_f32_sub(test_entity->position, state->camera), atan2_f32(test_entity->velocity.y, test_entity->velocity.x), 
+                    test_entity->position - state->camera, vec2_f32_angle(test_entity->velocity), 
                     5.0f, 
                     RED_COLOUR);
-    // TODO(Ryan): Why atan2 y first?
   }
   
 /*
