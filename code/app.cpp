@@ -487,25 +487,69 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   }
 
 
-  for (Entity *test_entity = state->first_test_entity; test_entity != NULL; test_entity = test_entity->next)
+  // response vector normal is tangential to terrain at collision?
+
+  // TODO(Ryan): Remove this and get efficient higher update rate?
+  for (u32 physics_update_count = 0; physics_update_count < 10; physics_update_count += 1)
   {
-    // gravity
-    test_entity->acceleration.y += 2.0f;
+    for (Entity *test_entity = state->first_test_entity; test_entity != NULL; test_entity = test_entity->next)
+    {
+      // gravity
+      test_entity->acceleration.y += 2.0f;
 
-    test_entity->velocity.x += test_entity->acceleration.x * state->delta;
-    test_entity->velocity.y += test_entity->acceleration.y * state->delta;
+      test_entity->velocity.x += test_entity->acceleration.x * state->delta;
+      test_entity->velocity.y += test_entity->acceleration.y * state->delta;
 
-    f32 potential_x = test_entity->position.x + test_entity->velocity.x * state->delta;
-    f32 potential_y = test_entity->position.y + test_entity->velocity.y * state->delta;
+      f32 potential_x = test_entity->position.x + test_entity->velocity.x * state->delta;
+      f32 potential_y = test_entity->position.y + test_entity->velocity.y * state->delta;
 
-    test_entity->acceleration.x = 0.0f;
-    test_entity->acceleration.y = 0.0f;
+      test_entity->acceleration.x = 0.0f;
+      test_entity->acceleration.y = 0.0f;
 
-    // it's moving
-    test_entity->stable = false;
+      // it's moving
+      test_entity->stable = false;
 
-    test_entity->position.x = potential_x;
-    test_entity->position.y = potential_y;
+      f32 angle = atan2_f32(test_entity->velocity.x, test_entity->velocity.y);
+      Vec2F32 response = ZERO_STRUCT;
+
+      b32 collision = false;
+
+      // ensure increment amount has arc length <= 1 pixel
+      for (f32 r = angle - HALF_PI_F32; r < angle + HALF_PI_F32; r += PI_F32 / 8.0f)
+      {
+        f32 test_pos_x = (test_entity->radius * cos_f32(r)) + potential_x;
+        f32 test_pos_y = (test_entity->radius * sin_f32(r)) + potential_y;
+
+        if (test_pos_x >= state->map_width) test_pos_x = state->map_width - 1;
+        if (test_pos_x < 0) test_pos_x = 0;
+        if (test_pos_y >= state->map_height) test_pos_y = state->map_height - 1;
+        if (test_pos_y < 0) test_pos_y = 0;
+
+        if (state->map[(u32)test_pos_y * state->map_width + (u32)test_pos_x] != 0)
+        {
+          // accumulate to get response vector? semicircle gives resultant?  
+          response.x += potential_x - test_pos_x;
+          response.y += potential_y - test_pos_y;
+          collision = true;
+        }
+      }
+
+      if (collision)
+      {
+        // so, won't actually collide
+        test_entity->stable = true;
+        f32 velocity_magnitude = sqrt_f32(SQUARE(test_entity->position.x) + SQUARE(test_entity->position.y));
+        f32 response_magnitude = sqrt_f32(SQUARE(response.x) + SQUARE(response.y));
+
+        // reflection vector with dot product
+      }
+      else
+      {
+        test_entity->position.x = potential_x;
+        test_entity->position.y = potential_y;
+      }
+
+    }
   }
 
 
@@ -531,7 +575,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     draw_wire_frame(renderer->renderer,
                     test_entity->points, test_entity->num_points, 
-                    vec2_f32_sub(test_entity->position, state->camera), atan2f(test_entity->velocity.y, test_entity->velocity.x), 
+                    vec2_f32_sub(test_entity->position, state->camera), atan2_f32(test_entity->velocity.y, test_entity->velocity.x), 
                     5.0f, 
                     RED_COLOUR);
     // TODO(Ryan): Why atan2 y first?
