@@ -88,6 +88,7 @@ linux_get_seed_u32(void)
   return result;
 }
 
+// TODO(Ryan): Won't work if loaded as shared object
 INTERNAL b32
 linux_was_launched_by_gdb(void)
 {
@@ -139,6 +140,9 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
   f32 desired_window_width = (f32)renderer->window_height * ((f32)renderer->render_width / (f32)renderer->render_height);
   f32 desired_window_height = (f32)renderer->window_width * ((f32)renderer->render_height / (f32)renderer->render_width);
 
+  f32 mouse_x_norm = (f32)window_mouse_x / (f32)renderer->window_width;
+  f32 mouse_y_norm = (f32)window_mouse_y / (f32)renderer->window_height;
+
   if (desired_window_width > (f32)renderer->window_width)
   {
     // NOTE(Ryan): Width constrained, i.e top and bottom black bars
@@ -156,6 +160,8 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
     {
       window_mouse_y -= black_bar_height;
     }
+
+    mouse_y_norm = (f32)window_mouse_y / desired_window_height;
   }
   else
   {
@@ -174,10 +180,9 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
     {
       window_mouse_x -= black_bar_width;
     }
-  }
 
-  f32 mouse_x_norm = (f32)window_mouse_x / (f32)renderer->window_width;
-  f32 mouse_y_norm = (f32)window_mouse_y / (f32)renderer->window_height;
+    mouse_x_norm = (f32)window_mouse_x / desired_window_width;
+  }
 
   input->mouse_x = round_f32_to_i32(mouse_x_norm * renderer->render_width); 
   input->mouse_y = round_f32_to_i32(mouse_y_norm * renderer->render_height); 

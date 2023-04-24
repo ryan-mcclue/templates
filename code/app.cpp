@@ -6,6 +6,16 @@
 
 #include "app.h"
 
+// NOTE(Ryan): Solarized light colours
+#define YELLOW_COLOUR	vec4_f32(0.71f, 0.54f, 0.00f, 0.0f)
+#define ORANGE_COLOUR	vec4_f32(0.80f, 0.29f, 0.09f, 0.0f)
+#define RED_COLOUR vec4_f32(0.86f, 0.20f, 0.18f, 0.0f)
+#define MAGENTA_COLOUR vec4_f32(0.83f, 0.21f, 0.05f, 0.0f)
+#define VIOLET_COLOUR	vec4_f32(0.42f, 0.44f, 0.77f, 0.0f)
+#define BLUE_COLOUR vec4_f32(0.15f, 0.55f, 0.82f, 0.0f)
+#define CYAN_COLOUR vec4_f32(0.16f, 0.63f, 0.60f, 0.0f)
+#define GREEN_COLOUR vec4_f32(0.52f, 0.60f, 0.00f, 0.0f)
+
 // trees if don't care loop with recursion
 // however, loop is faster and more reliable
 
@@ -282,11 +292,13 @@ create_test_entity(MemArena *arena, f32 x, f32 y)
   result->radius = 16.0f;
 
   result->num_points = 10;
-  for (u32 p = 0; p < result->num_points; p += 1)
+  result->points = MEM_ARENA_PUSH_ARRAY_ZERO(arena, Vec2F32, result->num_points);
+  for (u32 p = 0; p < result->num_points - 1; p += 1)
   {
-    f32 a = ((f32)p / (f32)result->num_points) * TAU_F32; 
-    result->points[p] = {result->radius * sin_f32(a), result->radius * cos_f32(a)};
+    f32 a = ((f32)p / (f32)(result->num_points - 2)) * TAU_F32; 
+    result->points[p] = {result->radius * cos_f32(a), result->radius * sin_f32(a)};
   }
+  result->points[result->num_points - 1] = {0.0f, 0.0f};
 
   return result;
 }
@@ -475,6 +487,28 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   }
 
 
+  for (Entity *test_entity = state->first_test_entity; test_entity != NULL; test_entity = test_entity->next)
+  {
+    // gravity
+    test_entity->acceleration.y += 2.0f;
+
+    test_entity->velocity.x += test_entity->acceleration.x * state->delta;
+    test_entity->velocity.y += test_entity->acceleration.y * state->delta;
+
+    f32 potential_x = test_entity->position.x + test_entity->velocity.x * state->delta;
+    f32 potential_y = test_entity->position.y + test_entity->velocity.y * state->delta;
+
+    test_entity->acceleration.x = 0.0f;
+    test_entity->acceleration.y = 0.0f;
+
+    // it's moving
+    test_entity->stable = false;
+
+    test_entity->position.x = potential_x;
+    test_entity->position.y = potential_y;
+  }
+
+
   f32 block_size = 8.0f;
   for (u32 x = 0; x < (renderer->render_width / block_size); x += 1)
   {
@@ -483,22 +517,24 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       u8 map_val = state->map[(y + (u32)state->camera.y)*state->map_width + (x + (u32)state->camera.x)];
       if (map_val == 1)
       {
-        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), vec4_f32(0.5f, 0.5f, 0.8f, 0.0f));
+        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), GREEN_COLOUR);
       }
       else
       {
-        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), vec4_f32(0.9f, 0.1f, 0.1f, 0.0f));
+        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), BLUE_COLOUR);
       }
     }
   }
+
 
   for (Entity *test_entity = state->first_test_entity; test_entity != NULL; test_entity = test_entity->next)
   {
     draw_wire_frame(renderer->renderer,
                     test_entity->points, test_entity->num_points, 
-                    vec2_f32_sub(test_entity->position, state->camera), atan2f(test_entity->velocity.x, test_entity->velocity.y), 
-                    1.0f, 
-                    vec4_f32(0.5f, 0.5f, 0.1f, 0.0f));
+                    vec2_f32_sub(test_entity->position, state->camera), atan2f(test_entity->velocity.y, test_entity->velocity.x), 
+                    5.0f, 
+                    RED_COLOUR);
+    // TODO(Ryan): Why atan2 y first?
   }
   
 /*
@@ -517,7 +553,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                   state->player.position, state->player.angle, state->player.scale, 
                   vec4_f32(0.5f, 0.8f, 0.3f, 0.0f));
 */
-
 
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
