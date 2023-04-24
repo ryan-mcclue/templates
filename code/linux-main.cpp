@@ -304,12 +304,18 @@ main(int argc, char *argv[])
         {
           want_to_run = false;
         } break;
-        case SDL_KEYDOWN:
         case SDL_KEYUP:
         {
           if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_S)
           {
-            input->bullet_fired = (sdl2_event.key.state == SDL_RELEASED);
+            input->bullet_fired = true;
+          }
+        } break;
+        case SDL_MOUSEBUTTONUP:
+        {
+          if (sdl2_event.button.button == SDL_BUTTON_LEFT)
+          {
+            input->mouse_clicked = true;
           }
         } break;
       }
@@ -372,6 +378,7 @@ main(int argc, char *argv[])
       app(app_state, renderer, input, linux_mem_arena_perm);
 
       input->bullet_fired = false;
+      input->mouse_clicked = false;
     }
     else
     {

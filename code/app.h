@@ -58,6 +58,9 @@ struct AppState
   u32 map_width, map_height;
   u8 *map;
 
+  Entity *first_test_entity;
+  Entity *last_test_entity;
+
   Vec2F32 camera;
 };
 IGNORE_WARNING_POP()
@@ -78,6 +81,7 @@ struct Input
 {
   b32 move_left, move_right, move_up, bullet_fired;
   f32 mouse_x, mouse_y; 
+  b32 mouse_clicked;
 };
 IGNORE_WARNING_POP()
 

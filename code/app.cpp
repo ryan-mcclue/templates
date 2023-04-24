@@ -272,6 +272,25 @@ is_point_in_circle(Vec2F32 point, f32 radius, Vec2F32 circle)
   return (sqrt_f32(SQUARE((circle.x - point.x)) + SQUARE((circle.y - point.y))) < radius); 
 }
 
+INTERNAL Entity *
+create_test_entity(MemArena *arena, f32 x, f32 y)
+{
+  Entity *result = MEM_ARENA_PUSH_STRUCT_ZERO(arena, Entity);
+
+  result->position.x = x;
+  result->position.y = y;
+  result->radius = 16.0f;
+
+  result->num_points = 10;
+  for (u32 p = 0; p < result->num_points; p += 1)
+  {
+    f32 a = ((f32)p / (f32)result->num_points) * TAU_F32; 
+    result->points[p] = {result->radius * sin_f32(a), result->radius * cos_f32(a)};
+  }
+
+  return result;
+}
+
 ThreadContext global_tctx;
 
 EXPORT void
@@ -449,6 +468,13 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->camera.y = state->map_height - renderer->render_height; 
   }
 
+  if (input->mouse_clicked)
+  {
+    Entity *entity = create_test_entity(perm_arena, input->mouse_x + state->camera.x, input->mouse_y + state->camera.y);
+    SLL_QUEUE_PUSH(state->first_test_entity, state->last_test_entity, entity);
+  }
+
+
   f32 block_size = 8.0f;
   for (u32 x = 0; x < (renderer->render_width / block_size); x += 1)
   {
@@ -464,6 +490,15 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
         draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), vec4_f32(0.9f, 0.1f, 0.1f, 0.0f));
       }
     }
+  }
+
+  for (Entity *test_entity = state->first_test_entity; test_entity != NULL; test_entity = test_entity->next)
+  {
+    draw_wire_frame(renderer->renderer,
+                    test_entity->points, test_entity->num_points, 
+                    vec2_f32_sub(test_entity->position, state->camera), atan2f(test_entity->velocity.x, test_entity->velocity.y), 
+                    1.0f, 
+                    vec4_f32(0.5f, 0.5f, 0.1f, 0.0f));
   }
   
 /*

@@ -35,6 +35,12 @@ tan_f32(f32 x)
 }
 
 INTERNAL f32
+atan2_f32(f32 x, f32 y)
+{
+  return atan2f(x, y);
+}
+
+INTERNAL f32
 ln_f32(f32 x)
 {
   return logf(x);
