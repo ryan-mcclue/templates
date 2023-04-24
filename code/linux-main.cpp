@@ -136,6 +136,46 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
   i32 window_mouse_x, window_mouse_y = 0;
   u32 mouse_state = SDL_GetMouseState(&window_mouse_x, &window_mouse_y);
 
+  f32 desired_window_width = (f32)renderer->window_height * ((f32)renderer->render_width / (f32)renderer->render_height);
+  f32 desired_window_height = (f32)renderer->window_width * ((f32)renderer->render_height / (f32)renderer->render_width);
+
+  if (desired_window_width > (f32)renderer->window_width)
+  {
+    // NOTE(Ryan): Width constrained, i.e top and bottom black bars
+    f32 black_bar_height = ((f32)renderer->window_height - desired_window_height) * 0.5f;
+
+    if (window_mouse_y < black_bar_height)
+    {
+      window_mouse_y = 0.0f;
+    }
+    else if (window_mouse_y > black_bar_height + desired_window_height)
+    {
+      window_mouse_y = (i32)renderer->window_height;
+    }
+    else
+    {
+      window_mouse_y -= black_bar_height;
+    }
+  }
+  else
+  {
+    // NOTE(Ryan): Height constrained, i.e left and right black bars
+    f32 black_bar_width = ((f32)renderer->window_width - desired_window_width) * 0.5f;
+
+    if (window_mouse_x < black_bar_width)
+    {
+      window_mouse_x = 0.0f;
+    }
+    else if (window_mouse_x > black_bar_width + desired_window_width)
+    {
+      window_mouse_x = (i32)renderer->window_width;
+    }
+    else
+    {
+      window_mouse_x -= black_bar_width;
+    }
+  }
+
   f32 mouse_x_norm = (f32)window_mouse_x / (f32)renderer->window_width;
   f32 mouse_y_norm = (f32)window_mouse_y / (f32)renderer->window_height;
 

@@ -85,6 +85,7 @@ perlin_1d(MemArena *arena, f32 *seed, u32 size, u32 octaves, f32 smoothness)
   return noise;
 }
 
+// IMPORTANT(Ryan): Rotation angle can be determined via: atan2f(vx, vy);
 INTERNAL void
 draw_wire_frame(SDL_Renderer *renderer, Vec2F32 *points, u32 num_points, Vec2F32 origin, f32 rotation, f32 scale, Vec4F32 colour)
 {
@@ -283,6 +284,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     global_tctx = thread_context_create();
     thread_context_set(&global_tctx);
 
+    /*
     state->asteroid.position = {20.0f, 20.0f};
     state->asteroid.velocity = {50.0f, -6.0f};
     state->asteroid.scale = 32.0f;
@@ -306,6 +308,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     state->player.points[0] = {0.0f, -5.0f};
     state->player.points[1] = {-2.5f, 2.5f};
     state->player.points[2] = {2.5f, 2.5f};
+    */
 
     state->map_width = 1024;
     state->map_height = 512;
@@ -328,11 +331,11 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       {
         if (y >= (map_heights[x] * state->map_height))
         {
-          state->map[state->map_width * x + y] = 1;
+          state->map[state->map_width * y + x] = 1;
         }
         else
         {
-          state->map[state->map_width * x + y] = 0;
+          state->map[state->map_width * y + x] = 0;
         }
       }
     }
@@ -340,6 +343,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     mem_arena_scratch_release(temp_arena);
   } 
 
+  /*
   if (input->move_left)
   {
     state->player.angle -= (5.0f * state->delta);
@@ -407,21 +411,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
     bullet = bullet_next;
   }
-
-  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
-  {
-    draw_rect(renderer->renderer, bullet->object.position, vec2_f32(8.0f, 8.0f), vec4_f32(1.0f, 1.0f, 1.0f, 0.0f));
-  }
-
-  draw_wire_frame(renderer->renderer,
-                  state->asteroid.points, state->asteroid.num_points, 
-                  state->asteroid.position, state->asteroid.angle, state->asteroid.scale, 
-                  vec4_f32(0.8f, 0.2f, 0.1f, 0.0f));
-
-  draw_wire_frame(renderer->renderer,
-                  state->player.points, state->player.num_points, 
-                  state->player.position, state->player.angle, state->player.scale, 
-                  vec4_f32(0.5f, 0.8f, 0.3f, 0.0f));
+  */
 
   // IMPORTANT(Ryan): If cannot map larger than screen, require camera
   f32 map_edge_scroll_speed = 400.0f;
@@ -458,7 +448,42 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     state->camera.y = state->map_height - renderer->render_height; 
   }
+
+  f32 block_size = 8.0f;
+  for (u32 x = 0; x < (renderer->render_width / block_size); x += 1)
+  {
+    for (u32 y = 0; y < (renderer->render_height / block_size); y += 1)
+    {
+      u8 map_val = state->map[(y + (u32)state->camera.y)*state->map_width + (x + (u32)state->camera.x)];
+      if (map_val == 1)
+      {
+        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), vec4_f32(0.5f, 0.5f, 0.8f, 0.0f));
+      }
+      else
+      {
+        draw_rect(renderer->renderer, vec2_f32(x * block_size, y * block_size), vec2_f32(block_size, block_size), vec4_f32(0.9f, 0.1f, 0.1f, 0.0f));
+      }
+    }
+  }
   
+/*
+  for (SpaceObjectDLL *bullet = state->first_bullet; bullet != NULL; bullet = bullet->next)
+  {
+    draw_rect(renderer->renderer, bullet->object.position, vec2_f32(8.0f, 8.0f), vec4_f32(1.0f, 1.0f, 1.0f, 0.0f));
+  }
+
+  draw_wire_frame(renderer->renderer,
+                  state->asteroid.points, state->asteroid.num_points, 
+                  state->asteroid.position, state->asteroid.angle, state->asteroid.scale, 
+                  vec4_f32(0.8f, 0.2f, 0.1f, 0.0f));
+
+  draw_wire_frame(renderer->renderer,
+                  state->player.points, state->player.num_points, 
+                  state->player.position, state->player.angle, state->player.scale, 
+                  vec4_f32(0.5f, 0.8f, 0.3f, 0.0f));
+*/
+
+
   // IMPORTANT(Ryan): Anything that is animated, i.e. varies over time use a _t varible
 
   // NOTE(Ryan): Self-correcting, exponential. Fastest on first frame to satisfy user requirement of instantaneous feedback

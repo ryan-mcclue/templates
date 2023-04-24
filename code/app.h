@@ -4,12 +4,30 @@
 
 struct SpaceObject
 {
-  Vec2F32 position, velocity;
+  Vec2F32 position, velocity, acceleration;
   f32 angle;
-  f32 scale;
+  
+  f32 radius; // collision
+  b32 stable; // not moving (so know when to pass control over?)
 
+  f32 scale;
   Vec2F32 *points;
   u32 num_points;
+};
+
+struct Entity
+{
+  Vec2F32 position, velocity, acceleration;
+  f32 angle;
+  
+  f32 radius; // collision
+  b32 stable; // not moving (so know when to pass control over?)
+
+  f32 scale;
+  Vec2F32 *points;
+  u32 num_points;
+
+  Entity *next;
 };
 
 struct SpaceObjectDLL
