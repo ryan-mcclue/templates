@@ -305,15 +305,22 @@ create_test_entity(MemArena *arena, f32 x, f32 y)
 
 // Always work in 'world units' and convert to render when drawing?
 INTERNAL Vec2F32
-to_render_coord(Vec2F32 world, Vec2F32 offset)
+to_render_coord(Vec2F32 world, Vec2F32 offset, Vec2F32 scale)
 {
-  return world + offset;
+  return vec2_f32_hadamard((world + offset), scale);
 }
 
 INTERNAL Vec2F32
-render_to_world_coord(Vec2F32 render, Vec2F32 offset)
+to_world_coord(Vec2F32 render, Vec2F32 offset, Vec2F32 scale)
 {
-  return render - offset;
+  Vec2F32 result = ZERO_STRUCT;
+
+  result.x = render.x / scale.x;
+  result.y = render.y / scale.y;
+
+  result -= offset;
+
+  return result;
 }
 
 ThreadContext global_tctx;
@@ -387,6 +394,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     mem_arena_scratch_release(temp_arena);
 
     state->grid_offset = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
+    state->grid_scale = {1.0f, 1.0f};
   } 
 
   /*
@@ -643,21 +651,36 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   }
   if (input->mouse_held)
   {
-    state->grid_offset.x += (input->mouse_x - state->grid_pan.x);
-    state->grid_offset.y += (input->mouse_y - state->grid_pan.y);
+    state->grid_offset.x += (input->mouse_x - state->grid_pan.x) / state->grid_scale.x;
+    state->grid_offset.y += (input->mouse_y - state->grid_pan.y) / state->grid_scale.y;
 
     state->grid_pan = {input->mouse_x, input->mouse_y};
   }
+  
+  Vec2F32 mouse_grid_before_zoom = to_world_coord(vec2_f32(input->mouse_x, input->mouse_y), state->grid_offset, state->grid_scale);
+  if (input->move_right)
+  {
+    state->grid_scale *= 1.010f;
+  }
+  if (input->move_left)
+  {
+    state->grid_scale *= 0.990f;
+  }
+  Vec2F32 mouse_grid_after_zoom = to_world_coord(vec2_f32(input->mouse_x, input->mouse_y), state->grid_offset, state->grid_scale);
+  state->grid_offset -= (mouse_grid_before_zoom - mouse_grid_after_zoom);
+
+  // IMPORTANT(Ryan): Whenever using mouse, use after zoom variant
 
   SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 0);
 
-  for (f32 y = 0.0f; y <= 10.0f; y += 1.0f)
+  f32 line_spacing = 10;
+  for (u32 line_i = 0; line_i < 10; line_i += 1)
   {
-    Vec2F32 line_start = {0.0f, y};
-    Vec2F32 line_end = {10.0f, y};
+    Vec2F32 line_start = {(f32)(line_i * line_spacing), 0.0f};
+    Vec2F32 line_end = {(f32)(line_i * line_spacing), 100.0f};
 
-    Vec2F32 line_start_render = to_render_coord(line_start, state->grid_offset);
-    Vec2F32 line_end_render = to_render_coord(line_end, state->grid_offset);
+    Vec2F32 line_start_render = to_render_coord(line_start, state->grid_offset, state->grid_scale);
+    Vec2F32 line_end_render = to_render_coord(line_end, state->grid_offset, state->grid_scale);
 
     SDL_RenderDrawLineF(renderer->renderer, line_start_render.x, line_start_render.y, line_end_render.x, line_end_render.y);
   }

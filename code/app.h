@@ -64,7 +64,9 @@ struct AppState
   Vec2F32 camera;
 
   Vec2F32 grid_offset;
-  Vec2F32 grid_pan; // these are offsets of mouse from grid?
+  Vec2F32 grid_pan; 
+
+  Vec2F32 grid_scale;
 };
 IGNORE_WARNING_POP()
 
