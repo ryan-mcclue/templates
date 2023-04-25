@@ -62,6 +62,9 @@ struct AppState
   Entity *last_test_entity;
 
   Vec2F32 camera;
+
+  Vec2F32 grid_offset;
+  Vec2F32 grid_pan; // these are offsets of mouse from grid?
 };
 IGNORE_WARNING_POP()
 
@@ -82,6 +85,8 @@ struct Input
   b32 move_left, move_right, move_up, bullet_fired;
   f32 mouse_x, mouse_y; 
   b32 mouse_clicked;
+  b32 mouse_pressed;
+  b32 mouse_held;
 };
 IGNORE_WARNING_POP()
 

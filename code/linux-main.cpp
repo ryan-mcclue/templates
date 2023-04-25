@@ -137,6 +137,25 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
   i32 window_mouse_x, window_mouse_y = 0;
   u32 mouse_state = SDL_GetMouseState(&window_mouse_x, &window_mouse_y);
 
+  if (mouse_state & SDL_BUTTON(1))
+  {
+    if (input->mouse_pressed)
+    {
+      input->mouse_pressed = false;
+      input->mouse_held = true;
+    }
+    else
+    {
+      input->mouse_pressed = true;
+      input->mouse_held = false;
+    }
+  }
+  else
+  {
+    input->mouse_pressed = false;
+    input->mouse_held = false;
+  }
+
   f32 desired_window_width = (f32)renderer->window_height * ((f32)renderer->render_width / (f32)renderer->render_height);
   f32 desired_window_height = (f32)renderer->window_width * ((f32)renderer->render_height / (f32)renderer->render_width);
 

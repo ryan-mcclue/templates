@@ -303,6 +303,19 @@ create_test_entity(MemArena *arena, f32 x, f32 y)
   return result;
 }
 
+// Always work in 'world units' and convert to render when drawing?
+INTERNAL Vec2F32
+to_render_coord(Vec2F32 world, Vec2F32 offset)
+{
+  return world + offset;
+}
+
+INTERNAL Vec2F32
+render_to_world_coord(Vec2F32 render, Vec2F32 offset)
+{
+  return render - offset;
+}
+
 ThreadContext global_tctx;
 
 EXPORT void
@@ -372,6 +385,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     }
 
     mem_arena_scratch_release(temp_arena);
+
+    state->grid_offset = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
   } 
 
   /*
@@ -443,6 +458,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     bullet = bullet_next;
   }
   */
+
+#if 0
 
   // IMPORTANT(Ryan): If cannot map larger than screen, require camera
   f32 map_edge_scroll_speed = 400.0f;
@@ -588,7 +605,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     draw_wire_frame(renderer->renderer,
                     test_entity->points, test_entity->num_points, 
                     test_entity->position - state->camera, vec2_f32_angle(test_entity->velocity), 
-                    5.0f, 
+                    1.0f, 
                     RED_COLOUR);
   }
   
@@ -619,6 +636,32 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   //{
   //  // DrawText("Button pressed", 300, 300, 24, {255, 255, 255, 255});  
   //}
+#else
+  if (input->mouse_pressed)
+  {
+    state->grid_pan = {input->mouse_x, input->mouse_y};
+  }
+  if (input->mouse_held)
+  {
+    state->grid_offset.x += (input->mouse_x - state->grid_pan.x);
+    state->grid_offset.y += (input->mouse_y - state->grid_pan.y);
+
+    state->grid_pan = {input->mouse_x, input->mouse_y};
+  }
+
+  SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 0);
+
+  for (f32 y = 0.0f; y <= 10.0f; y += 1.0f)
+  {
+    Vec2F32 line_start = {0.0f, y};
+    Vec2F32 line_end = {10.0f, y};
+
+    Vec2F32 line_start_render = to_render_coord(line_start, state->grid_offset);
+    Vec2F32 line_end_render = to_render_coord(line_end, state->grid_offset);
+
+    SDL_RenderDrawLineF(renderer->renderer, line_start_render.x, line_start_render.y, line_end_render.x, line_end_render.y);
+  }
+#endif
 
 }
 
