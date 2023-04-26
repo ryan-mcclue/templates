@@ -157,7 +157,7 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   compiler_flags+=( "-I code" "-isystem external" )
 
-  linker_flags+=( "-lm" "-lSDL2" "-ldl" )
+  linker_flags+=( "-lm" "-lSDL2" "-lSDL2_image" "-lSDL2_ttf" "-lSDL2_mixer" "-ldl" )
 
   # use for embedded, as will take into account region names specified in a linker script
   # compiler_flags+=( "-Wl,--print-memory-usage" )

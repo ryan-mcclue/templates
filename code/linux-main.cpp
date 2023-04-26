@@ -4,6 +4,9 @@
 #include "base-inc.h"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -88,7 +91,6 @@ linux_get_seed_u32(void)
   return result;
 }
 
-// TODO(Ryan): Won't work if loaded as shared object
 INTERNAL b32
 linux_was_launched_by_gdb(void)
 {
@@ -207,7 +209,6 @@ sdl2_map_window_mouse_to_render_mouse(Renderer *renderer, Input *input)
   input->mouse_y = round_f32_to_i32(mouse_y_norm * renderer->render_height); 
 }
 
-
 int
 main(int argc, char *argv[])
 {
@@ -241,12 +242,27 @@ main(int argc, char *argv[])
   i32 render_width = 1280;
   i32 render_height = 720;
 
-  i32 window_width = render_width;
-  i32 window_height = render_height;
+/*
+ When you set fullscreen mode with SDL, you set the actual resolution for the entire operating system.  
+ This can make the OS change the size of other applications running to fit inside the new resolution.  
+ When your application exits and restores the old resolution it's not needed for the OS to chenge the sizes again (I know windows rarely do).
+ One workaround is to use SDL_WINDOW_FULLSCREEN_DESKTOP when creating the window, to make the window fullscreen at the current OS resolution, 
+ and scale the rendered image with SDL_RenderSetLogicalSize()*
+SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW_FULLSCREEN_DESKTOP for "fake" fullscreen that takes the size of the desktop;
 
-  if (SDL_Init(SDL_INIT_VIDEO) != 0)
+ int SDL_SetWindowFullscreen(SDL_Window * window, Uint32 flags);*
+ *
+ */
+
+
+  SDL_DisplayMode default_display = ZERO_STRUCT;
+  int val = SDL_GetCurrentDisplayMode(0, &default_display);
+  i32 window_width = default_display.w;
+  i32 window_height = default_display.h;
+
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
   {
-    FATAL_ERROR("Failed to initialise SDL2 video.", SDL_GetError(), "");
+    FATAL_ERROR("Failed to initialise all SDL2 subsystems.", SDL_GetError(), "");
   }
 
   SDL_version sdl2_version_compiled = ZERO_STRUCT;
@@ -259,7 +275,7 @@ main(int argc, char *argv[])
   DBG("Linked with SDL2 %u.%u.%u\n", 
        sdl2_version_linked.major, sdl2_version_linked.minor, sdl2_version_linked.patch);
 
-  SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+  SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                         window_width, window_height, SDL_WINDOW_RESIZABLE);
   if (window == NULL)
   {
@@ -303,6 +319,8 @@ main(int argc, char *argv[])
 
   app_state->rand_seed = linux_get_seed_u32();
 
+  app_state->debugger_present = global_debugger_present;
+
   Renderer *renderer = MEM_ARENA_PUSH_STRUCT(linux_mem_arena_perm, Renderer);
   renderer->renderer = sdl2_renderer;
   renderer->render_width = (u32)render_width;
@@ -327,6 +345,13 @@ main(int argc, char *argv[])
         case SDL_QUIT:
         {
           want_to_run = false;
+        } break;
+        case SDL_KEYDOWN:
+        {
+          if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+          {
+            want_to_run = false;
+          }
         } break;
         case SDL_KEYUP:
         {

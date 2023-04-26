@@ -3,18 +3,21 @@
 #include "base-inc.h"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #include "app.h"
 
 // NOTE(Ryan): Solarized light colours
-#define YELLOW_COLOUR	vec4_f32(0.71f, 0.54f, 0.00f, 0.0f)
-#define ORANGE_COLOUR	vec4_f32(0.80f, 0.29f, 0.09f, 0.0f)
-#define RED_COLOUR vec4_f32(0.86f, 0.20f, 0.18f, 0.0f)
-#define MAGENTA_COLOUR vec4_f32(0.83f, 0.21f, 0.05f, 0.0f)
-#define VIOLET_COLOUR	vec4_f32(0.42f, 0.44f, 0.77f, 0.0f)
-#define BLUE_COLOUR vec4_f32(0.15f, 0.55f, 0.82f, 0.0f)
-#define CYAN_COLOUR vec4_f32(0.16f, 0.63f, 0.60f, 0.0f)
-#define GREEN_COLOUR vec4_f32(0.52f, 0.60f, 0.00f, 0.0f)
+#define YELLOW_COLOUR	vec4_f32(0.71f, 0.54f, 0.00f, 1.0f)
+#define ORANGE_COLOUR	vec4_f32(0.80f, 0.29f, 0.09f, 1.0f)
+#define RED_COLOUR vec4_f32(0.86f, 0.20f, 0.18f, 1.0f)
+#define MAGENTA_COLOUR vec4_f32(0.83f, 0.21f, 0.05f, 1.0f)
+#define VIOLET_COLOUR	vec4_f32(0.42f, 0.44f, 0.77f, 1.0f)
+#define BLUE_COLOUR vec4_f32(0.15f, 0.55f, 0.82f, 1.0f)
+#define CYAN_COLOUR vec4_f32(0.16f, 0.63f, 0.60f, 1.0f)
+#define GREEN_COLOUR vec4_f32(0.52f, 0.60f, 0.00f, 1.0f)
 
 // trees if don't care loop with recursion
 // however, loop is faster and more reliable
@@ -307,20 +310,13 @@ create_test_entity(MemArena *arena, f32 x, f32 y)
 INTERNAL Vec2F32
 to_render_coord(Vec2F32 world, Vec2F32 offset, Vec2F32 scale)
 {
-  return vec2_f32_hadamard((world + offset), scale);
+  return vec2_f32_hadamard(world + offset, scale);
 }
 
 INTERNAL Vec2F32
 to_world_coord(Vec2F32 render, Vec2F32 offset, Vec2F32 scale)
 {
-  Vec2F32 result = ZERO_STRUCT;
-
-  result.x = render.x / scale.x;
-  result.y = render.y / scale.y;
-
-  result -= offset;
-
-  return result;
+  return vec2_f32_div(render, scale) - offset;
 }
 
 ThreadContext global_tctx;
@@ -330,8 +326,11 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
   if (!state->is_initialised)
   {
+    global_debugger_present = state->debugger_present;
+
     state->is_initialised = true;
 
+    // TODO(Ryan): More platform agnostic if these are passed in as 2 frame arenas
     global_tctx = thread_context_create();
     thread_context_set(&global_tctx);
 
@@ -671,7 +670,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
   // IMPORTANT(Ryan): Whenever using mouse, use after zoom variant
 
-  SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 0);
+  SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 255);
 
   f32 line_spacing = 10;
   for (u32 line_i = 0; line_i < 10; line_i += 1)

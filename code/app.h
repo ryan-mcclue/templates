@@ -40,6 +40,8 @@ IGNORE_WARNING_PADDED()
 typedef struct AppState AppState;
 struct AppState
 {
+  b32 debugger_present;
+
   b32 is_initialised;
 
   f32 delta;
