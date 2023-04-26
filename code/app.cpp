@@ -321,6 +321,8 @@ to_world_coord(Vec2F32 render, Vec2F32 offset, Vec2F32 scale)
 
 ThreadContext global_tctx;
 
+GLOBAL SDL_Texture *texture;
+
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
@@ -394,6 +396,16 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
     state->grid_offset = {renderer->render_width * 0.5f, renderer->render_height * 0.5f};
     state->grid_scale = {1.0f, 1.0f};
+
+    // NOTE(Ryan): Alternatively: SDL_RWFromMem() -> IMG_LoadTexture_RW();
+    SDL_Surface *sur = IMG_Load("./tank-panther-right.png");
+    texture = SDL_CreateTextureFromSurface(renderer->renderer, sur);
+    SDL_FreeSurface(sur);
+    if (texture == NULL)
+    {
+      WARN("Failed to load texture", SDL_GetError());
+    }
+
   } 
 
   /*
@@ -683,6 +695,9 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
     SDL_RenderDrawLineF(renderer->renderer, line_start_render.x, line_start_render.y, line_end_render.x, line_end_render.y);
   }
+
+  SDL_Rect dst = { 50, 50, 128, 128 };
+  SDL_RenderCopy(renderer->renderer, texture, NULL, &dst);
 #endif
 
 }

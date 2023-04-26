@@ -241,24 +241,9 @@ main(int argc, char *argv[])
 
   i32 render_width = 1280;
   i32 render_height = 720;
+  i32 window_width = render_width;
+  i32 window_height = render_height;
 
-/*
- When you set fullscreen mode with SDL, you set the actual resolution for the entire operating system.  
- This can make the OS change the size of other applications running to fit inside the new resolution.  
- When your application exits and restores the old resolution it's not needed for the OS to chenge the sizes again (I know windows rarely do).
- One workaround is to use SDL_WINDOW_FULLSCREEN_DESKTOP when creating the window, to make the window fullscreen at the current OS resolution, 
- and scale the rendered image with SDL_RenderSetLogicalSize()*
-SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW_FULLSCREEN_DESKTOP for "fake" fullscreen that takes the size of the desktop;
-
- int SDL_SetWindowFullscreen(SDL_Window * window, Uint32 flags);*
- *
- */
-
-
-  SDL_DisplayMode default_display = ZERO_STRUCT;
-  int val = SDL_GetCurrentDisplayMode(0, &default_display);
-  i32 window_width = default_display.w;
-  i32 window_height = default_display.h;
 
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
   {
@@ -291,6 +276,12 @@ SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW
   if (SDL_RenderSetLogicalSize(sdl2_renderer, render_width, render_height) != 0)
   {
     FATAL_ERROR("Failed to set SDL2 renderer size.", SDL_GetError(), "");
+  }
+
+  int sdl2_image_flags = IMG_INIT_PNG;
+  if ((IMG_Init(sdl2_image_flags) & sdl2_image_flags) == 0)
+  {
+    FATAL_ERROR("Failed to initialise SDL2_image.", IMG_GetError(), "");
   }
 
   u32 cwd_path_size = KB(32);
@@ -330,6 +321,16 @@ SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW
 
   Input *input = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, Input, 1);
 
+  // NOTE(Ryan): Alternatively: SDL_RWFromMem() -> IMG_LoadTexture_RW();
+  SDL_Surface *sur = IMG_Load("./tank-panther-right.png");
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer->renderer, sur);
+  SDL_FreeSurface(sur);
+  if (texture == NULL)
+  {
+    WARN("Failed to load texture", SDL_GetError());
+  }
+  //SDL_RenderCopy();
+
   b32 want_to_run = true;
   while (want_to_run)
   {
@@ -351,6 +352,20 @@ SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW
           if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
           {
             want_to_run = false;
+          }
+          if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_F &&
+              sdl2_event.key.keysym.mod & KMOD_LSHIFT)
+          { 
+            // TODO(Ryan): 'Real' fullscreen that changes resolution with SDL_WINDOW_FULLSCREEN
+            // Would also require updating refresh rate
+            if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP)
+            {
+              SDL_SetWindowFullscreen(window, 0);
+            }
+            else
+            {
+              SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            }
           }
         } break;
         case SDL_KEYUP:
@@ -436,6 +451,7 @@ SDL_WINDOW_FULLSCREEN, for "real" fullscreen with a videomode change; SDL_WINDOW
 
     mem_arena_scratch_release(mem_arena_temp);
 
+    // NOTE(Ryan): Double buffering to prevent 'glitching' also applicable in embedded
     SDL_RenderPresent(sdl2_renderer);
   }
 
