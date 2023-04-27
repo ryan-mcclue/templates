@@ -258,7 +258,12 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   syslog(LOG_DEBUG, fmt, ##__VA_ARGS__);
 
 #define TRACE(what_msg, why_msg) \
-  syslog(LOG_INFO, "%s():\n%s\n%s", __func__, what_msg, why_msg);
+  do \
+  { \
+    printf("\x1B[91m"); fflush(stdout); \
+    syslog(LOG_INFO, "%s():\n%s\n%s", __func__, what_msg, why_msg); \
+    printf("\033[0m"); fflush(stdout); \
+  } while (0)
 
 #if defined(MAIN_DEBUG)
 #define WARN(what_msg, why_msg) \
@@ -372,7 +377,7 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
 #define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
 
 // IMPORTANT(Ryan): Better than templates as no complicated type checking or generation of little functions
-#define DLL_PUSH_FRONT(first, last, node) \
+#define __DLL_PUSH_FRONT(first, last, node, next, prev) \
 (\
   ((first) == NULL) ? \
   (\
@@ -387,9 +392,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     ((first) = (node)) \
   )\
 )
+#define DLL_PUSH_FRONT(first, last, node) \
+  __DLL_PUSH_FRONT(first, last, node, next, prev)
   
-
-#define DLL_PUSH_BACK(first, last, node) \
+#define __DLL_PUSH_BACK(first, last, node, next, prev) \
 (\
   ((first) == NULL) ? \
   (\
@@ -404,8 +410,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     ((last) = (node)) \
   )\
 )
+#define DLL_PUSH_BACK(first, last, node) \
+  __DLL_PUSH_BACK(frist, last, node, next, prev)
 
-#define DLL_REMOVE(first, last, node) \
+#define __DLL_REMOVE(first, last, node, next, prev) \
 (\
   ((node) == (first)) ? \
   (\
@@ -433,8 +441,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     )\
   )\
 )
+#define DLL_REMOVE(first, last, node) \
+  __DLL_REMOVE(first, last, node, next, prev) 
 
-#define SLL_QUEUE_PUSH(first, last, node) \
+#define __SLL_QUEUE_PUSH(first, last, node, next) \
 (\
   ((first) == NULL) ? \
    (\
@@ -448,8 +458,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     ((node)->next = NULL) \
   )\
 )
+#define SLL_QUEUE_PUSH(first, last, node) \
+  __SLL_QUEUE_PUSH(first, last, node, next)
 
-#define SLL_QUEUE_POP(first, last) \
+#define __SLL_QUEUE_POP(first, last, next) \
 (\
   ((first) == (last)) ? \
     (\
@@ -460,14 +472,18 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     ((first) = (first)->next) \
   )\
 )
+#define SLL_QUEUE_POP(first, last) \
+  __SLL_QUEUE_POP(first, last, next)
 
-#define SLL_STACK_PUSH(first, node) \
+#define __SLL_STACK_PUSH(first, node, next) \
 (\
   ((node)->next = (first)), \
   ((first) = (node)) \
 )
+#define SLL_STACK_PUSH(first, node) \
+  __SLL_STACK_PUSH(first, node, next)
 
-#define SLL_STACK_POP(first) \
+#define __SLL_STACK_POP(first, next) \
 (\
   ((first) != NULL) ? \
     (\
@@ -478,5 +494,7 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
     (NULL) \
   )\
 )
+#define SLL_STACK_POP(first) \
+  __SLL_STACK_POP(first, next)
 
 #endif

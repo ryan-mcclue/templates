@@ -262,6 +262,7 @@ main(int argc, char *argv[])
 
   SDL_Window *window = SDL_CreateWindow("app", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                         window_width, window_height, SDL_WINDOW_RESIZABLE);
+
   if (window == NULL)
   {
     FATAL_ERROR("Failed to create SDL2 window.", SDL_GetError(), "");
@@ -439,6 +440,9 @@ main(int argc, char *argv[])
 
       sdl2_map_window_mouse_to_render_mouse(renderer, input);
 
+      // fps calculation?
+      // vsync more accurate than OS scheduler granularity
+      // IMPORTANT(Ryan): Still technically variable-delta-time, so not deterministic
       app(app_state, renderer, input, linux_mem_arena_perm);
 
       input->bullet_fired = false;

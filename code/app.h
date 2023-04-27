@@ -67,7 +67,6 @@ struct AppState
 
   Vec2F32 grid_offset;
   Vec2F32 grid_pan; 
-
   Vec2F32 grid_scale;
 };
 IGNORE_WARNING_POP()
