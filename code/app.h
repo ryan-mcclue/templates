@@ -15,25 +15,47 @@ struct SpaceObject
   u32 num_points;
 };
 
-struct Entity
+typedef u32 ENTITY_COMPONENT_FLAG;
+enum
 {
-  Vec2F32 position, velocity, acceleration;
-  f32 angle;
-  
-  f32 radius; // collision
-  b32 stable; // not moving (so know when to pass control over?)
-
-  f32 scale;
-  Vec2F32 *points;
-  u32 num_points;
-
-  Entity *next;
+  ENTITY_COMPONENT_FLAG_TRANSFORM = (1 << 0),
+  ENTITY_COMPONENT_FLAG_SPRITE = (1 << 1),
+  ENTITY_COMPONENT_FLAG_COLLIDE = (1 << 2),
+  ENTITY_COMPONENT_FLAG_PROJECTILE = (1 << 3),
+  // ...
 };
 
-struct SpaceObjectDLL
+// COMBINATORIC DATA:
+// IMPORTANT: “what something is” and how its memory should be interpreted are different
+// “why do I even care what ‘is a button’ or what ‘is a slider’, to the degree that I have to store it at each node in the hierarchy?”
+// higher level features can be described at a lower level with what data we have, what data we need to produce from that data, and a function (in the mathematical sense) taking our inputs to our outputs.
+// IMPORTANT: no discriminated unions now (okay to have 'waste' data)
+struct Entity
 {
-  SpaceObject object;
-  SpaceObjectDLL *next, *prev;
+  ENTITY_COMPONENT_FLAG component_flags;
+
+  Entity *next, *prev;
+
+  struct TransformComponent
+  {
+    Vec2F32 position, scale;
+    f32 rotation;
+  };
+
+  struct SpriteComponent
+  {
+    Vec2F32 dimensions;
+  };
+
+  struct RigidBodyComponent
+  {
+    Vec2F32 velocity;
+  };
+};
+
+struct AssetStore
+{
+  Map textures;
 };
 
 IGNORE_WARNING_PADDED()
@@ -41,27 +63,16 @@ typedef struct AppState AppState;
 struct AppState
 {
   b32 debugger_present;
-
   b32 is_initialised;
-
   f32 delta;
-
   u64 ms;
-
   u32 rand_seed;
 
-  SpaceObject asteroid;
-  SpaceObject player;
+  Entity *first_free_entity;
+  Entity *first_entity;
+  Entity *last_entity;
 
-  SpaceObjectDLL *first_free_bullet;
-  SpaceObjectDLL *first_bullet;
-  SpaceObjectDLL *last_bullet;
-
-  u32 map_width, map_height;
-  u8 *map;
-
-  Entity *first_test_entity;
-  Entity *last_test_entity;
+  AssetStore asset_store;
 
   Vec2F32 camera;
 

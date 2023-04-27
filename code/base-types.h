@@ -394,6 +394,9 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
 )
 #define DLL_PUSH_FRONT(first, last, node) \
   __DLL_PUSH_FRONT(first, last, node, next, prev)
+
+// TODO(Ryan): Have macros for DLL_PUSH_FRONT_TREE_CHILD(), DLL_PUSH_FRONT_HASH_ITEM()
+// the basic one assumes self contained
   
 #define __DLL_PUSH_BACK(first, last, node, next, prev) \
 (\

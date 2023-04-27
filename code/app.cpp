@@ -323,44 +323,6 @@ ThreadContext global_tctx;
 
 GLOBAL SDL_Texture *texture;
 
-// COMBINATORIC DATA:
-// IMPORTANT: “what something is” and how its memory should be interpreted are different
-// “why do I even care what ‘is a button’ or what ‘is a slider’, to the degree that I have to store it at each node in the hierarchy?”
-// higher level features can be described at a lower level with what data we have, what data we need to produce from that data, and a function (in the mathematical sense) taking our inputs to our outputs.
-// IMPORTANT: no discriminated unions now (okay to have 'waste' data)
-//
-
-typedef u32 ENTITY_COMPONENT_FLAG;
-enum
-{
-  ENTITY_COMPONENT_FLAG_TRANSFORM = (1 << 0),
-  ENTITY_COMPONENT_FLAG_SPRITE = (1 << 1),
-  ENTITY_COMPONENT_FLAG_COLLIDE = (1 << 2),
-  ENTITY_COMPONENT_FLAG_PROJECTILE = (1 << 3),
-  // ...
-};
-
-struct Entity
-{
-  ENTITY_COMPONENT_FLAG component_flags;
-
-  struct TransformComponent
-  {
-    Vec2F32 position, scale;
-    f32 rotation;
-  };
-
-  struct SpriteComponent
-  {
-    Vec2F32 dimensions;
-  };
-
-  struct RigidBodyComponent
-  {
-    Vec2F32 velocity;
-  };
-};
-
 // Entity tank = create_entity(ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_SPRITE);
 // remove_entity_component(ENTITY_COMPONENT_FLAG_RIGID_BODY);
 // movement_system = ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY;
@@ -376,15 +338,6 @@ struct Entity
 
 // we are not doing procedural animation
 
-Entity create_entity()
-{
-  LOG("created entity");
-}
-
-struct AssetStore
-{
-  Map textures;
-};
 
 
 // ECS data-oriented
@@ -397,15 +350,6 @@ struct AssetStore
 // entity: id
 // components: contingous memory structs (we want data-orientated design, i.e. how CPU accesses)
 // systems: logic
-void
-movement_system()
-{
-  // run per frame
- 
-  // cull entities based on components they possess
-  // for (entity in culled_entities)
-  // update those entities position
-}
 
 // rigid body (can't be deformed)
 

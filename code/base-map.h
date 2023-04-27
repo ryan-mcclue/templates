@@ -6,7 +6,6 @@
 /* Usage:
  * 
  * IMPORTANT(Ryan): So, *hash_next, *hash_prev are for iterating through all has map entries
- * TODO(Ryan): Require redefining queue/stack insert macros for different next/prev name combinations 
  *
  * These are to iterate through map entries
    GEN_MapInfo *first_map = NULL;
