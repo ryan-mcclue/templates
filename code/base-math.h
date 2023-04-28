@@ -619,6 +619,7 @@ vec2_f32_lerp(Vec2F32 a, Vec2F32 b, f32 t)
   return vec2_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t)); 
 }
 
+
 #if defined(LANG_CPP)
 INTERNAL Vec2F32
 operator*(f32 s, Vec2F32 a)
@@ -675,6 +676,18 @@ operator-(Vec2F32 a)
 }
 #endif
 // TODO(Ryan): Add gcc vector extensions here
+
+INTERNAL Vec2F32
+vec2_f32_reflect(Vec2F32 incident, Vec2F32 normal)
+{
+  Vec2F32 result = ZERO_STRUCT;
+
+  Vec2F32 normal_unit = vec2_f32_normalise(normal);
+
+  result = -2.0f * (vec2_f32_dot(incident, normal_unit)) * normal_unit;
+
+  return result;
+}
 
 
 INTERNAL Vec3F32

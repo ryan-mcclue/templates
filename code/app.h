@@ -2,25 +2,12 @@
 #if !defined(APP_H)
 #define APP_H
 
-struct SpaceObject
-{
-  Vec2F32 position, velocity, acceleration;
-  f32 angle;
-  
-  f32 radius; // collision
-  b32 stable; // not moving (so know when to pass control over?)
-
-  f32 scale;
-  Vec2F32 *points;
-  u32 num_points;
-};
-
 typedef u32 ENTITY_COMPONENT_FLAG;
 enum
 {
   ENTITY_COMPONENT_FLAG_TRANSFORM = (1 << 0),
   ENTITY_COMPONENT_FLAG_SPRITE = (1 << 1),
-  ENTITY_COMPONENT_FLAG_COLLIDE = (1 << 2),
+  ENTITY_COMPONENT_FLAG_RIGID_BODY = (1 << 2),
   ENTITY_COMPONENT_FLAG_PROJECTILE = (1 << 3),
   // ...
 };
@@ -40,17 +27,17 @@ struct Entity
   {
     Vec2F32 position, scale;
     f32 rotation;
-  };
+  } transform_component;
 
   struct SpriteComponent
   {
     Vec2F32 dimensions;
-  };
+  } sprite_component;
 
   struct RigidBodyComponent
   {
     Vec2F32 velocity;
-  };
+  } rigid_body_component;
 };
 
 struct AssetStore
@@ -73,12 +60,6 @@ struct AppState
   Entity *last_entity;
 
   AssetStore asset_store;
-
-  Vec2F32 camera;
-
-  Vec2F32 grid_offset;
-  Vec2F32 grid_pan; 
-  Vec2F32 grid_scale;
 };
 IGNORE_WARNING_POP()
 
