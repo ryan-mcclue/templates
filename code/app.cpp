@@ -40,6 +40,19 @@ vec4_f32_to_sdl_colour(Vec4F32 colour)
   return result;
 }
 
+INTERNAL SDL_FRect
+vec2_f32_to_sdl_frect(Vec2F32 a, Vec2F32 b)
+{
+  SDL_FRect result = ZERO_STRUCT;
+
+  result.x = a.x;
+  result.y = a.y;
+  result.w = b.x;
+  result.h = b.y;
+
+  return result;
+}
+
 INTERNAL void
 draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 {
@@ -207,9 +220,6 @@ to_world_coord(Vec2F32 render, Vec2F32 offset, Vec2F32 scale)
 
 ThreadContext global_tctx;
 
-GLOBAL SDL_Texture *texture;
-
-
 // sorting should happen a layer above storage?
 
 // we are not doing procedural animation
@@ -236,34 +246,34 @@ GLOBAL SDL_Texture *texture;
 // component: 
 
 INTERNAL Entity *
-alloc_pool_entity(Entity *first_free_entity, MemArena *perm_arena)
+alloc_pool_entity(Entity **first_free_entity, MemArena *perm_arena)
 {
   Entity *result = NULL;
 
-  if (first_free_entity == NULL)
+  if (*first_free_entity == NULL)
   {
     result = MEM_ARENA_PUSH_STRUCT_ZERO(perm_arena, Entity);
   }
   else
   {
-    result = first_free_entity;
+    result = (*first_free_entity);
     MEMORY_ZERO_STRUCT(result);
 
-    first_free_entity = first_free_entity->next;
+    (*first_free_entity) = (*first_free_entity)->next;
   }
 
   return result;
 }
 
 INTERNAL void 
-release_pool_entity(Entity *first_free_entity, Entity *entity)
+release_pool_entity(Entity **first_free_entity, Entity *entity)
 {
-  entity->next = first_free_entity;
-  first_free_entity = entity;
+  entity->next = (*first_free_entity);
+  (*first_free_entity) = entity;
 }
 
 INTERNAL Entity *
-push_entity(Entity *first_free_entity, MemArena *mem_arena, Entity *first_entity, Entity *last_entity, ENTITY_COMPONENT_FLAG flags)
+push_entity(Entity **first_free_entity, MemArena *mem_arena, Entity **first_entity, Entity **last_entity, ENTITY_COMPONENT_FLAG flags)
 {
   Entity *result = NULL;  
 
@@ -271,11 +281,26 @@ push_entity(Entity *first_free_entity, MemArena *mem_arena, Entity *first_entity
   // IMPORTANT(Ryan): Pointer variables copies just like normal variables; they go away
   // To actual reassign, must change where that pointer points at, e.g. *a = val;
   // So, if wanting to what passed in pointer points to, require another layer of indirection
-  DLL_PUSH_FRONT(first_entity, last_entity, result);
+  DLL_PUSH_FRONT((*first_entity), (*last_entity), result);
 
   result->component_flags = flags;
 
   return result;
+}
+
+INTERNAL void
+asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_arena, 
+                        const char *key, const char *file_name)
+{
+  SDL_Surface *surface = IMG_Load(file_name);
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
+  if (texture == NULL)
+  {
+    WARN("Failed to load texture", SDL_GetError());
+  }
+
+  map_insert(mem_arena, texture_map, map_key_str(s8_cstring(key)), texture);
 }
 
 EXPORT void
@@ -291,22 +316,20 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     global_tctx = thread_context_create();
     thread_context_set(&global_tctx);
 
-    // load assets
+    state->asset_store.textures = map_create(perm_arena);
+    asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
+                            "tank-image", "./tank-panther-right.png");
+    asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
+                            "truck-image", "./truck-ford-right.png");
 
-    // NOTE(Ryan): Alternatively: SDL_RWFromMem() -> IMG_LoadTexture_RW();
-    SDL_Surface *sur = IMG_Load("./tank-panther-right.png");
-    texture = SDL_CreateTextureFromSurface(renderer->renderer, sur);
-    SDL_FreeSurface(sur);
-    if (texture == NULL)
-    {
-      WARN("Failed to load texture", SDL_GetError());
-    }
 
-    Entity *tank = push_entity(state->first_free_entity, perm_arena, state->first_entity, state->last_entity, 
+    Entity *tank = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
     tank->transform_component.position = {100.0f, 100.0f};
+    tank->transform_component.scale = {1.0f, 1.0f};
     tank->rigid_body_component.velocity = {2.0f, 2.0f};
     tank->sprite_component.dimensions = {100.0f, 100.0f};
+    tank->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
   } 
 
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
@@ -323,7 +346,15 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     {
       SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 255);
 
-      draw_rect(renderer->renderer, entity->transform_component.position, entity->sprite_component.dimensions, RED_COLOUR);
+      SDL_FRect dst_rect = vec2_f32_to_sdl_frect(entity->transform_component.position,
+                                                 vec2_f32_hadamard(entity->sprite_component.dimensions, entity->transform_component.scale));
+      MapSlot *map_slot = map_lookup(&state->asset_store.textures, entity->sprite_component.texture_key);
+      if (map_slot != NULL)
+      {
+        SDL_Texture *texture = (SDL_Texture *)map_slot->val;
+        SDL_RenderCopyF(renderer->renderer, texture, NULL, &dst_rect);
+      }
+      //draw_rect(renderer->renderer, entity->transform_component.position, entity->sprite_component.dimensions, RED_COLOUR);
     }
   }
 }

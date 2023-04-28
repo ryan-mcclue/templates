@@ -32,6 +32,7 @@ struct Entity
   struct SpriteComponent
   {
     Vec2F32 dimensions;
+    MapKey texture_key;
   } sprite_component;
 
   struct RigidBodyComponent

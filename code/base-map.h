@@ -123,13 +123,20 @@ map_key_ptr(void *ptr)
 }
 
 INTERNAL Map
-map_create(MemArena *arena, u64 bucket_count)
+map_create_bucket_count(MemArena *arena, u64 bucket_count)
 {
   Map result = ZERO_STRUCT;
 
   result.bucket_count = bucket_count;
   result.buckets = MEM_ARENA_PUSH_ARRAY_ZERO(arena, MapBucket, bucket_count);
 
+  return result;
+}
+
+INTERNAL Map
+map_create(MemArena *arena)
+{
+  Map result = map_create_bucket_count(arena, 4093);
   return result;
 }
 
