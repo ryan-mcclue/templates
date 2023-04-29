@@ -288,6 +288,20 @@ push_entity(Entity **first_free_entity, MemArena *mem_arena, Entity **first_enti
   return result;
 }
 
+struct PACKED TileMap
+{
+  u8 width, height;
+  u8 *tile_types;
+};
+
+INTERNAL void
+read_map(MemArena *mem_arena)
+{
+  String8 tile_map_file = s8_read_entire_file(mem_arena, s8_lit("tile-map.map")); 
+
+  TileMap *tile_map = (TileMap *)tile_map_file.str;
+}
+
 INTERNAL void
 asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_arena, 
                         const char *key, const char *file_name)
@@ -317,6 +331,13 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     thread_context_set(&global_tctx);
 
     state->asset_store.textures = map_create(perm_arena);
+   
+    // 320 x 96 pixels
+    // 10 x 3 tiles
+    asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
+                            "tile-map", "./tank-panther-right.png");
+
+#pragma mark LOAD_LEVEL_START
     asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
                             "tank-image", "./tank-panther-right.png");
     asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
@@ -328,15 +349,16 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     tank->transform_component.position = {100.0f, 100.0f};
     tank->transform_component.scale = {1.0f, 1.0f};
     tank->rigid_body_component.velocity = {2.0f, 2.0f};
-    tank->sprite_component.dimensions = {100.0f, 100.0f};
+    tank->sprite_component.dimensions = {32.0f, 32.0f}; // actual image dimensions
     tank->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
+#pragma mark LOAD_LEVEL_END
   } 
 
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY)))
     {
-      entity->transform_component.position += entity->rigid_body_component.velocity;
+      entity->transform_component.position += entity->rigid_body_component.velocity * state->delta;
     }
   }
 
@@ -352,7 +374,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       if (map_slot != NULL)
       {
         SDL_Texture *texture = (SDL_Texture *)map_slot->val;
-        SDL_RenderCopyF(renderer->renderer, texture, NULL, &dst_rect);
+        // much slower than normal render?
+        SDL_RenderCopyExF(renderer->renderer, texture, NULL, &dst_rect, entity->transform_component.rotation, NULL, SDL_FLIP_NONE);
       }
       //draw_rect(renderer->renderer, entity->transform_component.position, entity->sprite_component.dimensions, RED_COLOUR);
     }

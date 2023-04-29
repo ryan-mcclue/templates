@@ -42,6 +42,7 @@
   #define NEVER_INLINE   __attribute__((noinline))
   #define USED __attribute__((used,noinline))
   #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
+  #define PACKED __attribute__((packed))
   
   #define UNREACHABLE() __builtin_unreachable()
 
