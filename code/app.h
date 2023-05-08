@@ -32,6 +32,9 @@ struct Entity
   struct SpriteComponent
   {
     Vec2F32 dimensions;
+    // TODO(Ryan): src and dst rectangles for texture maps
+    // TODO(Ryan): OPTIMAL SOLUTION IS TO HAVE LAYERS, E.G. VEGETATION LAYER, BULLET LAYER, ETC.
+    u32 z_index;
     MapKey texture_key;
   } sprite_component;
 
@@ -39,6 +42,12 @@ struct Entity
   {
     Vec2F32 velocity;
   } rigid_body_component;
+
+  struct AnimationComponent
+  {
+    u32 num_frames, current_frame, frame_rate; // frames per second
+    b32 should_loop;
+  } animation_component;
 };
 
 struct AssetStore
