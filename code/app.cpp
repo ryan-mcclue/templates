@@ -330,10 +330,21 @@ get_middle_entity(Entity *first)
   return slow;
 }
 
+INTERNAL void
+print_entity_linked_list(Entity *first)
+{
+  printf("[");
+  for (Entity *entity = first; entity != NULL; entity = entity->next)
+  {
+    printf("%d%s", (u32)entity->sprite_component.z_index, entity->next != NULL ? ", " : "");
+  }
+  printf("]\n");
+}
+
  // logarithmic to split
  // linear to merge
 INTERNAL Entity *
-sorted_merge(Entity *left, Entity *right)
+sorted_merge(Entity *left, Entity *right, u32 indent)
 {
   Entity *first = NULL, *last = NULL;
 
@@ -341,33 +352,41 @@ sorted_merge(Entity *left, Entity *right)
   {
     if (left->sprite_component.z_index < right->sprite_component.z_index)
     {
+      Entity *next = left->next;
       DLL_PUSH_BACK(first, last, left);
-      left = left->next;
+      left = next;
     }
     else
     {
+      Entity *next = right->next;
       DLL_PUSH_BACK(first, last, right);
-      right = right->next;
+      right = next;
     }
   }
 
   while (left != NULL)
   {
+    Entity *next = left->next;
     DLL_PUSH_BACK(first, last, left);
-    left = left->next;
+    left = next;
   }
 
   while (right != NULL)
   {
+    Entity *next = right->next;
     DLL_PUSH_BACK(first, last, right);
-    right = right->next;
+    right = next;
   }
+
+  printf("%*smerged: ", indent * 4, "");
+  print_entity_linked_list(first);
 
   return first;
 }
 
+
 INTERNAL Entity *
-sort_entities_by_z_index(Entity *first)
+sort_entities_by_z_index(Entity *first, u32 indent)
 {
   if (first == NULL || first->next == NULL)
   {
@@ -382,23 +401,18 @@ sort_entities_by_z_index(Entity *first)
     one_before_midpoint->next = NULL;
     Entity *right = tmp;
 
-    left = sort_entities_by_z_index(left);
-    right = sort_entities_by_z_index(right);
+    left = sort_entities_by_z_index(left, indent + 1);
+    printf("%*ssplit left: ", indent * 4, "");
+    print_entity_linked_list(left);
 
-    return sorted_merge(left, right);
+    right = sort_entities_by_z_index(right, indent + 1);
+    printf("%*ssplit right: ", indent * 4, "");
+    print_entity_linked_list(right);
+
+    return sorted_merge(left, right, indent + 1);
   }
 }
 
-INTERNAL void
-print_entity_linked_list(Entity *first)
-{
-  printf("[");
-  for (Entity *entity = first; entity != NULL; entity = entity->next)
-  {
-    printf("%d%s", (u32)entity->transform_component.rotation, entity->next != NULL ? ", " : "");
-  }
-  printf("]\n");
-}
 
 
 EXPORT void
@@ -470,7 +484,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     truck2->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
     truck2->sprite_component.z_index = 1;
 
-    print_entity_linked_list(state->first_entity);
 #pragma mark LOAD_LEVEL_END
 
   } 
@@ -486,8 +499,12 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   // TODO(Ryan): map render, cache texture from map asset store if doing subsets?
 
   // TODO(Ryan): update state->last_entity as well
-  BP();
-  state->first_entity = sort_entities_by_z_index(state->first_entity);
+  printf("starting: ");
+  print_entity_linked_list(state->first_entity);
+  state->first_entity = sort_entities_by_z_index(state->first_entity, 0);
+  printf("final: ");
+  print_entity_linked_list(state->first_entity);
+
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_SPRITE)))
