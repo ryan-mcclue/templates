@@ -389,6 +389,17 @@ sort_entities_by_z_index(Entity *first)
   }
 }
 
+INTERNAL void
+print_entity_linked_list(Entity *first)
+{
+  printf("[");
+  for (Entity *entity = first; entity != NULL; entity = entity->next)
+  {
+    printf("%d%s", (u32)entity->transform_component.rotation, entity->next != NULL ? ", " : "");
+  }
+  printf("]\n");
+}
+
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
@@ -423,6 +434,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
     tank->transform_component.position = {100.0f, 100.0f};
     tank->transform_component.scale = {1.0f, 1.0f};
+    tank->transform_component.rotation = 1.0f;
     tank->rigid_body_component.velocity = {8.0f, 2.0f};
     tank->sprite_component.dimensions = {32.0f, 32.0f}; // actual image dimensions
     tank->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
@@ -432,11 +444,33 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
     tank2->transform_component.position = {200.0f, 100.0f};
     tank2->transform_component.scale = {2.0f, 2.0f};
+    tank2->transform_component.rotation = 2.0f;
     tank2->rigid_body_component.velocity = {-8.0f, 2.0f};
     tank2->sprite_component.dimensions = {32.0f, 32.0f};
     tank2->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
     tank2->sprite_component.z_index = 1;
 
+    Entity *truck = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
+                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
+    truck->transform_component.position = {300.0f, 300.0f};
+    truck->transform_component.scale = {1.0f, 1.0f};
+    truck->transform_component.rotation = 3.0f;
+    truck->rigid_body_component.velocity = {0.0f, 0.0f};
+    truck->sprite_component.dimensions = {32.0f, 32.0f};
+    truck->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
+    truck->sprite_component.z_index = 1;
+
+    Entity *truck2 = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
+                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
+    truck2->transform_component.position = {600.0f, 300.0f};
+    truck2->transform_component.scale = {1.0f, 1.0f};
+    truck2->transform_component.rotation = 4.0f;
+    truck2->rigid_body_component.velocity = {0.0f, 0.0f};
+    truck2->sprite_component.dimensions = {32.0f, 32.0f};
+    truck2->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
+    truck2->sprite_component.z_index = 1;
+
+    print_entity_linked_list(state->first_entity);
 #pragma mark LOAD_LEVEL_END
 
   } 
@@ -452,6 +486,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   // TODO(Ryan): map render, cache texture from map asset store if doing subsets?
 
   // TODO(Ryan): update state->last_entity as well
+  BP();
   state->first_entity = sort_entities_by_z_index(state->first_entity);
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {

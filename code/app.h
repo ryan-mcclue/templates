@@ -47,6 +47,7 @@ struct Entity
   {
     u32 num_frames, current_frame, frame_rate; // frames per second
     b32 should_loop;
+    u32 start_time;
   } animation_component;
 };
 
