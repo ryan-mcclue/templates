@@ -281,7 +281,7 @@ push_entity(Entity **first_free_entity, MemArena *mem_arena, Entity **first_enti
   // IMPORTANT(Ryan): Pointer variables copies just like normal variables; they go away
   // To actual reassign, must change where that pointer points at, e.g. *a = val;
   // So, if wanting to what passed in pointer points to, require another layer of indirection
-  DLL_PUSH_FRONT((*first_entity), (*last_entity), result);
+  DLL_PUSH_BACK((*first_entity), (*last_entity), result);
 
   result->component_flags = flags;
 
@@ -313,122 +313,6 @@ asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_
 // o(nlogn) best for comparison based sort
 // o(n) best for counting
 
-#define CMP(a, b, key) (a->key - b->key)
-
-#if 0
-INTERNAL Entity *
-sort_entities(Entity *first)
-{
-  while (true)
-  {
-
-    Entity *start = first; 
-    u32 pass_merge_count = 0;
-    while (start != NULL)
-    {
-      pass_merge_count++;
-
-    }
-    
-  }
-}
-//https://www.chiark.greenend.org.uk/~sgtatham/algorithms/listsort.html
-
-
-element *listsort(element *list, int is_circular, int is_double) {
-    element *p, *q, *e, *tail, *oldhead;
-    int insize, nmerges, psize, qsize, i;
-
-    /*
-     * Silly special case: if `list' was passed in as NULL, return
-     * NULL immediately.
-     */
-    if (!list)
-	return NULL;
-
-    insize = 1;
-
-    while (1) {
-        p = list;
-	oldhead = list;		       /* only used for circular linkage */
-        list = NULL;
-        tail = NULL;
-
-        nmerges = 0;  /* count number of merges we do in this pass */
-
-        while (p) {
-            nmerges++;  /* there exists a merge to be done */
-            /* step `insize' places along from p */
-            q = p;
-            psize = 0;
-            for (i = 0; i < insize; i++) {
-                psize++;
-		if (is_circular)
-		    q = (q->next == oldhead ? NULL : q->next);
-		else
-		    q = q->next;
-                if (!q) break;
-            }
-
-            /* if q hasn't fallen off end, we have two lists to merge */
-            qsize = insize;
-
-            /* now we have two lists; merge them */
-            while (psize > 0 || (qsize > 0 && q)) {
-
-                /* decide whether next element of merge comes from p or q */
-                if (psize == 0) {
-		    /* p is empty; e must come from q. */
-		    e = q; q = q->next; qsize--;
-		    if (is_circular && q == oldhead) q = NULL;
-		} else if (qsize == 0 || !q) {
-		    /* q is empty; e must come from p. */
-		    e = p; p = p->next; psize--;
-		    if (is_circular && p == oldhead) p = NULL;
-		} else if (cmp(p,q) <= 0) {
-		    /* First element of p is lower (or same);
-		     * e must come from p. */
-		    e = p; p = p->next; psize--;
-		    if (is_circular && p == oldhead) p = NULL;
-		} else {
-		    /* First element of q is lower; e must come from q. */
-		    e = q; q = q->next; qsize--;
-		    if (is_circular && q == oldhead) q = NULL;
-		}
-
-                /* add the next element to the merged list */
-		if (tail) {
-		    tail->next = e;
-		} else {
-		    list = e;
-		}
-		if (is_double) {
-		    /* Maintain reverse pointers in a doubly linked list. */
-		    e->prev = tail;
-		}
-		tail = e;
-            }
-
-            /* now p has stepped `insize' places along, and q has too */
-            p = q;
-        }
-	if (is_circular) {
-	    tail->next = list;
-	    if (is_double)
-		list->prev = tail;
-	} else
-	    tail->next = NULL;
-
-        /* If we have done only one merge, we're finished. */
-        if (nmerges <= 1)   /* allow for nmerges==0, the empty list case */
-            return list;
-
-        /* Otherwise repeat, merging lists twice the size */
-        insize *= 2;
-    }
-}
-
-#endif
 
 // recursion for readable solutions, but always go for non-recursive e.g. iterative, mathematical formula etc.
 
@@ -451,31 +335,31 @@ get_middle_entity(Entity *first)
 INTERNAL Entity *
 sorted_merge(Entity *left, Entity *right)
 {
-  Entity *first, *last = NULL;
+  Entity *first = NULL, *last = NULL;
 
   while (left != NULL && right != NULL)
   {
     if (left->sprite_component.z_index < right->sprite_component.z_index)
     {
-      DLL_PUSH_FRONT(first, last, left);
+      DLL_PUSH_BACK(first, last, left);
       left = left->next;
     }
     else
     {
-      DLL_PUSH_FRONT(first, last, right);
+      DLL_PUSH_BACK(first, last, right);
       right = right->next;
     }
   }
 
   while (left != NULL)
   {
-    DLL_PUSH_FRONT(first, last, left);
+    DLL_PUSH_BACK(first, last, left);
     left = left->next;
   }
 
   while (right != NULL)
   {
-    DLL_PUSH_FRONT(first, last, right);
+    DLL_PUSH_BACK(first, last, right);
     right = right->next;
   }
 
@@ -539,10 +423,22 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
     tank->transform_component.position = {100.0f, 100.0f};
     tank->transform_component.scale = {1.0f, 1.0f};
-    tank->rigid_body_component.velocity = {2.0f, 2.0f};
+    tank->rigid_body_component.velocity = {8.0f, 2.0f};
     tank->sprite_component.dimensions = {32.0f, 32.0f}; // actual image dimensions
     tank->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
+    tank->sprite_component.z_index = 5;
+
+    Entity *tank2 = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
+                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
+    tank2->transform_component.position = {200.0f, 100.0f};
+    tank2->transform_component.scale = {2.0f, 2.0f};
+    tank2->rigid_body_component.velocity = {-8.0f, 2.0f};
+    tank2->sprite_component.dimensions = {32.0f, 32.0f};
+    tank2->sprite_component.texture_key = map_key_str(s8_lit("tank-image"));
+    tank2->sprite_component.z_index = 1;
+
 #pragma mark LOAD_LEVEL_END
+
   } 
 
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
@@ -555,7 +451,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
   // TODO(Ryan): map render, cache texture from map asset store if doing subsets?
 
-  // TODO(Ryan): entity_first = sort_entities_z_index(entity_first);
+  // TODO(Ryan): update state->last_entity as well
+  state->first_entity = sort_entities_by_z_index(state->first_entity);
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_SPRITE)))
