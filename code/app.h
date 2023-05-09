@@ -9,6 +9,7 @@ enum
   ENTITY_COMPONENT_FLAG_SPRITE = (1 << 1),
   ENTITY_COMPONENT_FLAG_RIGID_BODY = (1 << 2),
   ENTITY_COMPONENT_FLAG_PROJECTILE = (1 << 3),
+  ENTITY_COMPONENT_FLAG_ANIMATION = (1 << 4),
   // ...
 };
 
@@ -17,6 +18,14 @@ enum
 // “why do I even care what ‘is a button’ or what ‘is a slider’, to the degree that I have to store it at each node in the hierarchy?”
 // higher level features can be described at a lower level with what data we have, what data we need to produce from that data, and a function (in the mathematical sense) taking our inputs to our outputs.
 // IMPORTANT: no discriminated unions now (okay to have 'waste' data)
+
+struct AnimationComponent
+{
+  u32 num_frames, current_frame, frame_rate; // frames per second
+  b32 should_loop;
+  u32 start_time;
+};
+
 struct Entity
 {
   ENTITY_COMPONENT_FLAG component_flags;
@@ -32,7 +41,7 @@ struct Entity
   struct SpriteComponent
   {
     Vec2F32 dimensions;
-    // TODO(Ryan): src and dst rectangles for texture maps
+    SDL_Rect src_rect; 
     // TODO(Ryan): OPTIMAL SOLUTION IS TO HAVE LAYERS, E.G. VEGETATION LAYER, BULLET LAYER, ETC.
     u32 z_index;
     MapKey texture_key;
@@ -43,12 +52,7 @@ struct Entity
     Vec2F32 velocity;
   } rigid_body_component;
 
-  struct AnimationComponent
-  {
-    u32 num_frames, current_frame, frame_rate; // frames per second
-    b32 should_loop;
-    u32 start_time;
-  } animation_component;
+  AnimationComponent animation_component;
 };
 
 struct AssetStore

@@ -268,6 +268,7 @@ alloc_pool_entity(Entity **first_free_entity, MemArena *perm_arena)
 INTERNAL void 
 release_pool_entity(Entity **first_free_entity, Entity *entity)
 {
+  // TODO(Ryan): Update next and prev of state->first_entity list
   entity->next = (*first_free_entity);
   (*first_free_entity) = entity;
 }
@@ -378,8 +379,8 @@ sorted_merge(Entity *left, Entity *right, u32 indent)
     right = next;
   }
 
-  printf("%*smerged: ", indent * 4, "");
-  print_entity_linked_list(first);
+  //printf("%*smerged: ", indent * 4, "");
+  //print_entity_linked_list(first);
 
   return first;
 }
@@ -402,12 +403,12 @@ sort_entities_by_z_index(Entity *first, u32 indent)
     Entity *right = tmp;
 
     left = sort_entities_by_z_index(left, indent + 1);
-    printf("%*ssplit left: ", indent * 4, "");
-    print_entity_linked_list(left);
+    //printf("%*ssplit left: ", indent * 4, "");
+    //print_entity_linked_list(left);
 
     right = sort_entities_by_z_index(right, indent + 1);
-    printf("%*ssplit right: ", indent * 4, "");
-    print_entity_linked_list(right);
+    //printf("%*ssplit right: ", indent * 4, "");
+    //print_entity_linked_list(right);
 
     return sorted_merge(left, right, indent + 1);
   }
@@ -442,6 +443,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                             "tank-image", "./tank-panther-right.png");
     asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
                             "truck-image", "./truck-ford-right.png");
+    asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
+                            "chopper-image", "./chopper.png");
 
 
     Entity *tank = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
@@ -474,15 +477,23 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     truck->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
     truck->sprite_component.z_index = 1;
 
-    Entity *truck2 = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
-                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
-    truck2->transform_component.position = {600.0f, 300.0f};
-    truck2->transform_component.scale = {1.0f, 1.0f};
-    truck2->transform_component.rotation = 4.0f;
-    truck2->rigid_body_component.velocity = {0.0f, 0.0f};
-    truck2->sprite_component.dimensions = {32.0f, 32.0f};
-    truck2->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
-    truck2->sprite_component.z_index = 1;
+    Entity *chopper = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
+                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_ANIMATION);
+    chopper->transform_component.position = {600.0f, 300.0f};
+    chopper->transform_component.scale = {1.0f, 1.0f};
+    chopper->transform_component.rotation = 4.0f;
+    chopper->rigid_body_component.velocity = {0.0f, 0.0f};
+    chopper->sprite_component.dimensions = {32.0f, 32.0f};
+    chopper->sprite_component.texture_key = map_key_str(s8_lit("chopper-image"));
+    chopper->sprite_component.z_index = 1;
+    chopper->sprite_component.src_rect = {0, 0, (i32)chopper->sprite_component.dimensions.w, (i32)chopper->sprite_component.dimensions.h};
+    chopper->animation_component.num_frames = 2;
+    chopper->animation_component.current_frame = 0;
+    chopper->animation_component.frame_rate = 10;
+    chopper->animation_component.should_loop = true;
+    chopper->animation_component.start_time = state->ms;
+
+    // TODO(Ryan): gdb helper to print linked list
 
 #pragma mark LOAD_LEVEL_END
 
@@ -492,18 +503,30 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY)))
     {
+      // TODO(Ryan): add acceleration
       entity->transform_component.position += entity->rigid_body_component.velocity * state->delta;
+    }
+
+    if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_ANIMATION)))
+    {
+      AnimationComponent *anim = &entity->animation_component;
+
+      u32 time_elapsed = (state->ms - anim->start_time);
+
+      anim->current_frame = (u32)(time_elapsed * (anim->frame_rate / 1000.0f)) % anim->num_frames;
+
+      entity->sprite_component.src_rect.x = anim->current_frame * entity->sprite_component.dimensions.w;
     }
   }
 
   // TODO(Ryan): map render, cache texture from map asset store if doing subsets?
 
   // TODO(Ryan): update state->last_entity as well
-  printf("starting: ");
-  print_entity_linked_list(state->first_entity);
+  //printf("starting: ");
+  //print_entity_linked_list(state->first_entity);
   state->first_entity = sort_entities_by_z_index(state->first_entity, 0);
-  printf("final: ");
-  print_entity_linked_list(state->first_entity);
+  //printf("final: ");
+  //print_entity_linked_list(state->first_entity);
 
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
@@ -517,10 +540,14 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       if (map_slot != NULL)
       {
         SDL_Texture *texture = (SDL_Texture *)map_slot->val;
-        // much slower than normal render?
-        SDL_RenderCopyExF(renderer->renderer, texture, NULL, &dst_rect, entity->transform_component.rotation, NULL, SDL_FLIP_NONE);
+
+        SDL_Rect *src_rect = &entity->sprite_component.src_rect;
+        if (src_rect->w == 0)
+        {
+          src_rect = NULL;
+        }
+        SDL_RenderCopyExF(renderer->renderer, texture, src_rect, &dst_rect, entity->transform_component.rotation, NULL, SDL_FLIP_NONE);
       }
-      //draw_rect(renderer->renderer, entity->transform_component.position, entity->sprite_component.dimensions, RED_COLOUR);
     }
   }
 }
