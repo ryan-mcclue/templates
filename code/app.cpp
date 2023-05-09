@@ -499,12 +499,18 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
   } 
 
+  Vec2F32 example = {10.0f, 20.0f};
+  SpriteComponent *sprite = &state->first_entity->sprite_component;
+  BP();
+
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY)))
     {
       // TODO(Ryan): add acceleration
       entity->transform_component.position += entity->rigid_body_component.velocity * state->delta;
+
+      // TODO(Ryan): add rotation matrices
     }
 
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_ANIMATION)))

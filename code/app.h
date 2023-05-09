@@ -26,6 +26,15 @@ struct AnimationComponent
   u32 start_time;
 };
 
+struct SpriteComponent
+{
+  Vec2F32 dimensions;
+  SDL_Rect src_rect; 
+  // TODO(Ryan): OPTIMAL SOLUTION IS TO HAVE LAYERS, E.G. VEGETATION LAYER, BULLET LAYER, ETC.
+  u32 z_index;
+  MapKey texture_key;
+};
+
 struct Entity
 {
   ENTITY_COMPONENT_FLAG component_flags;
@@ -38,14 +47,7 @@ struct Entity
     f32 rotation;
   } transform_component;
 
-  struct SpriteComponent
-  {
-    Vec2F32 dimensions;
-    SDL_Rect src_rect; 
-    // TODO(Ryan): OPTIMAL SOLUTION IS TO HAVE LAYERS, E.G. VEGETATION LAYER, BULLET LAYER, ETC.
-    u32 z_index;
-    MapKey texture_key;
-  } sprite_component;
+  SpriteComponent sprite_component;
 
   struct RigidBodyComponent
   {
