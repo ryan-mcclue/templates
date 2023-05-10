@@ -53,6 +53,19 @@ vec2_f32_to_sdl_frect(Vec2F32 a, Vec2F32 b)
   return result;
 }
 
+INTERNAL SDL_Rect
+vec2_f32_to_sdl_rect(Vec2F32 a, Vec2F32 b)
+{
+  SDL_Rect result = ZERO_STRUCT;
+
+  result.x = (i32)a.x;
+  result.y = (i32)a.y;
+  result.w = (i32)b.x;
+  result.h = (i32)b.y;
+
+  return result;
+}
+
 INTERNAL void
 draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 {
@@ -414,7 +427,8 @@ sort_entities_by_z_index(Entity *first, u32 indent)
   }
 }
 
-
+// TODO(Ryan):
+GLOBAL b32 global_show_colliders;
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
@@ -468,7 +482,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     tank2->sprite_component.z_index = 1;
 
     Entity *truck = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
-                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
+                               ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_BOX_COLLIDER);
     truck->transform_component.position = {300.0f, 300.0f};
     truck->transform_component.scale = {1.0f, 1.0f};
     truck->transform_component.rotation = 3.0f;
@@ -476,6 +490,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     truck->sprite_component.dimensions = {32.0f, 32.0f};
     truck->sprite_component.texture_key = map_key_str(s8_lit("truck-image"));
     truck->sprite_component.z_index = 1;
+    truck->box_collider_component.size = truck->sprite_component.dimensions;
 
     Entity *chopper = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_ANIMATION);
@@ -493,18 +508,13 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     chopper->animation_component.should_loop = true;
     chopper->animation_component.start_time = state->ms;
 
-    // TODO(Ryan): gdb helper to print linked list
-
 #pragma mark LOAD_LEVEL_END
 
   } 
 
-  Vec2F32 example = {10.0f, 20.0f};
-  SpriteComponent *sprite = &state->first_entity->sprite_component;
-  BP();
-
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
+
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY)))
     {
       // TODO(Ryan): add acceleration
@@ -523,7 +533,26 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
       entity->sprite_component.src_rect.x = anim->current_frame * entity->sprite_component.dimensions.w;
     }
+
+    if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_BOX_COLLIDER)))
+    {
+      for (Entity *collision_entity = entity->next; collision_entity != NULL; collision_entity = collision_entity->next)
+      {
+        SDL_Rect entity_bounding = \
+          vec2_f32_to_sdl_rect(entity->transform_component.position, entity->box_collider_component.size);
+        SDL_Rect collision_entity_bounding = \
+          vec2_f32_to_sdl_rect(collision_entity->transform_component.position, collision_entity->box_collider_component.size);
+
+        // AABB
+        if (SDL_HasIntersection(&entity_bounding, &collision_entity_bounding))
+        {
+          // TODO(Ryan): 
+        }
+      }
+    }
   }
+
+  // collision map for pixel perfect (mesh collider for 3d)
 
   // TODO(Ryan): map render, cache texture from map asset store if doing subsets?
 

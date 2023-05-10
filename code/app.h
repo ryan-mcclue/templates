@@ -10,6 +10,7 @@ enum
   ENTITY_COMPONENT_FLAG_RIGID_BODY = (1 << 2),
   ENTITY_COMPONENT_FLAG_PROJECTILE = (1 << 3),
   ENTITY_COMPONENT_FLAG_ANIMATION = (1 << 4),
+  ENTITY_COMPONENT_FLAG_BOX_COLLIDER = (1 << 5),
   // ...
 };
 
@@ -24,6 +25,12 @@ struct AnimationComponent
   u32 num_frames, current_frame, frame_rate; // frames per second
   b32 should_loop;
   u32 start_time;
+};
+
+// could also have circle, pixel-perfect etc.
+struct BoxColliderComponent
+{
+  Vec2F32 size, offset;
 };
 
 struct SpriteComponent
@@ -48,6 +55,8 @@ struct Entity
   } transform_component;
 
   SpriteComponent sprite_component;
+
+  BoxColliderComponent box_collider_component;
 
   struct RigidBodyComponent
   {

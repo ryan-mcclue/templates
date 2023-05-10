@@ -846,7 +846,6 @@ vec2_i64(i64 x, i64 y)
   return result;
 }
 
-
 INTERNAL u32
 pack_u32_4x8(Vec4F32 val)
 {
@@ -858,6 +857,72 @@ pack_u32_4x8(Vec4F32 val)
             round_f32_to_u32(val.w) & 0xFF);
 
   return result;
+}
+
+IGNORE_WARNING_PEDANTIC()
+typedef union Range2F32 Range2F32;
+union Range2F32
+{
+  struct
+  {
+    Vec2F32 min, max;
+  };
+
+  struct
+  {
+    Vec2F32 p0, p1;
+  };
+
+  struct
+  {
+    f32 x0, y0, x1, y1;
+  };
+};
+IGNORE_WARNING_POP()
+
+INTERNAL Range2F32
+range2_f32(Vec2F32 min, Vec2F32 max)
+{
+  Range2F32 result = {min, max};
+  return result;
+}
+
+INTERNAL Range2F32 
+range2_f32_shift(Range2F32 r, Vec2F32 v) 
+{ 
+  r.x0 += v.x; 
+  r.y0 += v.y; 
+  r.x1 += v.x; 
+  r.y1 += v.y; 
+
+  return r; 
+}
+
+INTERNAL Range2F32 
+range2_f32_pad(Range2F32 r, f32 x) 
+{ 
+  Vec2F32 min = vec2_f32_sub(r.min, vec2_f32(x, x));
+  Vec2F32 max = vec2_f32_add(r.max, vec2_f32(x, x));
+
+  return range2_f32(min, max); 
+}
+
+INTERNAL Vec2F32 
+range2_f32_centre(Range2F32 r) 
+{ 
+  return vec2_f32((r.min.x + r.max.x)/2, (r.min.y + r.max.y)/2); 
+}
+
+INTERNAL b32 
+range2_f32_contains(Range2F32 r, Vec2F32 v) 
+{ 
+  return (r.min.x <= v.x && v.x <= r.max.x) && (r.min.y <= v.y && v.y <= r.max.y); 
+}
+
+INTERNAL Vec2F32 
+range2_f32_dim(Range2F32 r) 
+{ 
+  return vec2_f32(abs_f32(r.max.x - r.min.x), abs_f32(r.max.y - r.min.y)); 
 }
 
 #endif
