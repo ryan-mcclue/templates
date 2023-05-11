@@ -305,6 +305,11 @@ union Vec2I32
     i32 x, y;
   };
 
+  struct
+  {
+    i32 w, h;
+  };
+
   i32 elements[2];
   i32 v[2];
 };

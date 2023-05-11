@@ -354,6 +354,14 @@ main(int argc, char *argv[])
           {
             want_to_run = false;
           }
+
+          if (sdl2_event.key.repeat == 0 && 
+              sdl2_event.key.keysym.scancode == SDL_SCANCODE_D &&
+              sdl2_event.key.keysym.mod & KMOD_LSHIFT)
+          {
+            app_state->debug_overlay = !app_state->debug_overlay;
+          }
+
           if (sdl2_event.key.keysym.scancode == SDL_SCANCODE_F &&
               sdl2_event.key.keysym.mod & KMOD_LSHIFT)
           { 

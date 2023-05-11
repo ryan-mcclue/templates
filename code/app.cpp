@@ -67,17 +67,42 @@ vec2_f32_to_sdl_rect(Vec2F32 a, Vec2F32 b)
 }
 
 INTERNAL void
+draw_texture(SDL_Renderer *renderer, Map *texture_map, MapKey texture_key, Vec2F32 pos, Vec2F32 dim, 
+             Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f),
+             Vec2I32 texture_offset = vec2_i32(0, 0), f32 rotation = 0.0f)
+{
+  SDL_FRect dst_rect = vec2_f32_to_sdl_frect(pos, dim);
+
+  MapSlot *map_slot = map_lookup(texture_map, texture_key);
+  if (map_slot != NULL)
+  {
+    SDL_Texture *texture = (SDL_Texture *)map_slot->val;
+
+    SDL_Color texture_colour_mod = vec4_f32_to_sdl_colour(colour);
+    SDL_SetTextureColorMod(texture, texture_colour_mod.r, texture_colour_mod.g, texture_colour_mod.b);
+
+    SDL_Rect src_rect = ZERO_STRUCT;
+    if (texture_offset.w == 0)
+    {
+      src_rect = {0, 0, (i32)dim.w, (i32)dim.h};
+    }
+    else
+    {
+      src_rect = {0, 0, texture_offset.w, texture_offset.h};
+    }
+
+    SDL_RenderCopyExF(renderer, texture, &src_rect, &dst_rect, rotation, NULL, SDL_FLIP_NONE);
+  }
+}
+
+INTERNAL void
 draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 {
   SDL_Colour sdl_colour = vec4_f32_to_sdl_colour(colour);
 
   SDL_SetRenderDrawColor(renderer, sdl_colour.r, sdl_colour.g, sdl_colour.b, sdl_colour.a);
 
-  SDL_FRect render_rect = ZERO_STRUCT;
-  render_rect.x = pos.x;
-  render_rect.y = pos.y;
-  render_rect.w = dim.w;
-  render_rect.h = dim.h;
+  SDL_FRect render_rect = vec2_f32_to_sdl_frect(pos, dim);
 
   SDL_RenderFillRectF(renderer, &render_rect);
 }
@@ -257,6 +282,17 @@ ThreadContext global_tctx;
 
 // inheritance: multiple inheritance
 // component: 
+
+/* IMPORTANT(Ryan): If using a fixed array, just have a queue of ids, e.g:
+  if (first_free_id == NULL)
+  {
+    free_id = num_ids++;
+  }
+  else
+  {
+    free_id = SLL_QUEUE_POP(first_free_id, last_free_id);
+  }
+*/
 
 INTERNAL Entity *
 alloc_pool_entity(Entity **first_free_entity, MemArena *perm_arena)
@@ -520,8 +556,9 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
       // TODO(Ryan): add acceleration
       entity->transform_component.position += entity->rigid_body_component.velocity * state->delta;
 
-      // TODO(Ryan): add rotation matrices
+      // TODO(Ryan): add rotation matrices (from app_template)
     }
+
 
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_SPRITE | ENTITY_COMPONENT_FLAG_ANIMATION)))
     {
@@ -533,6 +570,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
       entity->sprite_component.src_rect.x = anim->current_frame * entity->sprite_component.dimensions.w;
     }
+
 
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_BOX_COLLIDER)))
     {
@@ -546,7 +584,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
         // AABB
         if (SDL_HasIntersection(&entity_bounding, &collision_entity_bounding))
         {
-          // TODO(Ryan): 
+          // TODO(Ryan): remove both entities
         }
       }
     }
@@ -567,7 +605,17 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_SPRITE)))
     {
-      SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 255);
+
+      if (state->debug_overlay)
+      {
+        if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_BOX_COLLIDER)))
+        {
+          SDL_SetRenderDrawColor(renderer->renderer, 255, 255, 255, 255);
+
+          SDL_FRect dst_rect = vec2_f32_to_sdl_frect(entity->transform_component.position, entity->box_collider_component.size);
+          SDL_RenderDrawRectF(renderer->renderer, &dst_rect);
+        }
+      }
 
       SDL_FRect dst_rect = vec2_f32_to_sdl_frect(entity->transform_component.position,
                                                  vec2_f32_hadamard(entity->sprite_component.dimensions, entity->transform_component.scale));
@@ -584,6 +632,12 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
         SDL_RenderCopyExF(renderer->renderer, texture, src_rect, &dst_rect, entity->transform_component.rotation, NULL, SDL_FLIP_NONE);
       }
     }
+  }
+
+  // NOTE(Ryan): Particle system test
+  for (u32 particle_i = 0; particle_i < ARRAY_COUNT(state->particles); particle_i++)
+  {
+    // 
   }
 }
 

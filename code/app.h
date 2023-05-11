@@ -71,6 +71,18 @@ struct AssetStore
   Map textures;
 };
 
+
+struct CollisionEvent
+{
+  Entity *a, *b;
+};
+
+struct Particle
+{
+  Vec2F32 position, velocity;
+  Vec4F32 colour;
+};
+
 IGNORE_WARNING_PADDED()
 typedef struct AppState AppState;
 struct AppState
@@ -81,9 +93,14 @@ struct AppState
   u64 ms;
   u32 rand_seed;
 
+  b32 debug_overlay;
+
   Entity *first_free_entity;
   Entity *first_entity;
   Entity *last_entity;
+
+  u32 next_particle;
+  Particle particles[64];
 
   AssetStore asset_store;
 };
