@@ -205,6 +205,18 @@ rand_range_f32(u32 *seed, f32 min, f32 max)
   return result;
 }
 
+INTERNAL f32
+map_to_range_f32(f32 start, f32 a, f32 end)
+{
+  f32 result = 0.0f;
+
+  a = CLAMP(start, a, end);
+
+  result = (end - a) / (end - start);
+
+  return result;
+}
+
 
 #if defined(COMPILER_GCC) && defined(ARCH_X86_64)
   #include <x86intrin.h>
@@ -789,7 +801,7 @@ vec4_f32_sub(Vec4F32 a, Vec4F32 b)
 }
 
 INTERNAL Vec4F32 
-vec4_f32_hadmard(Vec4F32 a, Vec4F32 b) 
+vec4_f32_hadamard(Vec4F32 a, Vec4F32 b) 
 { 
   return vec4_f32(a.x * b.x, a.y * b.y, a.z * b.z, a.z * b.z); 
 }
@@ -804,6 +816,12 @@ INTERNAL Vec4F32
 vec4_f32_mul(Vec4F32 a, f32 scale) 
 { 
   return vec4_f32(a.x * scale, a.y * scale, a.z * scale, a.w * scale); 
+}
+
+INTERNAL Vec4F32 
+vec4_f32_neg(Vec4F32 a) 
+{ 
+  return vec4_f32(-a.x, -a.y, -a.z, -a.w);
 }
 
 INTERNAL f32 
@@ -835,6 +853,63 @@ vec4_f32_lerp(Vec4F32 a, Vec4F32 b, f32 t)
 { 
   return vec4_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t), a.z * (1 - t) + (b.z * t), a.w * (1 - t) + (b.w * t)); 
 }
+
+#if defined(LANG_CPP)
+INTERNAL Vec4F32
+operator*(f32 s, Vec4F32 a)
+{
+  return vec4_f32_mul(a, s);
+}
+
+INTERNAL Vec4F32
+operator*(Vec4F32 a, f32 s)
+{
+  return vec4_f32_mul(a, s);
+}
+
+INTERNAL Vec4F32 &
+operator*=(Vec4F32 &a, f32 s)
+{
+  a = a * s;
+
+  return a;
+}
+
+INTERNAL Vec4F32
+operator+(Vec4F32 a, Vec4F32 b)
+{
+  return vec4_f32_add(a, b);
+}
+
+INTERNAL Vec4F32 &
+operator+=(Vec4F32 &a, Vec4F32 b)
+{
+  a = a + b;
+
+  return a;
+}
+
+INTERNAL Vec4F32
+operator-(Vec4F32 a, Vec4F32 b)
+{
+  return vec4_f32_sub(a, b);
+}
+
+INTERNAL Vec4F32 &
+operator-=(Vec4F32 &a, Vec4F32 b)
+{
+  a = a - b;
+
+  return a;
+}
+
+INTERNAL Vec4F32
+operator-(Vec4F32 a)
+{
+  return vec4_f32_neg(a);
+}
+#endif
+// TODO(Ryan): Add gcc vector extensions here
 
 
 INTERNAL Vec2I32

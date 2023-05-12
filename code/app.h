@@ -36,7 +36,7 @@ struct BoxColliderComponent
 struct SpriteComponent
 {
   Vec2F32 dimensions;
-  SDL_Rect src_rect; 
+  Vec2I32 texture_offset; 
   // TODO(Ryan): OPTIMAL SOLUTION IS TO HAVE LAYERS, E.G. VEGETATION LAYER, BULLET LAYER, ETC.
   u32 z_index;
   MapKey texture_key;
@@ -80,7 +80,7 @@ struct CollisionEvent
 struct Particle
 {
   Vec2F32 position, velocity;
-  Vec4F32 colour;
+  Vec4F32 colour, colour_velocity;
 };
 
 IGNORE_WARNING_PADDED()
@@ -91,7 +91,7 @@ struct AppState
   b32 is_initialised;
   f32 delta;
   u64 ms;
-  u32 rand_seed;
+  u32 rand_seed; // perhaps rename effects_series?
 
   b32 debug_overlay;
 

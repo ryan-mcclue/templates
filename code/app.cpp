@@ -32,6 +32,11 @@ vec4_f32_to_sdl_colour(Vec4F32 colour)
 {
   SDL_Colour result = {0};
 
+  colour.r = CLAMP(0.0f, colour.r, 1.0f); 
+  colour.g = CLAMP(0.0f, colour.g, 1.0f); 
+  colour.b = CLAMP(0.0f, colour.b, 1.0f); 
+  colour.a = CLAMP(0.0f, colour.a, 1.0f); 
+
   result.r = round_f32_to_i32(255.0f * colour.r);
   result.g = round_f32_to_i32(255.0f * colour.g);
   result.b = round_f32_to_i32(255.0f * colour.b);
@@ -68,8 +73,8 @@ vec2_f32_to_sdl_rect(Vec2F32 a, Vec2F32 b)
 
 INTERNAL void
 draw_texture(SDL_Renderer *renderer, Map *texture_map, MapKey texture_key, Vec2F32 pos, Vec2F32 dim, 
-             Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f),
-             Vec2I32 texture_offset = vec2_i32(0, 0), f32 rotation = 0.0f)
+             Vec2I32 texture_offset = vec2_i32(0, 0), f32 rotation = 0.0f,
+             Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f))
 {
   SDL_FRect dst_rect = vec2_f32_to_sdl_frect(pos, dim);
 
@@ -80,15 +85,16 @@ draw_texture(SDL_Renderer *renderer, Map *texture_map, MapKey texture_key, Vec2F
 
     SDL_Color texture_colour_mod = vec4_f32_to_sdl_colour(colour);
     SDL_SetTextureColorMod(texture, texture_colour_mod.r, texture_colour_mod.g, texture_colour_mod.b);
+    SDL_SetTextureAlphaMod(texture, texture_colour_mod.a);
 
     SDL_Rect src_rect = ZERO_STRUCT;
-    if (texture_offset.w == 0)
+    if (texture_offset.x == 0)
     {
       src_rect = {0, 0, (i32)dim.w, (i32)dim.h};
     }
     else
     {
-      src_rect = {0, 0, texture_offset.w, texture_offset.h};
+      src_rect = {texture_offset.x, texture_offset.y, (i32)dim.w, (i32)dim.h};
     }
 
     SDL_RenderCopyExF(renderer, texture, &src_rect, &dst_rect, rotation, NULL, SDL_FLIP_NONE);
@@ -356,6 +362,8 @@ asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_
     WARN("Failed to load texture", SDL_GetError());
   }
 
+  SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
   map_insert(mem_arena, texture_map, map_key_str(s8_cstring(key)), texture);
 }
 
@@ -537,7 +545,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     chopper->sprite_component.dimensions = {32.0f, 32.0f};
     chopper->sprite_component.texture_key = map_key_str(s8_lit("chopper-image"));
     chopper->sprite_component.z_index = 1;
-    chopper->sprite_component.src_rect = {0, 0, (i32)chopper->sprite_component.dimensions.w, (i32)chopper->sprite_component.dimensions.h};
     chopper->animation_component.num_frames = 2;
     chopper->animation_component.current_frame = 0;
     chopper->animation_component.frame_rate = 10;
@@ -568,7 +575,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
       anim->current_frame = (u32)(time_elapsed * (anim->frame_rate / 1000.0f)) % anim->num_frames;
 
-      entity->sprite_component.src_rect.x = anim->current_frame * entity->sprite_component.dimensions.w;
+      entity->sprite_component.texture_offset.x = anim->current_frame * entity->sprite_component.dimensions.w;
     }
 
 
@@ -617,27 +624,45 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
         }
       }
 
-      SDL_FRect dst_rect = vec2_f32_to_sdl_frect(entity->transform_component.position,
-                                                 vec2_f32_hadamard(entity->sprite_component.dimensions, entity->transform_component.scale));
-      MapSlot *map_slot = map_lookup(&state->asset_store.textures, entity->sprite_component.texture_key);
-      if (map_slot != NULL)
-      {
-        SDL_Texture *texture = (SDL_Texture *)map_slot->val;
-
-        SDL_Rect *src_rect = &entity->sprite_component.src_rect;
-        if (src_rect->w == 0)
-        {
-          src_rect = NULL;
-        }
-        SDL_RenderCopyExF(renderer->renderer, texture, src_rect, &dst_rect, entity->transform_component.rotation, NULL, SDL_FLIP_NONE);
-      }
+      Vec2F32 texture_dim = vec2_f32_hadamard(entity->sprite_component.dimensions, entity->transform_component.scale);
+      draw_texture(renderer->renderer, &state->asset_store.textures, entity->sprite_component.texture_key,
+                   entity->transform_component.position, texture_dim, entity->sprite_component.texture_offset);
     }
   }
 
   // NOTE(Ryan): Particle system test
+  // spawn count is density count
+  // more randomness the better
+  for (u32 particle_spawn_i = 0; particle_spawn_i < 1; particle_spawn_i++)
+  {
+    Particle *particle = &state->particles[state->next_particle++];
+    if (state->next_particle == ARRAY_COUNT(state->particles))
+    {
+      state->next_particle = 0;
+    }
+
+    particle->position = vec2_f32(400.0f, 400.0f);
+
+    particle->velocity = vec2_f32(rand_bilateral_f32(&state->rand_seed) * 100.0f, -100.0f);
+    particle->colour = vec4_f32(0.8f, 0.5f, 0.9f, 1.0f);
+    particle->colour_velocity = vec4_f32(0.0f, 0.0f, 0.0f, -0.5f); // smoother exit would be no to go to 0 alpha
+  }
+
   for (u32 particle_i = 0; particle_i < ARRAY_COUNT(state->particles); particle_i++)
   {
-    // 
+    Particle *particle = &state->particles[particle_i];
+
+    particle->position += particle->velocity * state->delta;
+    particle->colour += particle->colour_velocity * state->delta;
+    if (particle->colour.a > 0.9f)
+    {
+      f32 t = map_to_range_f32(0.9f, particle->colour.a, 1.0f);
+      particle->colour.a = (1.0f - t) * 0.9f;
+    }
+
+    // TODO(Ryan): Store texture width and height
+    draw_texture(renderer->renderer, &state->asset_store.textures, map_key_str(s8_lit("tank-image")),
+                 particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
 }
 

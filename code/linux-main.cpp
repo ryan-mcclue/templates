@@ -279,6 +279,11 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to set SDL2 renderer size.", SDL_GetError(), "");
   }
 
+  if (SDL_SetRenderDrawBlendMode(sdl2_renderer, SDL_BLENDMODE_BLEND) != 0)
+  {
+    FATAL_ERROR("Failed to set SDL2 renderer blend mode.", SDL_GetError(), "");
+  }
+
   int sdl2_image_flags = IMG_INIT_PNG;
   if ((IMG_Init(sdl2_image_flags) & sdl2_image_flags) == 0)
   {
@@ -321,16 +326,6 @@ main(int argc, char *argv[])
   renderer->window_height = (u32)window_height;
 
   Input *input = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, Input, 1);
-
-  // NOTE(Ryan): Alternatively: SDL_RWFromMem() -> IMG_LoadTexture_RW();
-  SDL_Surface *sur = IMG_Load("./tank-panther-right.png");
-  SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer->renderer, sur);
-  SDL_FreeSurface(sur);
-  if (texture == NULL)
-  {
-    WARN("Failed to load texture", SDL_GetError());
-  }
-  //SDL_RenderCopy();
 
   b32 want_to_run = true;
   while (want_to_run)
