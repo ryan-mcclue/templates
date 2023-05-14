@@ -58,6 +58,107 @@ s8_copy_file(MemArena *arena, String8 source_file, String8 dest_file)
   s8_write_entire_file(dest_file, source_file_data);
 }
 
+typedef u32 FILE_INFO_FLAG;
+enum
+{
+  FILE_INFO_FLAG_DIRECTORY = (1 << 0),
+  FILE_INFO_FLAG_READ_ACCESS = (1 << 1),
+  FILE_INFO_FLAG_WRITE_ACCESS = (1 << 2),
+  FILE_INFO_FLAG_EXECUTE_ACCESS = (1 << 3),
+};
+
+typedef struct FileInfo FileInfo;
+struct FileInfo
+{
+  FILE_INFO_FLAG flags;
+  String8 filename;
+  u64 file_size;
+  u64 create_time;
+  u64 modify_time;
+};
+
+typedef struct FileIter FileIter;
+struct FileIter
+{
+  int dir_fd;
+  DIR *dir;
+};
+
+INTERNAL void
+treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
+{
+  if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
+  {
+
+  }
+
+  TreeMapNode *node = (TreeMapNode *)user_data;
+}
+
+typedef void (*visit_files_cb)(MemArena *arena, FileInfo *file_info, void *user_data);
+
+INTERNAL void
+visit_files(MemArena *arena, String8 path, visit_files_cb visit, void *user_data, b32 recursive = true)
+{
+  DIR *dir = opendir((char *)path.str);
+  int dir_fd = open((char *)path.str, O_PATH|O_CLOEXEC);
+
+  if (dir != NULL && dir_fd != -1)
+  {
+    while (true)
+    {
+      // this advances iterator, NULL if at end
+      struct dirent *dir_entry = readdir(dir);
+      if (dir_entry == NULL) 
+      {
+        break;
+      }
+
+      FileInfo file_info = ZERO_STRUCT;
+      file_info.file_name = dir_entry->d_name;
+
+      struct stat file_stat = ZERO_STRUCT;
+      // TODO(Ryan): handle symlinks, currently just look at symlink itself
+      if (fstatat(dir_fd, dir_entry->d_name, &file_stat, AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == 0)
+      {
+        if ((file_stat.st_mode & S_IFMT) == S_IFDIR)
+        {
+          file_info->flags |= FILE_INFO_FLAG_DIRECTORY;
+        }
+
+        file_info->file_size = file_stat.st_size;
+      }
+
+      visit(arena, &file_info, user_data);
+
+      if (file_info->flags & FILE_INFO_FLAG_DIRECTORY) 
+      {
+
+        /* Check that the directory is not "d" or d's parent. */
+
+        if (strcmp (d_name, "..") != 0 &&
+            strcmp (d_name, ".") != 0) {
+          int path_length;
+          char path[PATH_MAX];
+
+          path_length = snprintf (path, PATH_MAX,
+              "%s/%s", dir_name, d_name);
+          printf ("%s\n", path);
+          if (path_length >= PATH_MAX) {
+            fprintf (stderr, "Path length has got too long.\n");
+            exit (EXIT_FAILURE);
+          }
+          /* Recursively call "list_dir" with the new path. */
+          list_dir (path);
+        }
+      }
+    }
+
+    closedir(dir);
+    close(dir_fd);
+  }
+}
+
 #if 0
 INTERNAL b32
 os_file_rename(String8 og_name, String8 new_name){
@@ -71,97 +172,6 @@ os_file_rename(String8 og_name, String8 new_name){
     return(result);
 }
 
-typedef MD_u32 MD_FileFlags;
-enum
-{
-    MD_FileFlag_Directory = (1<<0),
-};
-
-typedef U32 DataAccessFlags;
-enum{
-  DataAccessFlag_Read    = (1 << 0),
-  DataAccessFlag_Write   = (1 << 1),
-  DataAccessFlag_Execute = (1 << 2),
-};
-
-typedef struct MD_FileInfo MD_FileInfo;
-struct MD_FileInfo
-{
-    MD_FileFlags flags;
-    MD_String8 filename;
-    MD_u64 file_size;
-  u64 create_time;
-  u64 modify_time;
-  DataAccessFlags access;
-};
-
-typedef struct MD_FileIter MD_FileIter;
-struct MD_FileIter
-{
-    // This is opaque state to store OS-specific file-system iteration data.
-    MD_u8 opaque[640];
-};
-
-// b32 file_start = file_iter_begin(&file_iter, path);
-// FileInfo file_info = file_iter_next(&file_iter);
-typedef struct MD_LINUX_FileIter MD_LINUX_FileIter;
-struct MD_LINUX_FileIter
-{
-    int dir_fd;
-    DIR *dir;
-};
-MD_StaticAssert(sizeof(MD_LINUX_FileIter) <= sizeof(MD_FileIter), file_iter_size_check);
-
-static MD_b32
-MD_LINUX_FileIterIncrement(MD_Arena *arena, MD_FileIter *opaque_it, MD_String8 path,
-                           MD_FileInfo *out_info)
-{
-    MD_b32 result = 0;
-    
-    MD_LINUX_FileIter *it = (MD_LINUX_FileIter *)opaque_it;
-    if(it->dir == 0)
-    {
-        it->dir = opendir((char*)path.str);
-        it->dir_fd = open((char *)path.str, O_PATH|O_CLOEXEC);
-    }
-    
-    if(it->dir != 0 && it->dir_fd != -1)
-    {
-        struct dirent *dir_entry = readdir(it->dir);
-        if(dir_entry)
-        {
-            out_info->filename = MD_S8Fmt(arena, "%s", dir_entry->d_name);
-            out_info->flags = 0;
-            
-            struct stat st; 
-            if(fstatat(it->dir_fd, dir_entry->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW) == 0)
-            {
-                if((st.st_mode & S_IFMT) == S_IFDIR)
-                {
-                    out_info->flags |= MD_FileFlag_Directory;
-                }
-                out_info->file_size = st.st_size;
-            }
-            result = 1;
-        }
-    }
-    
-    if(result == 0)
-    {
-        if(it->dir != 0)
-        {
-            closedir(it->dir);
-            it->dir = 0;
-        }
-        if(it->dir_fd != -1)
-        {
-            close(it->dir_fd);
-            it->dir_fd = -1;
-        }
-    }
-    
-    return result;
-}
 
 #if 0
 

@@ -474,18 +474,20 @@ sort_entities_by_z_index(Entity *first, u32 indent)
 #define MAX_NUM_NODES 1024
 struct TreeMapNode 
 {
-  f32 size;
   String8 name;
+  f32 size;
+  TreeMapNode *parent;
+  TreeMapNode *first, *last;
+
   // store index to parent rather than pointer to avoid dereferences that are costly for cache locality?
   // also don't have to worry about pointer stability on dynamic array resizes
-  i32 parent; // signed as we set to -1
+  // i32 parent; // signed as we set to -1
 
   u32 index; // not settable by user
 };
 struct TreeMap 
 {
-  u32 node_count;
-  TreeMapNode nodes[MAX_NUM_NODES];
+  TreeMapNode *root;
 };
 
 struct DisplayNode 
@@ -504,33 +506,79 @@ struct TreeMapDisplay
   TreeMap *treemap;
 };
 
+INTERNAL TreeMapNode *
+child_node_at_index(TreeMapNode *first, u32 index)
+{
+  TreeMapNode *result = MD_NilNode();
+  if(n >= 0)
+  {
+    int idx = 0;
+    for(TreeMapNode *node = first; !TreeMapNodeIsNil(node); node = node->next, idx += 1)
+    {
+      if(idx == n)
+      {
+        result = node;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+INTERNAL u32
+index_of_child_node(TreeMapNode *node)
+{
+    int idx = 0;
+    for(TreeMapNode *last = node->prev; !TreeMapNodeIsNil(last); last = last->prev, idx += 1);
+    return idx;
+}
 
 INTERNAL TreeMapNode *
-add_node(TreeMap *treemap, String8 name, TreeMapNode *parent)
+MD_RootFromNode(TreeMapNode *node)
 {
-  TreeMapNode *result = NULL;
-
-  if (parent == NULL)
-  {
-    if (treemap->root == NULL)
+    TreeMapNode *parent = node;
+    for(TreeMapNode *p = parent; !TreeMapNodeIsNil(p); p = p->parent)
     {
-      init(treemap);
+        parent = p;
     }
+    return parent;
+}
 
-    parent = treemap->root;
-  }
+#define MD_EachNode(it, first) TreeMapNode *it = (first); !TreeMapNodeIsNil(it); it = it->next
+INTERNAL MD_i64
+MD_ChildCountFromNode(TreeMapNode *node)
+{
+    MD_i64 result = 0;
+    for(MD_EachNode(child, node->first_child))
+    {
+        result += 1;
+    }
+    return result;
+}
 
-  u32 index = treemap->node_count;
-  ASSERT(index < MAX_NUM_NODES);
-
-  result = &treemap->nodes[index];
-  result->index = index;
-  result->name = name; // TODO(Ryan): Should we copy string over to allow for mutability?
+INTERNAL TreeMapNode *
+add_node(Arena *arena, TreeMapNode *parent, String8 name)
+{
+    TreeMapNode *node = MD_PushArrayZero(arena, TreeMapNode, 1);
+    node->name = string;
+    node->parent = parent;
+  // TODO(Ryan): Should we copy string over to allow for mutability?
   // TODO(Ryan): Introduce @speed, @memory comments
   // TODO(Ryan): Improve comment usage
-  treemap->node_count++;
+    if (parent != NULL)
+    {
+      DLL_QUEUE_PUSH(parent->first, parent->last, node);
+    }
 
   return result;
+}
+
+INTERNAL void
+directory_traversal(void)
+{
+  String8 directory = s8_lit("/home/ryan/prog");
+  
+  visit_files(folder, recursive=true);
 }
 
 
