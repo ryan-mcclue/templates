@@ -79,7 +79,7 @@ struct CollisionEvent
 
 struct Particle
 {
-  Vec2F32 position, velocity;
+  Vec2F32 position, velocity, acceleration;
   Vec4F32 colour, colour_velocity;
 };
 

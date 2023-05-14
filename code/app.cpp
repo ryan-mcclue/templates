@@ -471,8 +471,68 @@ sort_entities_by_z_index(Entity *first, u32 indent)
   }
 }
 
-// TODO(Ryan):
-GLOBAL b32 global_show_colliders;
+#define MAX_NUM_NODES 1024
+struct TreeMapNode 
+{
+  f32 size;
+  String8 name;
+  // store index to parent rather than pointer to avoid dereferences that are costly for cache locality?
+  // also don't have to worry about pointer stability on dynamic array resizes
+  i32 parent; // signed as we set to -1
+
+  u32 index; // not settable by user
+};
+struct TreeMap 
+{
+  u32 node_count;
+  TreeMapNode nodes[MAX_NUM_NODES];
+};
+
+struct DisplayNode 
+{
+  u32 treemap_node_index;
+  Vec4F32 colour;
+
+  Vec2F32 corner; // in render coordinates
+  Vec2F32 size; // in render coordinates
+};
+struct TreeMapDisplay 
+{
+  u32 node_count;
+  DisplayNode nodes[MAX_NUM_NODES]; 
+
+  TreeMap *treemap;
+};
+
+
+INTERNAL TreeMapNode *
+add_node(TreeMap *treemap, String8 name, TreeMapNode *parent)
+{
+  TreeMapNode *result = NULL;
+
+  if (parent == NULL)
+  {
+    if (treemap->root == NULL)
+    {
+      init(treemap);
+    }
+
+    parent = treemap->root;
+  }
+
+  u32 index = treemap->node_count;
+  ASSERT(index < MAX_NUM_NODES);
+
+  result = &treemap->nodes[index];
+  result->index = index;
+  result->name = name; // TODO(Ryan): Should we copy string over to allow for mutability?
+  // TODO(Ryan): Introduce @speed, @memory comments
+  // TODO(Ryan): Improve comment usage
+  treemap->node_count++;
+
+  return result;
+}
+
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
@@ -560,6 +620,12 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY)))
     {
+      // Introducing 'equations of motion' essentially means giving momentum, i.e. no instantaneous direction changes
+      // p = 0.5f * acceleration * SQUARE(time) + velocity * time + position;
+      // v = acceleration * t + v
+      // if (down) acceleration = 1.0f;
+      // acceleration += -0.7f * v (friction)
+
       // TODO(Ryan): add acceleration
       entity->transform_component.position += entity->rigid_body_component.velocity * state->delta;
 
@@ -592,10 +658,15 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
         if (SDL_HasIntersection(&entity_bounding, &collision_entity_bounding))
         {
           // TODO(Ryan): remove both entities
+          CollisionEvent collision_event = ZERO_STRUCT;
         }
       }
     }
   }
+
+  // TODO(Ryan): Convert pixels/s to m/s
+
+  // TODO(Ryan): process event queues here?
 
   // collision map for pixel perfect (mesh collider for 3d)
 
@@ -631,9 +702,9 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   }
 
   // NOTE(Ryan): Particle system test
-  // spawn count is density count
   // more randomness the better
-  for (u32 particle_spawn_i = 0; particle_spawn_i < 1; particle_spawn_i++)
+#define PARTICLE_DENSITY_COUNT 1
+  for (u32 particle_spawn_i = 0; particle_spawn_i < PARTICLE_DENSITY_COUNT; particle_spawn_i++)
   {
     Particle *particle = &state->particles[state->next_particle++];
     if (state->next_particle == ARRAY_COUNT(state->particles))
@@ -644,8 +715,9 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     particle->position = vec2_f32(400.0f, 400.0f);
 
     particle->velocity = vec2_f32(rand_bilateral_f32(&state->rand_seed) * 100.0f, -100.0f);
+    particle->acceleration = vec2_f32(0.0f, 220.0f);
     particle->colour = vec4_f32(0.8f, 0.5f, 0.9f, 1.0f);
-    particle->colour_velocity = vec4_f32(0.0f, 0.0f, 0.0f, -0.5f); // smoother exit would be no to go to 0 alpha
+    particle->colour_velocity = vec4_f32(0.0f, 0.0f, 0.0f, -0.5f);
   }
 
   for (u32 particle_i = 0; particle_i < ARRAY_COUNT(state->particles); particle_i++)
@@ -653,17 +725,18 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     Particle *particle = &state->particles[particle_i];
 
     particle->position += particle->velocity * state->delta;
-    particle->colour += particle->colour_velocity * state->delta;
-    if (particle->colour.a > 0.9f)
+    if (particle->position.y > 405.0f)
     {
-      f32 t = map_to_range_f32(0.9f, particle->colour.a, 1.0f);
-      particle->colour.a = (1.0f - t) * 0.9f;
+      f32 restitution = 0.5f;
+      particle->position.y = 405.0f;
+      particle->velocity.y = restitution * -particle->velocity.y;
     }
+
+    particle->velocity += particle->acceleration * state->delta;
+    particle->colour += particle->colour_velocity * state->delta;
 
     // TODO(Ryan): Store texture width and height
     draw_texture(renderer->renderer, &state->asset_store.textures, map_key_str(s8_lit("tank-image")),
                  particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
 }
-
-

@@ -297,6 +297,12 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to get current working directory.", strerror(errno), "");
   }
 
+  // IMPORTANT(Ryan): Only do this in release! Otherwise, stick to run/
+  // TODO(Ryan): set_working_directory(path_of_running_executable)
+  // absolute path to binary is combination of (cwd_absolute + argv_invoked_relative)
+  // readlink("/proc/self/exe", buf, bufsize) does this
+  // then do chdir(strip()) to set
+
   String8List app_temp_name_list = ZERO_STRUCT;
   s8_list_push(linux_mem_arena_perm, &app_temp_name_list, s8_cstring(cwd_path_buffer));
   s8_list_push(linux_mem_arena_perm, &app_temp_name_list, LITERAL(s8_lit("/app-temp.so")));
