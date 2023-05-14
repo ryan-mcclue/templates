@@ -471,7 +471,7 @@ sort_entities_by_z_index(Entity *first, u32 indent)
   }
 }
 
-#define MAX_NUM_NODES 1024
+#if 0
 struct TreeMapNode 
 {
   String8 name;
@@ -574,12 +574,25 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
 }
 
 INTERNAL void
+treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
+{
+  if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
+  {
+
+  }
+
+  TreeMapNode *node = (TreeMapNode *)user_data;
+}
+
+
+INTERNAL void
 directory_traversal(void)
 {
   String8 directory = s8_lit("/home/ryan/prog");
   
   visit_files(folder, recursive=true);
 }
+#endif
 
 
 EXPORT void

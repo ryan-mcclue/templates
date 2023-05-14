@@ -71,11 +71,16 @@ typedef struct FileInfo FileInfo;
 struct FileInfo
 {
   FILE_INFO_FLAG flags;
-  String8 filename;
+  String8 file_name;
   u64 file_size;
-  u64 create_time;
   u64 modify_time;
 };
+
+#include <dirent.h> 
+#include <sys/stat.h> 
+#include <sys/types.h> 
+#include <fcntl.h> 
+#include <unistd.h> 
 
 typedef struct FileIter FileIter;
 struct FileIter
@@ -84,21 +89,10 @@ struct FileIter
   DIR *dir;
 };
 
-INTERNAL void
-treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
-{
-  if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
-  {
-
-  }
-
-  TreeMapNode *node = (TreeMapNode *)user_data;
-}
-
 typedef void (*visit_files_cb)(MemArena *arena, FileInfo *file_info, void *user_data);
 
 INTERNAL void
-visit_files(MemArena *arena, String8 path, visit_files_cb visit, void *user_data, b32 recursive = true)
+visit_files(MemArena *arena, String8 path, visit_files_cb visit_cb, void *user_data, b32 want_recursive = false)
 {
   DIR *dir = opendir((char *)path.str);
   int dir_fd = open((char *)path.str, O_PATH|O_CLOEXEC);
@@ -115,7 +109,7 @@ visit_files(MemArena *arena, String8 path, visit_files_cb visit, void *user_data
       }
 
       FileInfo file_info = ZERO_STRUCT;
-      file_info.file_name = dir_entry->d_name;
+      file_info.file_name = s8_cstring(dir_entry->d_name);
 
       struct stat file_stat = ZERO_STRUCT;
       // TODO(Ryan): handle symlinks, currently just look at symlink itself
@@ -123,18 +117,21 @@ visit_files(MemArena *arena, String8 path, visit_files_cb visit, void *user_data
       {
         if ((file_stat.st_mode & S_IFMT) == S_IFDIR)
         {
-          file_info->flags |= FILE_INFO_FLAG_DIRECTORY;
+          file_info.flags |= FILE_INFO_FLAG_DIRECTORY;
         }
 
-        file_info->file_size = file_stat.st_size;
+        file_info.modify_time = ((u64)file_stat.st_mtim.tv_sec * 1000) + \
+                                  (u64)((f32)file_stat.st_mtim.tv_nsec / 1000000.0f);
+
+        file_info.file_size = (u64)file_stat.st_size;
       }
 
-      visit(arena, &file_info, user_data);
+      ASSERT(visit_cb != NULL);
+      visit_cb(arena, &file_info, user_data);
 
-      if (file_info->flags & FILE_INFO_FLAG_DIRECTORY) 
+      if (file_info.flags & FILE_INFO_FLAG_DIRECTORY && want_recursive) 
       {
-
-        /* Check that the directory is not "d" or d's parent. */
+        /* Check that the directory is not "d" or d's parent.
 
         if (strcmp (d_name, "..") != 0 &&
             strcmp (d_name, ".") != 0) {
@@ -148,15 +145,15 @@ visit_files(MemArena *arena, String8 path, visit_files_cb visit, void *user_data
             fprintf (stderr, "Path length has got too long.\n");
             exit (EXIT_FAILURE);
           }
-          /* Recursively call "list_dir" with the new path. */
-          list_dir (path);
-        }
+          // Recursively call 
+          visit_files(arena, path, visit_cb, user_data);
+          */
+       }
       }
     }
 
     closedir(dir);
     close(dir_fd);
-  }
 }
 
 #if 0

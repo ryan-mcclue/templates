@@ -9,6 +9,8 @@ fi
 
 BUILD_TYPE="$1"
 
+# TODO(Ryan): Perhaps do a prepass of code base and check for TODO() comment dates and see if they have expired
+
 # IMPORTANT(Ryan): Every day start by running print_stats script that will display gnu plot graphs
 
 build_start_time=$(date +%s.%N)
