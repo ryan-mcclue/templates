@@ -71,7 +71,9 @@ typedef struct FileInfo FileInfo;
 struct FileInfo
 {
   FILE_INFO_FLAG flags;
-  String8 file_name;
+  // the memory pointed to here is transient, so must be copied if want to be retained
+  String8 full_name;
+  String8 short_name;
   u64 file_size;
   u64 modify_time;
 };
@@ -92,13 +94,19 @@ struct FileIter
 typedef void (*visit_files_cb)(MemArena *arena, FileInfo *file_info, void *user_data);
 
 INTERNAL void
-visit_files(MemArena *arena, String8 path, visit_files_cb visit_cb, void *user_data, b32 want_recursive = false)
+linux_visit_files(MemArena *arena, String8 path, visit_files_cb visit_cb, void *user_data, b32 want_recursive = false)
 {
   DIR *dir = opendir((char *)path.str);
-  int dir_fd = open((char *)path.str, O_PATH|O_CLOEXEC);
+  int dir_fd = open((char *)path.str, O_PATH | O_CLOEXEC);
 
   if (dir != NULL && dir_fd != -1)
   {
+    char procfs_buf[64] = ZERO_STRUCT;
+    int procfs_buf_len = snprintf(procfs_buf, sizeof(procfs_buf), "/proc/self/fd/%d", dir_fd);
+
+    char dir_full_name[2048] = ZERO_STRUCT;
+    readlink(procfs_buf, dir_full_name, sizeof(dir_full_name));
+
     while (true)
     {
       // this advances iterator, NULL if at end
@@ -108,8 +116,17 @@ visit_files(MemArena *arena, String8 path, visit_files_cb visit_cb, void *user_d
         break;
       }
 
+      if (strcmp(dir_entry->d_name, "..") == 0 || strcmp(dir_entry->d_name, ".") == 0)
+      {
+        continue;
+      }
+
       FileInfo file_info = ZERO_STRUCT;
-      file_info.file_name = s8_cstring(dir_entry->d_name);
+      file_info.short_name = s8_cstring(dir_entry->d_name);
+      
+      char full_file_name_buf[PATH_MAX] = ZERO_STRUCT;
+      snprintf(full_file_name_buf, sizeof(full_file_name_buf), "%s/%s", dir_full_name, dir_entry->d_name);
+      file_info.full_name = s8_cstring(full_file_name_buf);
 
       struct stat file_stat = ZERO_STRUCT;
       // TODO(Ryan): handle symlinks, currently just look at symlink itself
@@ -131,29 +148,14 @@ visit_files(MemArena *arena, String8 path, visit_files_cb visit_cb, void *user_d
 
       if (file_info.flags & FILE_INFO_FLAG_DIRECTORY && want_recursive) 
       {
-        /* Check that the directory is not "d" or d's parent.
-
-        if (strcmp (d_name, "..") != 0 &&
-            strcmp (d_name, ".") != 0) {
-          int path_length;
-          char path[PATH_MAX];
-
-          path_length = snprintf (path, PATH_MAX,
-              "%s/%s", dir_name, d_name);
-          printf ("%s\n", path);
-          if (path_length >= PATH_MAX) {
-            fprintf (stderr, "Path length has got too long.\n");
-            exit (EXIT_FAILURE);
-          }
-          // Recursively call 
-          visit_files(arena, path, visit_cb, user_data);
-          */
-       }
+        linux_visit_files(arena, file_info.full_name, visit_cb, user_data);
       }
     }
 
     closedir(dir);
     close(dir_fd);
+  }
+
 }
 
 #if 0

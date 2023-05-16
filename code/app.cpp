@@ -573,33 +573,62 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   return result;
 }
 
+#endif
+
 INTERNAL void
-treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
+add_directory_node(TreeNode *node, String8 full_name)
 {
-  if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
+  path, basename = decomp(full_name);
+
+  // first time, so is root
+  if (map_length == 0)
   {
 
   }
+  else
+  {
+    TreeNode *found_parent = map_find(directory_table, path);
+    if (found_parent != NULL)
+    {
+      parent = found_parent;
+    }
+  }
 
-  TreeMapNode *node = (TreeMapNode *)user_data;
+  node = add_node(tree_map, full_name, parent);
+  map_add(directory_table, full_name, node);
+}
+
+INTERNAL void
+treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
+{
+  // TreeNode *tree_node = (TreeNode *)user_data;
+
+  if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
+  {
+    // add_directory_node(tree_node, file_info->full_name);
+  }
+  else
+  {
+    // add_file_node(treemap, file_info->short_name);
+  }
 }
 
 
 INTERNAL void
-directory_traversal(void)
+directory_traversal(MemArena *arena)
 {
-  String8 directory = s8_lit("/home/ryan/prog");
+  String8 directory = s8_lit("/home/ryan/prog/personal/sim");
   
-  visit_files(folder, recursive=true);
+  linux_visit_files(arena, directory, treemap_visit, NULL, true);
 }
-#endif
-
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
   if (!state->is_initialised)
   {
+    directory_traversal(perm_arena);
+
     global_debugger_present = state->debugger_present;
 
     state->is_initialised = true;
