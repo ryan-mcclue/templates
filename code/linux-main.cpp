@@ -290,6 +290,11 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to initialise SDL2_image.", IMG_GetError(), "");
   }
 
+  if (TTF_Init(sdl2_image_flags) != 0)
+  {
+    FATAL_ERROR("Failed to initialise SDL2_ttf.", TTF_GetError(), "");
+  }
+
   u32 cwd_path_size = KB(32);
   u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);
   if (getcwd((char *)cwd_path_buffer, cwd_path_size) == NULL)

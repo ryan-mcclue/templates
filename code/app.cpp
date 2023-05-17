@@ -351,6 +351,29 @@ struct PACKED TileMap
 };
 
 INTERNAL void
+asset_store_add_font(SDL_Renderer *renderer, Map *font_map, MemArena *mem_arena, 
+                     const char *key, const char *file_name, u32 size)
+{
+  TTF_Font *font = TTF_OpenFont(file_name, size);
+  if (font == NULL)
+  {
+    WARN("Failed to load font", SDL_GetError());
+  }
+
+    TTF_SetFontStyle(font, renderstyle); // TTF_STYLE_BOLD, TTF_STYLE_ITALIC 
+    height = TTF_FontHeight(font)
+
+    SDL_Surface *text = TTF_RenderText_Solid(font, string, *forecol);
+    u32 width, height = 0;
+    SDL_QueryTexture(text, NULL, NULL, &width, &height);
+
+        text = TTF_RenderText_Shaded(font, string, *forecol, *backcol);
+        text = TTF_RenderText_Blended(font, string, *forecol);
+
+  map_insert(mem_arena, font_map, map_key_str(s8_cstring(key)), font);
+}
+
+INTERNAL void
 asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_arena, 
                         const char *key, const char *file_name)
 {
@@ -602,6 +625,13 @@ compute_sizes(TreeMapNode *node)
     if (node->parent != NULL) node->parent.size += node->size;
   }
   root->size;
+}
+
+INTERNAL void
+draw_current_treemap()
+{
+  draw_text(text, pos, color);
+  // want font character height
 }
 
 #endif
