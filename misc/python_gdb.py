@@ -37,8 +37,12 @@ class PrintEntityList:
     entity_ptr = self.val
     result_str = ""
     entity_i = 0
+    # IMPORTANT(Ryan): 
+    #  address: v.address
+    #  cast: vptr = gdb.lookup_type("void").pointer()
+    #        v.cast(vptr)
     while entity_ptr != 0:
-      result_str += f"\n{entity_i} z_index: {entity_ptr['sprite_component']['z_index']}"
+      result_str += f"\n{entity_i}: {long(entity_ptr)]}"
       entity_ptr = entity_ptr["next"]
       entity_i += 1
     result_str = f"List with {entity_i} node{'s' if entity_i > 1 else ''}:" + result_str

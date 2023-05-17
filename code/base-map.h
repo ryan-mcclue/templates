@@ -62,6 +62,7 @@ struct Map
 {
   MapBucket *buckets;
   u64 bucket_count;
+  u64 count;
 };
 
 INTERNAL u64
@@ -206,6 +207,8 @@ map_insert(MemArena *arena, Map *map, MapKey key, void *val)
     slot->key = key;
     slot->val = val;
     result = slot;
+
+    map->count++;
   }
 
   return result;

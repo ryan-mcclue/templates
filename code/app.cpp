@@ -474,10 +474,12 @@ sort_entities_by_z_index(Entity *first, u32 indent)
 #if 0
 struct TreeMapNode 
 {
-  String8 name;
+  String8 name; // this is full file name
   f32 size;
+
   TreeMapNode *parent;
-  TreeMapNode *first, *last;
+  TreeMapNode *first_child, *last_child;
+  TreeMapNode *next, *prev;
 
   // store index to parent rather than pointer to avoid dereferences that are costly for cache locality?
   // also don't have to worry about pointer stability on dynamic array resizes
@@ -485,11 +487,23 @@ struct TreeMapNode
 
   u32 index; // not settable by user
 };
+
 struct TreeMap 
 {
-  TreeMapNode *root;
+  // IMPORTANT(Ryan): Working with trees, storing as doubly linked list
+  // allows for simple forwards a reverse iteration (in conjunction with node flags)
+  // e.g. can iterate from leaves upwards
+  // This iteration can give DFS variants
+  // So, prefer when tree structure static? (or does this hold even when making changes?)
+  // Works if all inserted in tree order?
+  TreeMapNode *first_node, *last_node; // first_node is root
+
+  // IMPORTANT(Ryan): Many cases if linked list, also add a hash map with it?
+  TreeMapNode *first_leaf, *last_leaf;
+  Map leaves[TreeMapNode *node, b32];
 };
 
+// refresh this part, and keep the 'data' part static (much quicker?)
 struct DisplayNode 
 {
   u32 treemap_node_index;
@@ -559,67 +573,94 @@ MD_ChildCountFromNode(TreeMapNode *node)
 INTERNAL TreeMapNode *
 add_node(Arena *arena, TreeMapNode *parent, String8 name)
 {
-    TreeMapNode *node = MD_PushArrayZero(arena, TreeMapNode, 1);
-    node->name = string;
-    node->parent = parent;
+  TreeMapNode *node = PushArrayZero(arena, TreeMapNode, 1);
+  node->name = s8_copy(arena, name);
+  node->parent = parent;
+  node->flags = NODE_FLAG_LEAF;
   // TODO(Ryan): Should we copy string over to allow for mutability?
   // TODO(Ryan): Introduce @speed, @memory comments
   // TODO(Ryan): Improve comment usage
-    if (parent != NULL)
-    {
-      DLL_QUEUE_PUSH(parent->first, parent->last, node);
-    }
+  if (parent != NULL)
+  {
+    DLL_QUEUE_PUSH(parent->first, parent->last, node);
+    parent &= ~NODE_FLAG_LEAF;
+  }
 
   return result;
 }
 
+INTERNAL void
+compute_sizes(TreeMapNode *node)
+{
+  // pass 1. clear all non-leaf sizes
+  for (Node *node = node_list_first; node != NULL; node = node->next) 
+    if !(node->flags & LEAF) node->size = 0;
+
+  // pass 2. iterate from leaves, adding sizes to parents
+  for (Node *node = node_list_last; node != NULL; node = node->prev) 
+  {
+    if (node->parent != NULL) node->parent.size += node->size;
+  }
+  root->size;
+}
+
 #endif
 
+// TODO(Ryan): HH next particle video to look at curve animations?
+
+// STD statically transmittable diseases
+
+// i.e. files are not added to this map
+GLOBAL Map global_directory_map;
+
 INTERNAL void
-add_directory_node(TreeNode *node, String8 full_name)
+add_directory_node(String8 full_name)
 {
   path, basename = decomp(full_name);
+  // remove path end slash
 
-  // first time, so is root
-  if (map_length == 0)
+  MapSlot *map_slot = map_lookup(directory_map, );
+  if (map_slot != NULL)
   {
-
+    parent = (TreeNode *)map_slot->val;
   }
   else
   {
-    TreeNode *found_parent = map_find(directory_table, path);
-    if (found_parent != NULL)
-    {
-      parent = found_parent;
-    }
+    // error
   }
 
-  node = add_node(tree_map, full_name, parent);
-  map_add(directory_table, full_name, node);
+  // TODO(Ryan): When adding a file_node, why is the size a float as its in bytes?
+
+  TreeNode *node = add_node(arena, parent, full_name);
+  map_insert(directory_map, full_name, node);
 }
 
 INTERNAL void
 treemap_visit(MemArena *arena, FileInfo *file_info, void *user_data)
 {
-  // TreeNode *tree_node = (TreeNode *)user_data;
-
   if (file_info->flags & FILE_INFO_FLAG_DIRECTORY)
   {
-    // add_directory_node(tree_node, file_info->full_name);
+    // add_directory_node(file_info->full_name);
   }
   else
   {
-    // add_file_node(treemap, file_info->short_name);
+    // add_file_node(file_info->short_name);
   }
 }
 
-
-INTERNAL void
-directory_traversal(MemArena *arena)
+INTERNAL TreeMapNode *
+tree_map_init(MemArena *arena)
 {
   String8 directory = s8_lit("/home/ryan/prog/personal/sim");
+
+  TreeMapNode *result = add_node(arena, );
+  insert(global_directory_map, global_tree_map);
   
   linux_visit_files(arena, directory, treemap_visit, NULL, true);
+
+  // compute_sizes(result);
+
+  return result;
 }
 
 EXPORT void
@@ -627,8 +668,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
   if (!state->is_initialised)
   {
-    directory_traversal(perm_arena);
-
     global_debugger_present = state->debugger_present;
 
     state->is_initialised = true;
