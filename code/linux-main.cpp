@@ -290,7 +290,7 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to initialise SDL2_image.", IMG_GetError(), "");
   }
 
-  if (TTF_Init(sdl2_image_flags) != 0)
+  if (TTF_Init() != 0)
   {
     FATAL_ERROR("Failed to initialise SDL2_ttf.", TTF_GetError(), "");
   }

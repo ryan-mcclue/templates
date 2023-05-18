@@ -69,6 +69,8 @@ struct Entity
 struct AssetStore
 {
   Map textures;
+  Map fonts;
+  Map audio;
 };
 
 

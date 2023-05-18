@@ -102,6 +102,39 @@ draw_texture(SDL_Renderer *renderer, Map *texture_map, MapKey texture_key, Vec2F
 }
 
 INTERNAL void
+draw_text(SDL_Renderer *renderer, Map *font_map, MapKey font_key, Vec2F32 pos, String8 text,
+          f32 rotation = 0.0f, Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f))
+{
+  MapSlot *map_slot = map_lookup(font_map, font_key);
+  if (map_slot != NULL)
+  {
+    TTF_Font *font = (TTF_Font *)map_slot->val;
+
+    SDL_Color font_colour = vec4_f32_to_sdl_colour(colour);
+
+    SDL_Surface *surface = TTF_RenderText_Blended(font, (char *)text.str, font_colour);
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (texture == NULL)
+    {
+      WARN("Failed to convert font surface to font texture", SDL_GetError());
+    }
+    else
+    {
+      i32 width, height = 0;
+      SDL_QueryTexture(texture, NULL, NULL, &width, &height);
+
+      SDL_FRect dst_rect = {pos.x, pos.y, (f32)width, (f32)height};
+
+      SDL_RenderCopyExF(renderer, texture, NULL, &dst_rect, rotation, NULL, SDL_FLIP_NONE);
+
+      SDL_DestroyTexture(texture);
+    }
+  }
+}
+
+
+INTERNAL void
 draw_rect(SDL_Renderer *renderer, Vec2F32 pos, Vec2F32 dim, Vec4F32 colour)
 {
   SDL_Colour sdl_colour = vec4_f32_to_sdl_colour(colour);
@@ -352,25 +385,19 @@ struct PACKED TileMap
 
 INTERNAL void
 asset_store_add_font(SDL_Renderer *renderer, Map *font_map, MemArena *mem_arena, 
-                     const char *key, const char *file_name, u32 size)
+                     const char *key, const char *file_name, u32 font_size)
 {
-  TTF_Font *font = TTF_OpenFont(file_name, size);
+  // TODO(Ryan): Call this when window size changes, e.g. set font size to (window_height / 24)
+  TTF_Font *font = TTF_OpenFont(file_name, (i32)font_size);
   if (font == NULL)
   {
     WARN("Failed to load font", SDL_GetError());
   }
-
-    TTF_SetFontStyle(font, renderstyle); // TTF_STYLE_BOLD, TTF_STYLE_ITALIC 
-    height = TTF_FontHeight(font)
-
-    SDL_Surface *text = TTF_RenderText_Solid(font, string, *forecol);
-    u32 width, height = 0;
-    SDL_QueryTexture(text, NULL, NULL, &width, &height);
-
-        text = TTF_RenderText_Shaded(font, string, *forecol, *backcol);
-        text = TTF_RenderText_Blended(font, string, *forecol);
-
-  map_insert(mem_arena, font_map, map_key_str(s8_cstring(key)), font);
+  else
+  {
+    // TTF_SetFontStyle(font, renderstyle); // TTF_STYLE_BOLD, TTF_STYLE_ITALIC 
+    map_insert(mem_arena, font_map, map_key_str(s8_cstring(key)), font);
+  }
 }
 
 INTERNAL void
@@ -384,10 +411,12 @@ asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_
   {
     WARN("Failed to load texture", SDL_GetError());
   }
+  else
+  {
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
-  SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-
-  map_insert(mem_arena, texture_map, map_key_str(s8_cstring(key)), texture);
+    map_insert(mem_arena, texture_map, map_key_str(s8_cstring(key)), texture);
+  }
 }
 
 // merge sort for linked list
@@ -634,7 +663,6 @@ draw_current_treemap()
   // want font character height
 }
 
-#endif
 
 // TODO(Ryan): HH next particle video to look at curve animations?
 
@@ -692,6 +720,7 @@ tree_map_init(MemArena *arena)
 
   return result;
 }
+#endif
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
@@ -707,6 +736,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     thread_context_set(&global_tctx);
 
     state->asset_store.textures = map_create(perm_arena);
+    state->asset_store.fonts = map_create(perm_arena);
+    state->asset_store.audio = map_create(perm_arena);
    
     // 320 x 96 pixels
     // 10 x 3 tiles
@@ -723,6 +754,8 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     asset_store_add_texture(renderer->renderer, &state->asset_store.textures, perm_arena,
                             "chopper-image", "./chopper.png");
 
+    asset_store_add_font(renderer->renderer, &state->asset_store.fonts, perm_arena,
+                            "droid-sans", "./DroidSans.ttf", 14);
 
     Entity *tank = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
@@ -898,4 +931,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     draw_texture(renderer->renderer, &state->asset_store.textures, map_key_str(s8_lit("tank-image")),
                  particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
+
+  draw_text(renderer->renderer, &state->asset_store.fonts, map_key_str(s8_lit("droid-sans")), vec2_f32(600.0f, 200.0f), s8_lit("hi there"));
 }
