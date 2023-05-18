@@ -66,6 +66,18 @@ struct Entity
   AnimationComponent animation_component;
 };
 
+struct Font
+{
+  TTF_Font *font;
+  i32 character_height;
+};
+
+struct PreparedText
+{
+  SDL_Texture *texture;
+  i32 width, height;
+};
+
 struct AssetStore
 {
   Map textures;

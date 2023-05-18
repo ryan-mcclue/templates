@@ -101,35 +101,62 @@ draw_texture(SDL_Renderer *renderer, Map *texture_map, MapKey texture_key, Vec2F
   }
 }
 
+
+// TODO(Ryan): Call this when window size changes, e.g. set font size to (window_height / 24)
 INTERNAL void
-draw_text(SDL_Renderer *renderer, Map *font_map, MapKey font_key, Vec2F32 pos, String8 text,
-          f32 rotation = 0.0f, Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f))
+asset_store_add_font(SDL_Renderer *renderer, Map *font_map, MemArena *mem_arena, 
+                     const char *key, const char *file_name, u32 font_size)
 {
-  MapSlot *map_slot = map_lookup(font_map, font_key);
-  if (map_slot != NULL)
+  Font *font = MEM_ARENA_PUSH_STRUCT_ZERO(mem_arena, Font);
+  font->font = TTF_OpenFont(file_name, (i32)font_size);
+  if (font->font == NULL)
   {
-    TTF_Font *font = (TTF_Font *)map_slot->val;
+    WARN("Failed to load font", SDL_GetError());
+  }
+  else
+  {
+    font->character_height = TTF_FontHeight(font->font);
+    // TTF_SetFontStyle(font->font, renderstyle); // TTF_STYLE_BOLD, TTF_STYLE_ITALIC 
+    map_insert(mem_arena, font_map, map_key_str(s8_cstring(key)), font);
+  }
+}
 
-    SDL_Color font_colour = vec4_f32_to_sdl_colour(colour);
+INTERNAL PreparedText
+prepare_text(SDL_Renderer *renderer, Font *font, String8 text)
+{
+  PreparedText result = ZERO_STRUCT;
 
-    SDL_Surface *surface = TTF_RenderText_Blended(font, (char *)text.str, font_colour);
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    if (texture == NULL)
-    {
-      WARN("Failed to convert font surface to font texture", SDL_GetError());
-    }
-    else
-    {
-      i32 width, height = 0;
-      SDL_QueryTexture(texture, NULL, NULL, &width, &height);
+  SDL_Colour text_colour = {0xff, 0xff, 0xff, 0xff};
+  SDL_Surface *surface = TTF_RenderText_Blended(font->font, (char *)text.str, text_colour);
 
-      SDL_FRect dst_rect = {pos.x, pos.y, (f32)width, (f32)height};
+  result.texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_FreeSurface(surface);
 
-      SDL_RenderCopyExF(renderer, texture, NULL, &dst_rect, rotation, NULL, SDL_FLIP_NONE);
+  if (result.texture != NULL)
+  {
+    SDL_QueryTexture(result.texture, NULL, NULL, &result.width, &result.height);
+  }
 
-      SDL_DestroyTexture(texture);
-    }
+  return result;
+}
+
+INTERNAL void
+draw_prepared_text(SDL_Renderer *renderer, PreparedText *prepared_text, Vec2F32 pos,
+                   Vec4F32 colour = vec4_f32(1.0f, 1.0f, 1.0f, 1.0f), 
+                   b32 free_after_draw = true, 
+                   f32 rotation = 0.0f)
+{
+  SDL_FRect dst_rect = {pos.x, pos.y, (f32)prepared_text->width, (f32)prepared_text->height};
+
+  SDL_Color texture_colour_mod = vec4_f32_to_sdl_colour(colour);
+  SDL_SetTextureColorMod(prepared_text->texture, texture_colour_mod.r, texture_colour_mod.g, texture_colour_mod.b);
+  SDL_SetTextureAlphaMod(prepared_text->texture, texture_colour_mod.a);
+
+  SDL_RenderCopyExF(renderer, prepared_text->texture, NULL, &dst_rect, rotation, NULL, SDL_FLIP_NONE);
+
+  if (free_after_draw)
+  {
+    SDL_DestroyTexture(prepared_text->texture);
   }
 }
 
@@ -383,22 +410,6 @@ struct PACKED TileMap
   u8 *tile_types;
 };
 
-INTERNAL void
-asset_store_add_font(SDL_Renderer *renderer, Map *font_map, MemArena *mem_arena, 
-                     const char *key, const char *file_name, u32 font_size)
-{
-  // TODO(Ryan): Call this when window size changes, e.g. set font size to (window_height / 24)
-  TTF_Font *font = TTF_OpenFont(file_name, (i32)font_size);
-  if (font == NULL)
-  {
-    WARN("Failed to load font", SDL_GetError());
-  }
-  else
-  {
-    // TTF_SetFontStyle(font, renderstyle); // TTF_STYLE_BOLD, TTF_STYLE_ITALIC 
-    map_insert(mem_arena, font_map, map_key_str(s8_cstring(key)), font);
-  }
-}
 
 INTERNAL void
 asset_store_add_texture(SDL_Renderer *renderer, Map *texture_map, MemArena *mem_arena, 
@@ -722,6 +733,33 @@ tree_map_init(MemArena *arena)
 }
 #endif
 
+INTERNAL void
+draw_tree_map(Renderer *renderer, AppState *state)
+{
+  Vec4F32 colour = vec4_f32(1.0f, 0.07f, 1.0f, 1.0f);
+
+  MapKey font_map_key = map_key_str(s8_lit("droid-sans"));
+  MapSlot *map_slot = map_lookup(&state->asset_store.fonts, font_map_key);
+  if (map_slot == NULL)
+  {
+    WARN("Unable to load font", "Font key returns NULL");
+  }
+  else
+  {
+    Font *font = (Font *)map_slot->val;
+
+    PreparedText text = prepare_text(renderer->renderer, font, s8_lit("hi there"));
+
+    Vec2F32 text_pos = {
+      (renderer->render_width - (u32)text.width) / 2.0f,
+      (renderer->render_height/2.0f - (u32)font->character_height/4.0f),
+    };
+
+    draw_prepared_text(renderer->renderer, &text, text_pos, colour);
+  }
+
+}
+
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
 {
@@ -931,6 +969,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     draw_texture(renderer->renderer, &state->asset_store.textures, map_key_str(s8_lit("tank-image")),
                  particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
-
-  draw_text(renderer->renderer, &state->asset_store.fonts, map_key_str(s8_lit("droid-sans")), vec2_f32(600.0f, 200.0f), s8_lit("hi there"));
+  
+  draw_tree_map(renderer, state);
 }
