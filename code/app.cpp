@@ -564,6 +564,8 @@ struct TreeMap
   // IMPORTANT(Ryan): Many cases if linked list, also add a hash map with it?
   TreeMapNode *first_leaf, *last_leaf;
   Map leaves[TreeMapNode *node, b32];
+
+  b32 is_dirty;
 };
 
 // refresh this part, and keep the 'data' part static (much quicker?)
@@ -574,6 +576,7 @@ struct DisplayNode
 
   Vec2F32 corner; // in render coordinates
   Vec2F32 size; // in render coordinates
+
 };
 struct TreeMapDisplay 
 {
@@ -581,6 +584,8 @@ struct TreeMapDisplay
   DisplayNode nodes[MAX_NUM_NODES]; 
 
   TreeMap *treemap;
+
+  b32 is_dirty;
 };
 
 INTERNAL TreeMapNode *
@@ -621,7 +626,6 @@ MD_RootFromNode(TreeMapNode *node)
     return parent;
 }
 
-#define MD_EachNode(it, first) TreeMapNode *it = (first); !TreeMapNodeIsNil(it); it = it->next
 INTERNAL MD_i64
 MD_ChildCountFromNode(TreeMapNode *node)
 {
@@ -643,6 +647,7 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   // TODO(Ryan): Should we copy string over to allow for mutability?
   // TODO(Ryan): Introduce @speed, @memory comments
   // TODO(Ryan): Improve comment usage
+  // TODO(Ryan): Have single line if with no braces to reduce indentation
   if (parent != NULL)
   {
     DLL_QUEUE_PUSH(parent->first, parent->last, node);
@@ -652,28 +657,70 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   return result;
 }
 
-INTERNAL void
-compute_sizes(TreeMapNode *node)
-{
-  // pass 1. clear all non-leaf sizes
-  for (Node *node = node_list_first; node != NULL; node = node->next) 
-    if !(node->flags & LEAF) node->size = 0;
+// undef later in file
+#define EACH_TREEMAP_NODE(it, first) TreeMapNode *it = (first); (it != NULL); it = it->next
+#define ENUMERATE_TREEMAP_NODE(it, first) \
+  struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
 
-  // pass 2. iterate from leaves, adding sizes to parents
-  for (Node *node = node_list_last; node != NULL; node = node->prev) 
+INTERNAL void
+recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
+{
+  // TODO(Ryan): Set is dirty if window size changes
+  if (!tree_map_display->is_dirty) return;
+
+  tree_map_display->is_dirty = false;
+
+  TreeMap *tree_map = tree_map_display->tree_map;
+  tree_map_display->nodes = array_size(tree_map->nodes->count);
+
+  if (tree_map->nodes->count == 0) return;
+
+  f32 total_area = (size.x * size.y);
+  Vec2F32 corner = ZERO_STRUCT;
+  Vec2F32 available = size;
+
+  for (ENUMERATE_TREEMAP_NODE(node, tree_map->nodes->first))
   {
-    if (node->parent != NULL) node->parent.size += node->size;
+    f32 node_fraction = (e.node->size / root_size);
+    f32 node_area = total_area * node_fraction; 
+
+    f32 width = node_area / size.y;
+    f32 height = size.y; // as h = a / w
   }
-  root->size;
+
 }
 
 INTERNAL void
-draw_current_treemap()
+recompute_if_dirty(TreeMap *tree_map)
 {
-  draw_text(text, pos, color);
-  // want font character height
-}
+  if (!tree_map->is_dirty) 
+  {
+    return;
+  }
+  else
+  {
+    tree_map->dirty = false;
 
+    // pass 1. clear all non-leaf sizes
+    for (Node *node = node_list_first; node != NULL; node = node->next) 
+    {
+      if !(node->flags & LEAF) node->size = 0;
+    }
+
+    // pass 2. iterate from leaves, adding sizes to parents
+    for (Node *node = node_list_last; node != NULL; node = node->prev) 
+    {
+      if (node->parent != NULL) node->parent.size += node->size;
+    }
+
+    // pass 3. sort children by size
+    for (Node *node = node_list_first; node != NULL; node = node->next) 
+    {
+      // TODO(Ryan): have quick_sort() also for arrays?
+      merge_sort(node->children, tree_map_size_cmp);
+    }
+  }
+}
 
 // TODO(Ryan): HH next particle video to look at curve animations?
 
@@ -727,37 +774,52 @@ tree_map_init(MemArena *arena)
   
   linux_visit_files(arena, directory, treemap_visit, NULL, true);
 
-  // compute_sizes(result);
 
   return result;
 }
+
+INTERNAL TreeMapDisplay
+tree_map_display_init(TreeMap *tree_map)
+{
+  TreeMapDisplay display = ZERO_STRUCT;
+  display.tree_map = tree_map;
+
+  return display
+}
 #endif
 
+// TODO(Ryan): Begin work in new files (and then add to git)
+// TODO(Ryan): Begin work in functions, e.g init, compute, test, etc.
+// TODO(Ryan): Error handling, try and give the user something instead of aborting
 INTERNAL void
 draw_tree_map(Renderer *renderer, AppState *state)
 {
-  Vec4F32 colour = vec4_f32(1.0f, 0.07f, 1.0f, 1.0f);
-
-  MapKey font_map_key = map_key_str(s8_lit("droid-sans"));
-  MapSlot *map_slot = map_lookup(&state->asset_store.fonts, font_map_key);
-  if (map_slot == NULL)
-  {
-    WARN("Unable to load font", "Font key returns NULL");
-  }
-  else
-  {
-    Font *font = (Font *)map_slot->val;
-
-    PreparedText text = prepare_text(renderer->renderer, font, s8_lit("hi there"));
-
-    Vec2F32 text_pos = {
-      (renderer->render_width - (u32)text.width) / 2.0f,
-      (renderer->render_height/2.0f - (u32)font->character_height/4.0f),
+  Vec2F32 p0 = {
+      renderer->render_width / 20.0f,
+      renderer->render_width / 20.0f
     };
+  Vec2F32 p1 = {
+    renderer->render_width - p0.x,
+    renderer->render_height - p0.y
+  };
 
-    draw_prepared_text(renderer->renderer, &text, text_pos, colour);
-  }
+  // recompute_if_dirty(tree_map);
+  // recompute_if_dirty(display_tree_map, p1 - p0);
 
+  draw_rect(renderer->renderer, p0, p1 - p0, vec4_f32(0.12f, 0.12f, 0.12f, 1.0f));
+
+  Vec4F32 font_colour = vec4_f32(1.0f, 0.07f, 1.0f, 1.0f);
+
+  Font *font = (Font *)map_val_assert(&state->asset_store.fonts, "droid-sans");
+
+  PreparedText text = prepare_text(renderer->renderer, font, s8_lit("hi there"));
+
+  Vec2F32 text_pos = {
+    5.0f, 
+    (renderer->render_height - 5.0f - (u32)font->character_height),
+  };
+
+  draw_prepared_text(renderer->renderer, &text, text_pos, font_colour);
 }
 
 EXPORT void
@@ -793,7 +855,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                             "chopper-image", "./chopper.png");
 
     asset_store_add_font(renderer->renderer, &state->asset_store.fonts, perm_arena,
-                            "droid-sans", "./DroidSans.ttf", 14);
+                            "droid-sans", "./DroidSans.ttf", 24);
 
     Entity *tank = push_entity(&state->first_free_entity, perm_arena, &state->first_entity, &state->last_entity, 
                                ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_RIGID_BODY | ENTITY_COMPONENT_FLAG_SPRITE);
@@ -909,6 +971,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
   //printf("final: ");
   //print_entity_linked_list(state->first_entity);
 
+#if 0
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
   {
     if (HAS_FLAGS_ALL(entity->component_flags, (ENTITY_COMPONENT_FLAG_TRANSFORM | ENTITY_COMPONENT_FLAG_SPRITE)))
@@ -969,6 +1032,7 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     draw_texture(renderer->renderer, &state->asset_store.textures, map_key_str(s8_lit("tank-image")),
                  particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
+#endif
   
   draw_tree_map(renderer, state);
 }

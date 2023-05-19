@@ -192,6 +192,14 @@ map_lookup(Map *map, MapKey key)
   return result;
 }
 
+INTERNAL void *
+map_val_assert(Map *map, char const *key)
+{
+  MapSlot *slot = map_lookup(map, map_key_str(s8_cstring(key)));
+  ASSERT(slot != NULL);
+
+  return slot->val;
+}
 
 INTERNAL MapSlot *
 map_insert(MemArena *arena, Map *map, MapKey key, void *val)
@@ -230,6 +238,7 @@ map_overwrite(MemArena *arena, Map *map, MapKey key, void *val)
 
   return result;
 }
+
 
 // have to know to cast to particular type
 //map_insert(arena, &map, map_key_from_str(node->string), (void*)(u64)eval_result);
