@@ -537,6 +537,8 @@ sort_entities_by_z_index(Entity *first, u32 indent)
 #if 0
 struct TreeMapNode 
 {
+  // TODO(Ryan): combine display information into single struct and have two is_dirty flags for each
+
   String8 name; // this is full file name
   f32 size;
 
@@ -581,7 +583,7 @@ struct DisplayNode
 struct TreeMapDisplay 
 {
   u32 node_count;
-  DisplayNode nodes[MAX_NUM_NODES]; 
+  DisplayNode nodes[MAX_NUM_NODES]; // parallel to tree_map_nodes
 
   TreeMap *treemap;
 
@@ -657,10 +659,12 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   return result;
 }
 
+// Use these locally in a function if repeated calls
 // undef later in file
 #define EACH_TREEMAP_NODE(it, first) TreeMapNode *it = (first); (it != NULL); it = it->next
 #define ENUMERATE_TREEMAP_NODE(it, first) \
   struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
+#endif
 
 INTERNAL void
 recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
@@ -671,24 +675,53 @@ recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
   tree_map_display->is_dirty = false;
 
   TreeMap *tree_map = tree_map_display->tree_map;
-  tree_map_display->nodes = array_size(tree_map->nodes->count);
 
   if (tree_map->nodes->count == 0) return;
 
-  f32 total_area = (size.x * size.y);
-  Vec2F32 corner = ZERO_STRUCT;
-  Vec2F32 available = size;
+  display_root->corner = ZERO_STRUCT;
+  display_root->size = size;
 
-  for (ENUMERATE_TREEMAP_NODE(node, tree_map->nodes->first))
+  size_children(root, tree_map_display);
+}
+
+
+INTERNAL void
+size_children(TreeMapNode *root, TreeMapDisplay *display)
+{
+  TreeMapDisplayNode *display_node = display->first
+
+  TreeMapDisplayNode *root_display = display->nodes->first;
+  f32 root_area = root_display->size.x * root_display->size.y;
+  f32 root_size = root_display->size;
+
+  Vec2F32 corner = root_display->corner;
+  Vec2F32 size = root_display->size;
+
+  for (TreeMapchild *child = root->first; child != NULL; child = child->next)
   {
-    f32 node_fraction = (e.node->size / root_size);
-    f32 node_area = total_area * node_fraction; 
+    if (display_node == NULL)
+    {
+      display_node = PUSH();
+      SLL_QUEUE_INSERT();
+    }
+
+    f32 node_fraction = (child->size / root_size);
+    f32 node_area = root_area * node_fraction; 
 
     f32 width = node_area / size.y;
     f32 height = size.y; // as h = a / w
-  }
 
+    display_node->corner = corner;
+    display_node->size = {width, height};
+
+    corner.x += width;
+
+    size_children(child, display);
+  }
 }
+
+
+// lists over arrays generally, as copying in lists free
 
 INTERNAL void
 recompute_if_dirty(TreeMap *tree_map)
@@ -786,7 +819,6 @@ tree_map_display_init(TreeMap *tree_map)
 
   return display
 }
-#endif
 
 // TODO(Ryan): Begin work in new files (and then add to git)
 // TODO(Ryan): Begin work in functions, e.g init, compute, test, etc.
