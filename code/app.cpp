@@ -559,8 +559,7 @@ struct TreeMap
   // allows for simple forwards a reverse iteration (in conjunction with node flags)
   // e.g. can iterate from leaves upwards
   // This iteration can give DFS variants
-  // So, prefer when tree structure static? (or does this hold even when making changes?)
-  // Works if all inserted in tree order?
+  // So, prefer when tree structure static, i.e. no sorts taken place
   TreeMapNode *first_node, *last_node; // first_node is root
 
   // IMPORTANT(Ryan): Many cases if linked list, also add a hash map with it?
@@ -666,6 +665,21 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
 #endif
 
+f32 global_zoom_target = 1.0f;
+f32 global_zoom_current = 1.0f;
+f32 global_zoom_factor_max = 50.0f;
+
+handle_mouse_wheel {
+  f32 factor = SIGN_OF(event.wheel.y);
+  f32 zoom = pow_f32(1.2, factor);
+  global_zoom_target *= zoom;
+  CLAMP(global_zoom_target, global_zoom_factor, 0.0f);
+
+  inside_of_draw {
+    global_zoom_current = move_toward_f32(global_zoom_current, global_zoom_target, dt, global_zoom_current * 3); 
+  }
+}
+
 INTERNAL void
 recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
 {
@@ -681,12 +695,12 @@ recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
   display_root->corner = ZERO_STRUCT;
   display_root->size = size;
 
-  size_children(root, tree_map_display);
+  size_children(root, tree_map_display, 0);
 }
 
 
 INTERNAL void
-size_children(TreeMapNode *root, TreeMapDisplay *display)
+size_children(TreeMapNode *root, TreeMapDisplay *display, u32 depth)
 {
   TreeMapDisplayNode *display_node = display->first
 
@@ -708,20 +722,38 @@ size_children(TreeMapNode *root, TreeMapDisplay *display)
     f32 node_fraction = (child->size / root_size);
     f32 node_area = root_area * node_fraction; 
 
-    f32 width = node_area / size.y;
-    f32 height = size.y; // as h = a / w
-
     display_node->corner = corner;
+
+    // Alternate between vertical and horizontal
+    f32 width, height = 0.0f;
+    if (depth & 1)
+    {
+      height = node_area / size.x;
+      width = size.x;
+
+      corner.y += height;
+    }
+    else
+    {
+      width = node_area / size.y;
+      height = size.y; // as h = a / w
+
+      corner.x += width;
+    }
+
     display_node->size = {width, height};
-
-    corner.x += width;
-
-    size_children(child, display);
+  }
+  
+  // 2nd pass
+  for (child = root->first)
+  {
+    size_children(child, display, depth + 1);
   }
 }
 
 
 // lists over arrays generally, as copying in lists free
+// could add parallel hash map if require random access
 
 INTERNAL void
 recompute_if_dirty(TreeMap *tree_map)

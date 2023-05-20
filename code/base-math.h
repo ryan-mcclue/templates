@@ -85,6 +85,25 @@ lerp_f32(f32 a, f32 b, f32 t)
   return result;
 }
 
+INTERNAL f32
+move_toward_f32(f32 current, f32 target, f32 dt, f32 rate)
+{
+  f32 result = current;
+
+  if (current > target)
+  {
+    result -= dt * rate;
+    if (result < target) result = target; 
+  }
+  else if (current < target)
+  {
+    result += dt * rate;
+    if (result > target) result = target; 
+  }
+
+  return result;
+}
+
 INTERNAL u32
 round_f32_to_u32(f32 real32)
 {
