@@ -669,15 +669,31 @@ f32 global_zoom_target = 1.0f;
 f32 global_zoom_current = 1.0f;
 f32 global_zoom_factor_max = 50.0f;
 
-handle_mouse_wheel {
+handle_mouse_wheel_zoom {
   f32 factor = SIGN_OF(event.wheel.y);
   f32 zoom = pow_f32(1.2, factor);
   global_zoom_target *= zoom;
   CLAMP(global_zoom_target, global_zoom_factor, 0.0f);
 
   inside_of_draw {
-    global_zoom_current = move_toward_f32(global_zoom_current, global_zoom_target, dt, global_zoom_current * 3); 
+    global_zoom_current = \
+      // tweaking last parameter to adjust speed of zoom
+      move_toward_f32(global_zoom_current, global_zoom_target, dt, global_zoom_current * 3); 
   }
+}
+
+b32 up, up_alt;
+handle_keyboard_pan {
+  Vec2F32 dir;
+
+  f32 up = (f32)(up || up_alt);
+
+  // create unit vector for movement direction 
+  dir = vec2_f32(right - left, up - down);
+
+  delta = SPEED_BASE * (dir * dt) / zoom_current;
+
+  offset += delta;
 }
 
 INTERNAL void
@@ -874,6 +890,10 @@ draw_tree_map(Renderer *renderer, AppState *state)
 
   current_node = NULL;
   Vec2F32 screen_corner = p0;
+  Vec2F32 centre = (p1 - p0) * 0.5;
+  // for zooming coordinates
+  centre_transform = (p - centre) * zoom_current + centre;
+
   for (iterate_nodes)
   {
     p0 = screen_corner + node->corner;
