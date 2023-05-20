@@ -840,9 +840,27 @@ draw_tree_map(Renderer *renderer, AppState *state)
 
   draw_rect(renderer->renderer, p0, p1 - p0, vec4_f32(0.12f, 0.12f, 0.12f, 1.0f));
 
+  current_node = NULL;
+  Vec2F32 screen_corner = p0;
+  for (iterate_nodes)
+  {
+    p0 = screen_corner + node->corner;
+    p1 = p0 + node->size;
+
+    if (mouse_in_node_rect)
+    {
+      current_node = node;
+    }
+  }
+
   Vec4F32 font_colour = vec4_f32(1.0f, 0.07f, 1.0f, 1.0f);
 
   Font *font = (Font *)map_val_assert(&state->asset_store.fonts, "droid-sans");
+
+  if (current_node != NULL)
+  {
+    text = current_node->name;
+  }
 
   PreparedText text = prepare_text(renderer->renderer, font, s8_lit("hi there"));
 
