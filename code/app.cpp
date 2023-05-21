@@ -546,6 +546,12 @@ struct TreeMapNode
   TreeMapNode *first_child, *last_child;
   TreeMapNode *next, *prev;
 
+  // for putting random stuff on node, e.g.
+  // node.user_data_u32 = NODE_TYPE_FILE,NODE_TYPE_ALLOCATION, etc. (could colour them differently)
+  void *user_data_ptr;
+  u32 user_data_u32;
+  f32 user_data_f32;
+
   // store index to parent rather than pointer to avoid dereferences that are costly for cache locality?
   // also don't have to worry about pointer stability on dynamic array resizes
   // i32 parent; // signed as we set to -1
@@ -564,7 +570,9 @@ struct TreeMap
 
   // IMPORTANT(Ryan): Many cases if linked list, also add a hash map with it?
   TreeMapNode *first_leaf, *last_leaf;
-  Map leaves[TreeMapNode *node, b32];
+  Map leaves[TreeMapNode *node, b32]; // TODO(Ryan): hash tables used everywhere
+
+  // IMPORTANT(Ryan): Could have pointer to node as key to hash table storing say texture/colour information
 
   b32 is_dirty;
 };
@@ -697,10 +705,10 @@ handle_keyboard_pan {
 }
 
 INTERNAL void
-recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size)
+recompute_if_dirty(TreeMapDisplay *tree_map_display, Vec2F32 size, b32 force = false)
 {
   // TODO(Ryan): Set is dirty if window size changes
-  if (!tree_map_display->is_dirty) return;
+  if (!tree_map_display->is_dirty || force) return;
 
   tree_map_display->is_dirty = false;
 
@@ -868,11 +876,67 @@ tree_map_display_init(TreeMap *tree_map)
   return display
 }
 
+// IMPORTANT(Ryan): Seems that drawing UI element, pass in rectangle region as first arg
+// The base rectangle arg will be modified down the chain to other elements
+// A final arg will be a UI element specific theme struct, e.g. LabelTheme.alignment = RIGHT, .font = ; 
+// Furthermore, make units relative to say window_width, font_height etc.
+
+// Load small/medium/large font variants
+ui_techniques {
+  draw_metrics(region) {
+    graph_left_margin = 0.14f;
+    graph_right_margin = 0.02f;
+    graph_y_margin = 0.05f;
+    graph_region = get_rect();
+
+    draw_graph(graph_region) {
+      line_height = 0.15f * window_height;
+      line_stride = line_height * 1.2f;
+
+      label(something);
+      line.y -= line_height;
+    }
+
+    draw_graph_footer(region);
+  }
+}
+
+whiten(fg, 0.8);
+darken(Vec4F32 colour, f32 amount)
+{
+  Vec4F32 result = ZERO_STRUCT;
+  result.r = lerp(colour.r, 0, amount);
+  result.g = lerp(colour.g, 0, amount);
+  result.b = lerp(colour.b, 0, amount);
+}
+
+ui_dropdown {
+  d_rect = get_rect(region.x + label_width, y, width, height);
+  l_rect.x = d.rect.x - label_width;
+  l_rect.w = d.rect.x - l_rect.x;
+  dropdown(d_rect, names, name_cur_index);
+  label(l_rect);
+}
+
+ui_click_select {
+  // at end
+  if (click_func != NULL && mouse_clicked)
+  {
+    click_func();
+  }
+
+}
+
 // TODO(Ryan): Begin work in new files (and then add to git)
 // TODO(Ryan): Begin work in functions, e.g init, compute, test, etc.
 // TODO(Ryan): Error handling, try and give the user something instead of aborting
+// TODO(Ryan): Always code to handle the worst case scenarios, e.g. divide-by-zero, NULL passed, etc. 
+// Anyone can write "sunny day" code. Being able to write code to handle failures is the mark of a mature engineer.
+// Take responsibility, and never make excuses! My absolute personal favorite excuse: "it worked yesterday". Don't ever say that! It's just downright embarrassing!
+// Test, test. and test!!!  
+// Never make assumptions!
 INTERNAL void
-draw_tree_map(Renderer *renderer, AppState *state)
+draw_tree_map(RectF32 entire_region, Vec4F32 fg)
 {
   Vec2F32 p0 = {
       renderer->render_width / 20.0f,

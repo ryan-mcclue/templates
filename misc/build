@@ -15,6 +15,7 @@ BUILD_TYPE="$1"
 
 build_start_time=$(date +%s.%N)
 
+# TODO(Ryan): Print number of lexer lines processed, i.e. gcc -E
 print_metrics() {
   if [[ "$BUILD_TYPE" == "app" ]]; then
     : '
