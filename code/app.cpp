@@ -654,7 +654,7 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
   node->parent = parent;
   node->flags = NODE_FLAG_LEAF;
   // TODO(Ryan): Should we copy string over to allow for mutability?
-  // TODO(Ryan): Introduce @speed, @memory comments
+  // TODO(Ryan): Introduce @speed, @memory, @nochecking, @copypasta, @cleanup comment modifications (interwoven with not just writing green-day code)
   // TODO(Ryan): Improve comment usage
   // TODO(Ryan): Have single line if with no braces to reduce indentation
   if (parent != NULL)
@@ -910,13 +910,36 @@ darken(Vec4F32 colour, f32 amount)
   result.b = lerp(colour.b, 0, amount);
 }
 
+ui_options = NONE, THIN, MEDIUM, THICK;
+ui_option_names = "None", "Thin", etc.
+ui_something {
+
+}
+
+pressed = checkbox(r, "");
+changed_val = number_input(r, text, 0, 90000);
+
+// the rectange region passed is just for top option
 ui_dropdown {
   d_rect = get_rect(region.x + label_width, y, width, height);
   l_rect.x = d.rect.x - label_width;
   l_rect.w = d.rect.x - l_rect.x;
-  dropdown(d_rect, names, name_cur_index);
+  dropdown(d_rect, names_array, name_cur_index, dropdown_theme) {
+    if (pressed) state.open = !state.open;
+    if (state.open) state.open_t = move_toward(arrow_flip_down_rate);
+    render_drawing_arrow();
+  }
   label(l_rect);
 }
+
+dropdown_theme {
+  flip_up_rate;
+  color_over;
+  color_down;
+  color_flash;
+}
+
+// TODO(Ryan): Vec2F32 cut_right(), cut_left();
 
 ui_click_select {
   // at end
@@ -924,7 +947,6 @@ ui_click_select {
   {
     click_func();
   }
-
 }
 
 // TODO(Ryan): Begin work in new files (and then add to git)
