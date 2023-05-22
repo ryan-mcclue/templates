@@ -215,7 +215,7 @@ GLOBAL b32 global_debugger_present;
 #define FATAL_ERROR(attempt_msg, reason_msg, resolution_msg) \
   __fatal_error(__FILE__, __func__, __LINE__, attempt_msg, reason_msg, resolution_msg)
 
-INTERNAL u32
+NORETURN INTERNAL void
 __fatal_error(const char *file_name, const char *func_name, int line_num,
               const char *attempt_msg, const char *reason_msg, const char *resolution_msg)
 { 
@@ -245,8 +245,6 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   BP();
 
   exit(1); 
-
-  return 0;
 }
 
 // TODO(Ryan): Use syslog_r() for threadsafe

@@ -15,6 +15,8 @@
 
 #include "app.h"
 
+#include "audio-player.cpp"
+
 GLOBAL MemArena *linux_mem_arena_perm = NULL;
 
 // TODO(Ryan): linux_run_command_block/fork()
@@ -290,10 +292,14 @@ main(int argc, char *argv[])
     FATAL_ERROR("Failed to initialise SDL2_image.", IMG_GetError(), "");
   }
 
+  SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
   if (TTF_Init() != 0)
   {
     FATAL_ERROR("Failed to initialise SDL2_ttf.", TTF_GetError(), "");
   }
+
+  audio_player();
 
   u32 cwd_path_size = KB(32);
   u8 *cwd_path_buffer = MEM_ARENA_PUSH_ARRAY_ZERO(linux_mem_arena_perm, u8, cwd_path_size);
@@ -350,6 +356,7 @@ main(int argc, char *argv[])
       switch (sdl2_event.type)
       {
         default: break;
+        // SIGINT etc.
         case SDL_QUIT:
         {
           want_to_run = false;
@@ -396,6 +403,11 @@ main(int argc, char *argv[])
           {
             input->mouse_clicked = true;
           }
+        } break;
+        case SDL_DROPFILE:
+        {
+          char *file_name = sdl2_event.drop.file;
+          // free this later
         } break;
       }
 

@@ -2,6 +2,9 @@
 
 #include "base-inc.h"
 
+// TODO(Ryan): Use "", as still implementation defined, however allows for easier overriding if required
+// So, only use for stdlib?
+// TODO(Ryan): Link ctags for library
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -671,7 +674,6 @@ add_node(Arena *arena, TreeMapNode *parent, String8 name)
 #define EACH_TREEMAP_NODE(it, first) TreeMapNode *it = (first); (it != NULL); it = it->next
 #define ENUMERATE_TREEMAP_NODE(it, first) \
   struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
-#endif
 
 f32 global_zoom_target = 1.0f;
 f32 global_zoom_current = 1.0f;
@@ -1009,6 +1011,7 @@ draw_tree_map(RectF32 entire_region, Vec4F32 fg)
 
   draw_prepared_text(renderer->renderer, &text, text_pos, font_colour);
 }
+#endif
 
 EXPORT void
 app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
@@ -1092,7 +1095,6 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
     chopper->animation_component.start_time = state->ms;
 
 #pragma mark LOAD_LEVEL_END
-
   } 
 
   for (Entity *entity = state->first_entity; entity != NULL; entity = entity->next)
@@ -1221,6 +1223,4 @@ app(AppState *state, Renderer *renderer, Input *input, MemArena *perm_arena)
                  particle->position, vec2_f32(32.0f, 32.0f), vec2_i32(0, 0), 0.0f, particle->colour);
   }
 #endif
-  
-  draw_tree_map(renderer, state);
 }
