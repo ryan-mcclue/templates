@@ -1,5 +1,30 @@
 // SPDX-License-Identifier: zlib-acknowledgement
 
+// TODO(Ryan): mmzoeiko github and gist 
+
+// pkware .zip file format
+// deflate is lossless compression algorithm
+// compression is per-entry (as deflate on already compressed will increase size)
+
+struct Some
+{
+  void * ptr; // you don't own this pointer. don't free it!
+}
+
+INTERNAL void *
+some_func(void)
+{
+  return val; // NOTE(Ryan): May be NULL
+}
+
+INTERNAL void *
+feed_audio_cb(void *user_data, u8 *stream, int len)
+{
+  u32 bytes_remaining = SDL_AudioStreamAvailable(stream);
+  u32 silence_bytes = len - bytes_remaining;
+}
+
+
 // IMPORTANT(Ryan): A NORETURN function might emit warning if calls other non-NORETURN functions
 NORETURN INTERNAL void 
 gui_fatal_error(const char *attempt, const char *reason, const char *resolution) 
@@ -11,7 +36,19 @@ gui_fatal_error(const char *attempt, const char *reason, const char *resolution)
   FATAL_ERROR(attempt, reason, resolution);
 }
 
+// Scan TODOs in build file and print out. 
+// This will show level of 'technical debt' 
+
 // TODO(Ryan): Introduced GUI_ASSERT, i.e. SDL_assert();
+// In face, introduce gui_error boxes
+
+// SDL_LockAudioDevice() implements a mutex
+// other audio functions, e.g. PutAudio are thread-safe, so can ignore explicit 
+// TODO: does this handle when say thread is writing audio and when free it simultaneously?
+
+// AtomicSet() means all cores (more importantly all caches?) will see this change (used in conjunction with locks?)
+
+f32 volume_slider_val = 0.0f;
 
 // IMPORTANT(Ryan): Make incremental changes so as to maintain momentum working 
 INTERNAL void 
@@ -21,8 +58,10 @@ audio_player(void)
   wave_spec.freq = 4080;
   wave_spec.format = AUDIO_F32; // most cards don't support, but SDL will convert for us. better for effects
   wave_spec.channels = 2;
-  wave_spec.samples = 4096;
-  wave_spec.callback = NULL;
+  wave_spec.samples = 4096; // indicative of buffer size. could do lower number to improve latency, however using this high to ensure no skips
+  // wave_spec.callback = NULL; // more efficient to have audio_callback such that we don't have to poll so much and queue an arbritrary audio size to avoid audio skips
+  // also don't have to give up time slices
+  wave_spec.callback = feed_audio_cb;
 
   SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(NULL, 0, &wave_spec, NULL, 0);
   if (audio_device == 0)
@@ -33,8 +72,7 @@ audio_player(void)
   u8 *wave_buf = NULL;
   u32 wave_len = 0;
   u32 wave_pos = 0;
-  // now this will probably not be in f32, so will require conversion
-  // so as to not sound scratchy
+  // now this will probably not be in f32, so will require conversion so as to not sound scratchy
   if (SDL_LoadWAV("music.wav", &wave_spec, &wave_buf, &wave_len) == NULL)
   {
     gui_fatal_error("Failed to load music.wav", SDL_GetError(), "");
@@ -47,6 +85,9 @@ audio_player(void)
 
   }
 
+  // TODO(Ryan): Have code handle non-initialised inputs
+
+  // relatively cheap operation?
   SDL_AudioStreamPut(audio_stream, wave_buf, wave_len);
   // convert all at once, i.e. don't wait for more to be put in queue
   SDL_AudioStreamFlush(audio_stream);
@@ -59,8 +100,24 @@ audio_player(void)
     {
       u32 bytes_to_write = MIN(bytes_remaining, KB(32));
       u8 converted_audio_bytes[KB(32)] = ZERO_STRUCT;
-      SDL_AudioStreamGet(audio_stream, converted_audio_bytes, bytes_to_write);
-      SDL_QueueAudio(audio_device, converted_audio_bytes, bytes_to_write);
+      u32 num_converted_bytes = SDL_AudioStreamGet(audio_stream, converted_audio_bytes, bytes_to_write);
+
+      f32 *samples = (f32 *)converted_audio_bytes;
+      if (volume_slider_value != 1.0f)
+      {
+        for (u32 i = 0; i < (bytes_to_write / sizeof(f32)); i++)
+        {
+          // TODO(Ryan): want non-linear, e.g: sample[i] = powf(10.0f, (-(1.0f-volume_slider_value) * 80.0f)/20.0f);
+          samples[i] *= volume_slider_value;
+        }
+      }
+      ASSERT(num_samples % 2 == 0); // working with stereo
+      if (balance_slider_value != 0.5f)
+      {
+
+      }
+
+      SDL_QueueAudio(audio_device, converted_audio_bytes, num_converted_bytes);
     }
   }
 

@@ -1011,6 +1011,57 @@ draw_tree_map(RectF32 entire_region, Vec4F32 fg)
 
   draw_prepared_text(renderer->renderer, &text, text_pos, font_colour);
 }
+
+
+NOTE(Ryan): Drawing widgets often have padding which are calculated depending on some property, e.g. width
+
+NOTE(Ryan): Drawing widgets encompass there own update and then actual rendering
+draw_widget()
+{
+   update_dt_value(); 
+   now draw...
+}
+
+font = get_font_at_size();
+
+text_input {
+  if (text_input_active) SDL_StartTextInput();
+
+  case BACKSPACE:
+  {
+    text_len--;
+  }
+
+  case SDL_TEXTINPUT:
+  {
+    text += event.text.text;
+  }
+
+  draw_rect(input_rect);
+  text_x = input_rect.x + font.height * left_pad;
+  text_y = input_rect.y + font.height * top_pad;
+
+  // text backdrop
+  b = font_height * 0.05f;
+  if (b < 2) b = 2;
+  k = 0.05f;
+  bg_color = {k, k, k, 0.9};
+  draw_text(text_rect + b, bg_colour);
+  draw_text(text_rect);
+
+  // TODO(Ryan): Make cursor a line instead of box
+  t = cos_f32((time_now - last_keypress_time) * 3);
+  t *= t;
+
+  cursor_colour = lerp(white, non_white, t);
+
+  cursor.x = text_rect.x + text_width;
+  cursor.w = cursor.h = font_height;
+}
+
+
+
+
 #endif
 
 EXPORT void

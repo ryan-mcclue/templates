@@ -404,6 +404,17 @@ main(int argc, char *argv[])
             input->mouse_clicked = true;
           }
         } break;
+        case SDL_MOUSEMOTION:
+        {
+          SDL_Point point = { sdl2_event.motion.x, sdl2_event.motion.y };
+          if (SDL_PointInRect(&point, &some_rect) && (sdl2_event.motion.state & SDL_BUTTON_LMASK))
+          {
+            f32 fx = (point.x - some_rect.x);
+            f32 percent = (fx / some_rect.w);
+            // f32 in_bounds_volume_slider = (volume_rect.x + volume_rect.w * percent);
+            // volume_slider.x = MIN(in_bounds_volume_slider, in_bounds_volume_slider - volume_slider.w;
+          }
+        } break;
         case SDL_DROPFILE:
         {
           char *file_name = sdl2_event.drop.file;
