@@ -912,7 +912,7 @@ darken(Vec4F32 colour, f32 amount)
   result.b = lerp(colour.b, 0, amount);
 }
 
-ui_options = NONE, THIN, MEDIUM, THICK;
+ui_options = ENUM {NONE, THIN, MEDIUM, THICK};
 ui_option_names = "None", "Thin", etc.
 ui_something {
 
@@ -1013,7 +1013,7 @@ draw_tree_map(RectF32 entire_region, Vec4F32 fg)
 }
 
 
-NOTE(Ryan): Drawing widgets often have padding which are calculated depending on some property, e.g. width
+NOTE(Ryan): Drawing widgets often have margin which are calculated depending on some property, e.g. width
 
 NOTE(Ryan): Drawing widgets encompass there own update and then actual rendering
 draw_widget()
@@ -1034,7 +1034,29 @@ text_input {
 
   case SDL_TEXTINPUT:
   {
-    text += event.text.text;
+    if (text.count < MAX_BUFFER_SIZE)
+    {
+      text += event.text.text;
+      last_keypress_time = get_ms();
+    }
+  }
+       //Handle backspace
+  if( e.key.keysym.sym == SDLK_BACKSPACE && inputText.length() > 0 )
+  {
+    //lop off character
+    inputText.pop_back();
+    renderText = true;
+  }
+  //Handle copy
+  else if( e.key.keysym.sym == SDLK_c && SDL_GetModState() & KMOD_CTRL )
+  {
+    SDL_SetClipboardText( inputText.c_str() );
+  }
+  //Handle paste
+  else if( e.key.keysym.sym == SDLK_v && SDL_GetModState() & KMOD_CTRL )
+  {
+    inputText = SDL_GetClipboardText();
+    renderText = true;
   }
 
   draw_rect(input_rect);
@@ -1050,6 +1072,7 @@ text_input {
   draw_text(text_rect);
 
   // TODO(Ryan): Make cursor a line instead of box
+  // this subtraction means it will pulse on keypresses
   t = cos_f32((time_now - last_keypress_time) * 3);
   t *= t;
 

@@ -374,6 +374,10 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
 #include <stdio.h>
 #define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
 
+//#define EACH_TREEMAP_NODE(it, first) TreeMapNode *it = (first); (it != NULL); it = it->next
+//#define ENUMERATE_TREEMAP_NODE(it, first) \
+//  struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
+
 // like a dequeue
 // IMPORTANT(Ryan): Better than templates as no complicated type checking or generation of little functions
 #define __DLL_PUSH_FRONT(first, last, node, next, prev) \

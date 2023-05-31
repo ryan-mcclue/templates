@@ -873,6 +873,35 @@ vec4_f32_lerp(Vec4F32 a, Vec4F32 b, f32 t)
   return vec4_f32(a.x * (1 - t) + (b.x * t), a.y * (1 - t) + (b.y * t), a.z * (1 - t) + (b.z * t), a.w * (1 - t) + (b.w * t)); 
 }
 
+INTERNAL Vec4F32
+whiten(Vec4F32 colour, f32 amount)
+{
+  Vec4F32 result = ZERO_STRUCT;
+
+  result.r = lerp_f32(colour.r, 1.0f, amount);
+  result.g = lerp_f32(colour.g, 1.0f, amount);
+  result.b = lerp_f32(colour.b, 1.0f, amount);
+
+  result.a = 1.0f
+
+  return result;
+}
+
+INTERNAL Vec4F32
+darken(Vec4F32 colour, f32 amount)
+{
+  Vec4F32 result = ZERO_STRUCT;
+
+  result.r = lerp_f32(colour.r, 0.0f, amount);
+  result.g = lerp_f32(colour.g, 0.0f, amount);
+  result.b = lerp_f32(colour.b, 0.0f, amount);
+
+  result.a = 1.0f
+
+  return result;
+}
+
+
 #if defined(LANG_CPP)
 INTERNAL Vec4F32
 operator*(f32 s, Vec4F32 a)
@@ -958,6 +987,7 @@ pack_u32_4x8(Vec4F32 val)
   return result;
 }
 
+// TODO(Ryan): Rename to rect
 IGNORE_WARNING_PEDANTIC()
 typedef union Range2F32 Range2F32;
 union Range2F32
