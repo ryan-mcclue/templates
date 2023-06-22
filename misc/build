@@ -271,3 +271,12 @@ else
   exit 1
 fi
 
+# for major in {1..4}; do
+
+# IMPORTANT(Ryan): This ensures runs, even if script is interrupted
+# scratch=$(mktemp -d -t tmp.XXXXXXXXXX)
+# function finish {
+#   rm -rf "$scratch"
+# }
+# # bash EXIT pseudo signal
+# trap finish EXIT
