@@ -285,8 +285,8 @@ main(int argc, char *argv[])
   {
     FATAL_ERROR("Failed to set SDL2 renderer blend mode.", SDL_GetError(), "");
   }
-
   int sdl2_image_flags = IMG_INIT_PNG;
+
   if ((IMG_Init(sdl2_image_flags) & sdl2_image_flags) == 0)
   {
     FATAL_ERROR("Failed to initialise SDL2_image.", IMG_GetError(), "");

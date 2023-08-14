@@ -160,6 +160,8 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
 
   compiler_flags+=( "-I code" "-isystem external" )
 
+  # patchelf --output libPatched.so --rename-dynamic-symbols map_file libOriginal.so
+  # (allow use of raylib)
   linker_flags+=( "-lm" "-lSDL2" "-lSDL2_image" "-lSDL2_ttf" "-lSDL2_mixer" "-ldl" )
 
   # use for embedded, as will take into account region names specified in a linker script
@@ -244,7 +246,9 @@ if [[ "$param_arch" == "x86_64" && "$param_compiler" == "g++" && "$os" == "linux
     # also may increase stack usage
     compiler_flags+=( "-flto" )
 
-    compiler_flags+=( "-ffast-math" )
+    # most often will produce broken math
+    # fastness comes from vectorisation; fp operations still same speed with this
+    # compiler_flags+=( "-ffast-math" )
 
     # pointer analysis; large compile times
     compiler_flags+=( "-fipa-pta" )
