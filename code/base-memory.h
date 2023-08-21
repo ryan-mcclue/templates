@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: zlib-acknowledgement
-#if !defined(BASE_MEMORY_H)
-#define BASE_MEMORY_H
+#pragma once
 
 // IMPORTANT(Ryan): Although using memory arenas restricts arbitrary lifetimes, this provides more benefits than negatives.
 // In majority of cases, a large number of allocations can be bucketed into same arena
@@ -225,5 +224,3 @@ mem_arena_scratch_release(MemArenaTemp temp)
 {
   mem_arena_set_pos_back(temp.arena, temp.pos);
 }
-
-#endif

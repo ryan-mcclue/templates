@@ -60,14 +60,12 @@
     #define EXPORT extern "C"
     #define ZERO_STRUCT {}
     #define RESTRICT __restrict__
-    #define LITERAL(t) t
   #else
     #define EXPORT_BEGIN
     #define EXPORT_END
     #define EXPORT
     #define RESTRICT restrict
     #define ZERO_STRUCT {0}
-    #define LITERAL(t) (t)
   #endif
 
   // NOTE(Ryan): Sanitiser
@@ -88,6 +86,7 @@
   #define ALWAYS_INLINE __attribute__((optimize("inline-functions"),always_inline))
   #define PACKED __attribute__((packed))
   #define NORETURN __attribute__((noreturn))
+  #define UNUSED __attribute__((unused))
   #define UNREACHABLE() __builtin_unreachable()
   #define WEAK __attribute__((weak))
   #define LIKELY(x)   __builtin_expect(!!(x), 1) 

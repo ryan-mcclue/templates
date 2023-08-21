@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: zlib-acknowledgement
-#if !defined(BASE_FILE_H)
-#define BASE_FILE_H
+#pragma once
 
 INTERNAL String8 
 s8_read_entire_file(MemArena *arena, String8 file_name)

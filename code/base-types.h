@@ -2,10 +2,10 @@
 #pragma once
 
 #include <stdint.h>
-typedef int8_t i8;
-typedef int16_t  i16;
-typedef int32_t  i32;
-typedef int64_t  i64;
+typedef int8_t s8;
+typedef int16_t  s16;
+typedef int32_t  s32;
+typedef int64_t  s64;
 typedef uint8_t u8;
 typedef uint16_t  u16;
 typedef uint32_t  u32;
@@ -41,14 +41,14 @@ typedef double f64;
   #define WANT_MOCKS 1
 #endif
 
-#define I8_MIN  ((i8)0x80)
-#define I16_MIN ((i16)0x8000)
-#define I32_MIN ((i32)0x80000000)
-#define I64_MIN ((i64)0x8000000000000000ll)
-#define II8_MAX ((i8)0x7f) 
-#define I16_MAX ((i16)0x7fff)
-#define I32_MAX ((i32)0x7fffffff)
-#define I64_MAX ((i64)0x7fffffffffffffffll)
+#define S8_MIN  ((s8)0x80)
+#define S16_MIN ((s16)0x8000)
+#define S32_MIN ((s32)0x80000000)
+#define S64_MIN ((s64)0x8000000000000000ll)
+#define SI8_MAX ((s8)0x7f) 
+#define S16_MAX ((s16)0x7fff)
+#define S32_MAX ((s32)0x7fffffff)
+#define S64_MAX ((s64)0x7fffffffffffffffll)
 #define U8_MAX  ((u8)0xff)
 #define U16_MAX ((u16)0xffff)
 #define U32_MAX ((u32)0xffffffff)
@@ -73,35 +73,35 @@ typedef double f64;
 
 // NOTE(Ryan): Taken from https://docs.oracle.com/cd/E19205-01/819-5265/bjbeh/index.html
 INTERNAL f32
-inf_f32(void)
+f32_inf(void)
 {
   u32 temp = 0x7f800000;
   return *(f32 *)(&temp);
 }
 
 INTERNAL f32
-neg_inf_f32(void)
+f32_neg_inf(void)
 {
   u32 temp = 0xff800000;
   return *(f32 *)(&temp);
 }
 
 INTERNAL f64
-inf_f64(void)
+f64_inf(void)
 {
   u64 temp = 0x7ff0000000000000;
   return *(f64 *)(&temp);
 }
 
 INTERNAL f64
-neg_inf_f64(void)
+f64_neg_inf(void)
 {
   u64 temp = 0xfff0000000000000;
   return *(f64 *)(&temp);
 }
 
 INTERNAL f32  
-abs_f32(f32 x)
+f32_abs(f32 x)
 {
   u32 temp = *(u32 *)(&x);
   temp &= 0x7fffffff;
@@ -109,7 +109,7 @@ abs_f32(f32 x)
 }
 
 INTERNAL f64  
-abs_f64(f64 x)
+f64_abs(f64 x)
 {
   u64 temp = *(u64 *)(&x);
   temp &= 0x7fffffffffffffff;
@@ -120,122 +120,11 @@ typedef struct SourceLoc SourceLoc;
 struct SourceLoc
 {
   const char *file_name;
-  const char *function_name;
+  const char *func_name;
   u64 line_number;
 };
 #define SOURCE_LOC { __FILE__, __func__, __LINE__ }
-#define LITERAL_SOURCE_LOC LITERAL(SourceLoc) SOURCE_LOC 
 
-#include <signal.h>
-
-// NOTE(Ryan): Allow for simple runtime debugger attachment
-GLOBAL b32 global_debugger_present;
-
-#if defined(DEBUG_BUILD)
-  #define BP() \
-  do \
-  { \
-    if (global_debugger_present) \
-    { \
-      raise(SIGTRAP); \
-    } \
-  } while (0)
-#else
-  #define BP()
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <syslog.h>
-// NOTE(Ryan): Returns a u32 to account for situations when used in a ternary that requires operands of the same type 
-
-/* NOTE(Ryan): Example:
- * attempt_msg: "Couldn’t parse config file: /etc/sample-config.properties"
- * reason_msg: "Failed to create an initial snapshot of the data; database user 'snapper' is lacking the required permissions 'SELECT', 'REPLICATION'"
- * resolution_msg: "Please see https://example.com/knowledge-base/snapshot-permissions/ for the complete set of necessary permissions"
- */
-#define FATAL_ERROR(attempt_msg, reason_msg, resolution_msg) \
-  __fatal_error(__FILE__, __func__, __LINE__, attempt_msg, reason_msg, resolution_msg)
-
-NORETURN INTERNAL void
-__fatal_error(const char *file_name, const char *func_name, int line_num,
-              const char *attempt_msg, const char *reason_msg, const char *resolution_msg)
-{ 
-#if defined(RELEASE_BUILD)
-  /* TODO(Ryan): Add stack trace to message
-#include <execinfo.h>
-  void *callstack_addr[128] = ZERO_STRUCT;
-  int num_backtrace_frames = backtrace(callstack_addr, 128);
-
-  // TODO(Ryan): addr2line could convert addresses to names
-  char **backtrace_strs = backtrace_symbols(callstack_addr, num_backtrace_frames);
-
-  u32 max_backtrace_str_len = 255;
-  int message_size = sizeof(backtrace_strs) * max_backtrace_str_len;
-
-  for (int i = 0; i < num_backtrace_frames; ++i) {
-      printf("%s\n", strs[i]);
-  }
-  free(strs); 
-  */
-#endif
-
-  syslog(LOG_EMERG, "(%s:%s():%d)\n %s\n%s\n%s", 
-         file_name, func_name, line_num, 
-         attempt_msg, reason_msg, resolution_msg);
-
-  BP();
-
-  exit(1); 
-}
-
-// TODO(Ryan): Use syslog_r() for threadsafe
-/* NOTE(Ryan): Example:
- * what_msg: Initialised logging  
- * why_msg: To provide trace information to understand program flow in the event of a bug
- */
-#define DBG(fmt, ...) \
-  syslog(LOG_DEBUG, fmt, ##__VA_ARGS__);
-
-#define TRACE(what_msg, why_msg) \
-  do \
-  { \
-    printf("\x1B[91m"); fflush(stdout); \
-    syslog(LOG_INFO, "%s():\n%s\n%s", __func__, what_msg, why_msg); \
-    printf("\033[0m"); fflush(stdout); \
-  } while (0)
-
-#if defined(MAIN_DEBUG)
-#define WARN(what_msg, why_msg) \
-  do \
-  { \
-    BP(); \
-    syslog(LOG_CRIT, "%s():\n%s\n%s", __func__, what_msg, why_msg); \
-  } while (0)
-#else
-#define WARN(what_msg, why_msg) \
-  syslog(LOG_WARNING, "%s():\n%s\n%s", __func__, what_msg, why_msg);
-#endif
-
-#if defined(MAIN_DEBUG)
-  #define ASSERT(c) do { if (!(c)) { FATAL_ERROR(STRINGIFY(c), "Assertion error", ""); } } while (0)
-  #define UNREACHABLE_CODE_PATH ASSERT(!"UNREACHABLE_CODE_PATH")
-  #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE_CODE_PATH }
-#else
-  #define ASSERT(c)
-  #define UNREACHABLE_CODE_PATH UNREACHABLE() 
-  #define UNREACHABLE_DEFAULT_CASE default: { UNREACHABLE() }
-#endif
-
-#define STATIC_ASSERT(cond, line) typedef u8 PASTE(line, __LINE__) [(cond)?1:-1]
-#define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
-
-// to get (count, array); use to pass array inline to function
-#define ARRAY_EXPAND(type, ...) ARRAY_COUNT(((type[]){ __VA_ARGS__ })), (type[]){ __VA_ARGS__ }
-
-// NOTE(Ryan): Avoid having to worry about pernicous macro expansion
 #define STRINGIFY_(s) #s
 #define STRINGIFY(s) STRINGIFY_(s)
 
@@ -259,11 +148,6 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
   for (int UNIQUE_NAME(var) = 0; \
        UNIQUE_NAME(var) == 0; \
        UNIQUE_NAME(var) += 1, end)
-
-// TODO: MEM_SCOPED() which encases a scratch arena
-
-// IMPORTANT(Ryan): Maybe have to do (void)sizeof(name) for C++?
-#define IGNORED(name) (void)(name) 
 
 #define SWAP(t, a, b) do { t PASTE(temp__, __LINE__) = a; a = b; b = PASTE(temp__, __LINE__); } while(0)
 
@@ -301,28 +185,17 @@ __fatal_error(const char *file_name, const char *func_name, int line_num,
 
 #define THOUSAND(x) ((x)*1000LL)
 #define MILLI_TO_SEC(x) ((x)*1000ULL)
-
 #define MILLION(x)  ((x)*1000000LL)
 #define MICRO_TO_SEC(x)  ((x)*1000000ULL)
-
 #define BILLION(x)  ((x)*1000000000LL)
 #define NANO_TO_SEC(x)  ((x)*1000000000ULL)
-
 #define TRILLION(x) ((x)*1000000000000LL)
 #define PICO_TO_SEC(x) ((x)*1000000000000ULL)
 
-#define INC_SATURATE_U8(x) ((x) = ((x) >= (MAX_U8) ? (MAX_U8) : (x + 1)))
-#define INC_SATURATE_U16(x) ((x) = ((x) >= (MAX_U16) ? (MAX_U16) : (x + 1)))
-#define INC_SATURATE_U32(x) ((x) = ((x) >= (MAX_U32) ? (MAX_U32) : (x + 1)))
+#define INC_SATURATE_U8(x) ((x) = ((x) >= (U8_MAX) ? (U8_MAX) : (x + 1)))
+#define INC_SATURATE_U16(x) ((x) = ((x) >= (U16_MAX) ? (U16_MAX) : (x + 1)))
+#define INC_SATURATE_U32(x) ((x) = ((x) >= (U32_MAX) ? (U32_MAX) : (x + 1)))
 
-#include <stdio.h>
-#define PRINT_INT(i) printf("%s = %d\n", STRINGIFY(i), (int)(i))
-
-//#define EACH_TREEMAP_NODE(it, first) TreeMapNode *it = (first); (it != NULL); it = it->next
-//#define ENUMERATE_TREEMAP_NODE(it, first) \
-//  struct {TreeMapNode *it; u32 i} e = {(first), 0}; (e.it != NULL); e.it = e.it->next, e.i++;
-
-// like a dequeue
 // IMPORTANT(Ryan): Better than templates as no complicated type checking or generation of little functions
 #define __DLL_PUSH_FRONT(first, last, node, next, prev) \
 (\
