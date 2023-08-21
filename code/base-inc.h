@@ -5,6 +5,8 @@
 
 #include "base-context.h"
 #include "base-types.h"
+#include "base-math.h"
+
 #if defined(PLATFORM_ARM_EABI)
   // TODO(Ryan): Change to cortex specific
   //  --cpu=Cortex-M0plus defines __TARGET_CPU_CORTEX_M0PLUS 
@@ -14,7 +16,6 @@
   #include "base-platform-linux.h"
 #endif
 
-#include "base-math.h"
 #include "base-memory.h"
 #include "base-string.h"
 #include "base-map.h"
