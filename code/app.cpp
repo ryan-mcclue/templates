@@ -3,6 +3,7 @@
 #include "base-inc.h"
 
 // TODO(Ryan): UI elements: https://mattiasgustavsson.itch.io/yarnspin/devlog/544215/coding-an-ad-hoc-ui   
+// http://solhsa.com/imgui/
 
 // TODO(Ryan): Use "", as still implementation defined, however allows for easier overriding if required
 // So, only use for stdlib?
@@ -27,7 +28,6 @@
 // trees if don't care loop with recursion
 // however, loop is faster and more reliable
 
-// http://solhsa.com/imgui/
 
 #define GEN_UI_ID __LINE__
 

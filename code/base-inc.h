@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: zlib-acknowledgement
-
-// IMPORTANT(Ryan): I like pragma. 
-// However, various embedded platform compilers mandates conservatism.
-#if !defined(BASE_INC_H)
-#define BASE_INC_H
-
+#pragma once
 // IMPORTANT(Ryan): Base layer is to make simple things easy.
 // Not necessarily aiming for optimal solution.
 
@@ -15,6 +10,6 @@
 #include "base-string.h"
 #include "base-map.h"
 #include "base-file.h"
-// #include "base-thread.h"
 
-#endif
+// TODO(Ryan):
+// #include "base-thread.h"
