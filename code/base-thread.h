@@ -74,6 +74,97 @@ inline u32 GetThreadID(void)
 
 // EXAMPLE PROGRAM
 
+typedef struct ThreadContext ThreadContext;
+struct ThreadContext
+{
+  MemArena *arenas[2];  
+  const char *file_name;
+  u64 line_number;
+};
+
+THREAD_LOCAL ThreadContext *tl_thread_context = NULL;
+
+INTERNAL ThreadContext
+thread_context_create(void)
+{
+  ThreadContext result = ZERO_STRUCT;
+
+  for (u32 arena_i = 0; arena_i < ARRAY_COUNT(result.arenas); ++arena_i)
+  {
+    result.arenas[arena_i] = mem_arena_allocate(GB(8));
+  }
+
+  return result;
+}
+
+INTERNAL void
+thread_context_set(ThreadContext *tcx)
+{
+  // TODO(Ryan): How exactly does this work multithreaded?
+  // metadesk multithreaded not same way
+  tl_thread_context = tcx;
+}
+
+INTERNAL ThreadContext *
+thread_context_get(void)
+{
+  return tl_thread_context; 
+}
+
+#define THREAD_CONTEXT_REGISTER_FILE_AND_LINE \
+  __thread_context_register_file_and_line(__FILE__, __LINE__)
+INTERNAL void
+__thread_context_register_file_and_line(char *file, int line)
+{
+  ThreadContext *tctx = thread_context_get();
+  tctx->file_name = file;
+  tctx->line_number = (u64)line;
+}
+
+typedef struct MemArenaTemp MemArenaTemp;
+struct MemArenaTemp
+{
+  MemArena *arena;
+  memory_index pos;
+};
+
+// IMPORTANT(Ryan): Require 2 scratches as code may not know if *arena is scratch or permanent
+INTERNAL MemArenaTemp
+mem_arena_scratch_get(MemArena **conflicts, u64 conflict_count)
+{
+  MemArenaTemp scratch = ZERO_STRUCT;
+  ThreadContext *tctx = thread_context_get();
+
+  for (u64 tctx_idx = 0; tctx_idx < ARRAY_COUNT(tctx->arenas); tctx_idx += 1)
+  {
+    b32 is_conflicting = 0;
+    for (MemArena **conflict = conflicts; conflict < conflicts+conflict_count; conflict += 1)
+    {
+      if (*conflict == tctx->arenas[tctx_idx])
+      {
+        is_conflicting = 1;
+        break;
+      }
+    }
+
+    if (is_conflicting == 0)
+    {
+      scratch.arena = tctx->arenas[tctx_idx];
+      scratch.pos = scratch.arena->pos;
+      break;
+    }
+  }
+
+  return scratch;
+}
+
+INTERNAL void
+mem_arena_scratch_release(MemArenaTemp temp)
+{
+  mem_arena_set_pos_back(temp.arena, temp.pos);
+}
+
+
 // SPDX-License-Identifier: zlib-acknowledgement
 
 #include <stdio.h>

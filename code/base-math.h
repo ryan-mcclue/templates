@@ -72,10 +72,10 @@ INTERNAL s32 f32_floor_s32(f32 real32) { return (s32)floorf(real32); }
 INTERNAL u32 f32_ceil_u32(f32 real32) { return (u32)ceilf(real32); }
 INTERNAL s32 f32_ceil_s32(f32 real32) { return (s32)ceilf(real32); } 
 
-INTERNAL u64
-u64_round_to_nearest(u64 val, u64 near)
+INTERNAL memory_index
+memory_index_round_to_nearest(memory_index val, memory_index near)
 {
-  u64 result = val;
+  memory_index result = val;
 
   result += near - 1;
   result -= result % near;

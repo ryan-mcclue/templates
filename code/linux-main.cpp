@@ -427,6 +427,7 @@ main(int argc, char *argv[])
     u64 app_mod_time = linux_get_file_mod_time(app_name);
     if (app_mod_time > last_app_reload_time)
     {
+      // TODO(Ryan): Save previous version, so only load new if succesful to reduce flickering.
       if (app_lib != NULL) 
       {
         dlclose(app_lib);
